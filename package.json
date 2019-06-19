@@ -2,8 +2,8 @@
   "name": "setup-go",
   "version": "0.1.0",
   "private": true,
-  "description": "setup node action",
-  "main": "lib/setup-node.js",
+  "description": "setup go action",
+  "main": "lib/setup-go.js",
   "scripts": {
     "build": "tsc",
     "format": "prettier --write **/*.ts",
@@ -12,11 +12,11 @@
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/actions/setup-node.git"
+    "url": "git+https://github.com/actions/setup-go.git"
   },
   "keywords": [
     "actions",
-    "node",
+    "go",
     "setup"
   ],
   "author": "GitHub",

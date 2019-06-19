@@ -1,5 +1,5 @@
-name: 'Setup Node.js for use with actions'
-description: 'Setup a Node.js environment and add it to the PATH, additionally providing proxy support'
+name: 'Setup Go for use with actions'
+description: 'Setup a Go environment and add it to the PATH, additionally providing proxy support'
 author: 'GitHub'
 inputs: 
   version:
@@ -7,4 +7,4 @@ inputs:
     default: '10.x'
 runs:
   using: 'node'
-  main: 'lib/setup-node.js'
+  main: 'lib/setup-go.js'
