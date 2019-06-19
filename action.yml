@@ -3,8 +3,8 @@ description: 'Setup a Go environment and add it to the PATH, additionally provid
 author: 'GitHub'
 inputs: 
   version:
-    description: 'Version Spec of the version to use.  Examples: 10.x, 10.15.1, >=10.15.0'
-    default: '10.x'
+    description: 'The Go version to download (if necessary) and use. Example: 1.9.3'
+    default: '1.10'
 runs:
   using: 'node'
   main: 'lib/setup-go.js'
