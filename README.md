@@ -3,7 +3,7 @@
 This action sets by Go environment for use in actions by:
 
 - optionally downloading and caching a version of Go
-- TODO: registering problem matchers for error output 
+- registering problem matchers for error output 
 - TODO: configuring proxy if the runner is configured to use a proxy (coming with private runners)
 
 # License

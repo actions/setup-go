@@ -1,5 +1,6 @@
 import * as core from '@actions/core';
-// import * as installer from './installer';
+import * as installer from './installer';
+import * as path from 'path';
 
 async function run() {
   try {
@@ -9,11 +10,13 @@ async function run() {
     //
     const version = core.getInput('version');
     if (version) {
-      // await installer.getGo(version);
+      await installer.getGo(version);
     }
 
     // TODO: setup proxy from runner proxy config
-    // TODO: problem matchers registered
+
+    const matchersPath = path.join(__dirname, '..', '.github');
+    console.log(`##[add-matcher]${path.join(matchersPath, 'go.json')}`);
   } catch (error) {
     core.setFailed(error.message);
   }
