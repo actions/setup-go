@@ -1,5 +1,5 @@
 import * as core from '@actions/core';
-import * as installer from './installer';
+// import * as installer from './installer';
 
 async function run() {
   try {
@@ -9,7 +9,7 @@ async function run() {
     //
     const version = core.getInput('version');
     if (version) {
-      await installer.getGo(version);
+      // await installer.getGo(version);
     }
 
     // TODO: setup proxy from runner proxy config
