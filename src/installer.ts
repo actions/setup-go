@@ -106,10 +106,10 @@ function setGoEnvironmentVariables(goRoot: string) {
   const goBin: string = process.env['GOBIN'] || '';
 
   // set GOPATH and GOBIN as user value
-  if (!util.isNullOrUndefined(goPath)) {
+  if (goPath) {
     core.exportVariable('GOPATH', goPath);
   }
-  if (!util.isNullOrUndefined(goBin)) {
+  if (goBin) {
     core.exportVariable('GOBIN', goBin);
   }
 }
