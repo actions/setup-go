@@ -1,0 +1,16 @@
+{
+    "problemMatcher": [
+        {
+            "owner": "go",
+            "pattern": [
+                {
+                    "regexp": "^([^:]*: )?((.:)?[^:]*):(\\d+)(:(\\d+))?: (.*)$",
+                    "file": 2,
+                    "line": 4,
+                    "column": 6,
+                    "message": 7
+                }
+            ]
+        }
+    ]
+}
