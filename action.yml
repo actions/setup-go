@@ -6,5 +6,5 @@ inputs:
     description: 'The Go version to download (if necessary) and use. Example: 1.9.3'
     default: '1.10'
 runs:
-  using: 'node'
+  using: 'node12'
   main: 'lib/setup-go.js'
