@@ -1,10 +1,38 @@
-# @actions/setup-go
+# setup-go
 
-This action sets by Go environment for use in actions by:
+This action sets up a go environment for use in actions by:
 
-- optionally downloading and caching a version of Go
-- registering problem matchers for error output 
-- TODO: configuring proxy if the runner is configured to use a proxy (coming with private runners)
+- optionally downloading and caching a version of go by version and adding to PATH
+- registering problem matchers for error output
+
+# Usage
+
+See [action.yml](action.yml)
+
+Basic:
+```yaml
+actions:
+- uses: actions/setup-go@latest
+  with:
+    version: 1.9.3 // The Go version to download (if necessary) and use.
+- run: go run hello.go
+```
+
+Matrix Testing:
+```yaml
+jobs:
+  build:
+    strategy:
+      matrix:
+        go: [ 1.8, 1.9.3, 1.10 ]
+    name: Go ${{ matrix.go }} sample
+    actions:
+      - name: Setup go
+        uses: actions/setup-go@latest
+        with:
+          version: ${{ matrix.go }}
+      - run: go run hello.go
+```
 
 # License
 
