@@ -12,8 +12,8 @@ See [action.yml](action.yml)
 Basic:
 ```yaml
 actions:
-- uses: actions/checkout@latest
-- uses: actions/setup-go@latest
+- uses: actions/checkout@master
+- uses: actions/setup-go@master
   with:
     version: 1.9.3 // The Go version to download (if necessary) and use.
 - run: go run hello.go
@@ -28,9 +28,9 @@ jobs:
         go: [ 1.8, 1.9.3, 1.10 ]
     name: Go ${{ matrix.go }} sample
     actions:
-      - uses: actions/checkout@latest
+      - uses: actions/checkout@master
       - name: Setup go
-        uses: actions/setup-go@latest
+        uses: actions/setup-go@master
         with:
           version: ${{ matrix.go }}
       - run: go run hello.go
