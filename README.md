@@ -11,7 +11,7 @@ See [action.yml](action.yml)
 
 Basic:
 ```yaml
-actions:
+steps:
 - uses: actions/checkout@master
 - uses: actions/setup-go@master
   with:
@@ -27,7 +27,7 @@ jobs:
       matrix:
         go: [ 1.8, 1.9.3, 1.10 ]
     name: Go ${{ matrix.go }} sample
-    actions:
+    steps:
       - uses: actions/checkout@master
       - name: Setup go
         uses: actions/setup-go@master
