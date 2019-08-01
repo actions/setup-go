@@ -13,7 +13,7 @@ Basic:
 ```yaml
 steps:
 - uses: actions/checkout@master
-- uses: actions/setup-go@master
+- uses: actions/setup-go@v1
   with:
     version: 1.9.3 // The Go version to download (if necessary) and use.
 - run: go run hello.go
@@ -30,7 +30,7 @@ jobs:
     steps:
       - uses: actions/checkout@master
       - name: Setup go
-        uses: actions/setup-go@master
+        uses: actions/setup-go@v1
         with:
           version: ${{ matrix.go }}
       - run: go run hello.go
