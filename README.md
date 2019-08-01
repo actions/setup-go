@@ -15,7 +15,7 @@ steps:
 - uses: actions/checkout@master
 - uses: actions/setup-go@v1
   with:
-    version: 1.9.3 // The Go version to download (if necessary) and use.
+    version: '1.9.3' // The Go version to download (if necessary) and use.
 - run: go run hello.go
 ```
 
@@ -23,9 +23,10 @@ Matrix Testing:
 ```yaml
 jobs:
   build:
+    runs-on: ubuntu-16.04
     strategy:
       matrix:
-        go: [ 1.8, 1.9.3, 1.10 ]
+        go: [ '1.8', '1.9.3', '1.10' ]
     name: Go ${{ matrix.go }} sample
     steps:
       - uses: actions/checkout@master
