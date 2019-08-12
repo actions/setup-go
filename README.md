@@ -1,5 +1,9 @@
 # setup-go
 
+<p align="left">
+  <a href="https://github.com/actions/setup-go"><img alt="GitHub Actions status" src="https://github.com/actions/setup-go/workflows/Main%20workflow/badge.svg"></a>
+</p>
+
 This action sets up a go environment for use in actions by:
 
 - optionally downloading and caching a version of go by version and adding to PATH
