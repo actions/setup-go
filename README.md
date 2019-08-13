@@ -6,7 +6,7 @@
 
 This action sets up a go environment for use in actions by:
 
-- optionally downloading and caching a version of go by version and adding to PATH
+- optionally downloading and caching a version of Go by version and adding to PATH
 - registering problem matchers for error output
 
 # Usage
@@ -19,7 +19,7 @@ steps:
 - uses: actions/checkout@master
 - uses: actions/setup-go@v1
   with:
-    version: '1.9.3' // The Go version to download (if necessary) and use.
+    go-version: '1.9.3' // The Go version to download (if necessary) and use.
 - run: go run hello.go
 ```
 
@@ -37,7 +37,7 @@ jobs:
       - name: Setup go
         uses: actions/setup-go@v1
         with:
-          version: ${{ matrix.go }}
+          go-version: ${{ matrix.go }}
       - run: go run hello.go
 ```
 

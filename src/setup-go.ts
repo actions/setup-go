@@ -8,7 +8,10 @@ async function run() {
     // Version is optional.  If supplied, install / use from the tool cache
     // If not supplied then task is still used to setup proxy, auth, etc...
     //
-    const version = core.getInput('version');
+    let version = core.getInput('version');
+    if (!version) {
+      version = core.getInput('go-version');
+    }
     if (version) {
       await installer.getGo(version);
     }
