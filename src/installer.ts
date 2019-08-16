@@ -5,6 +5,8 @@ import * as tc from '@actions/tool-cache';
 import * as os from 'os';
 import * as path from 'path';
 import * as util from 'util';
+import * as semver from 'semver';
+import * as httpm from 'typed-rest-client/HttpClient';
 
 let osPlat: string = os.platform();
 let osArch: string = os.arch();
@@ -25,6 +27,8 @@ if (!tempDirectory) {
 }
 
 export async function getGo(version: string) {
+  version = await determineVersion(version);
+
   // check cache
   let toolPath: string;
   toolPath = tc.find('go', normalizeVersion(version));
@@ -123,8 +127,67 @@ function normalizeVersion(version: string): string {
     //append minor and patch version if not available
     return version.concat('.0.0');
   } else if (versionPart[2] == null) {
+    // handle beta and rc: 1.10beta1 => 1.10.0-beta1, 1.10rc1 => 1.10.0-rc1
+    if (versionPart[1].includes('beta') || versionPart[1].includes('rc')) {
+      versionPart[1] = versionPart[1]
+        .replace('beta', '.0-beta')
+        .replace('rc', '.0-rc');
+      return versionPart.join('.');
+    }
+
     //append patch version if not available
     return version.concat('.0');
   }
   return version;
+}
+
+async function determineVersion(version: string): Promise<string> {
+  if (!version.endsWith('.x')) {
+    return version;
+  }
+
+  return await getLatestVersion(version);
+}
+
+async function getLatestVersion(version: string): Promise<string> {
+  // clean .x syntax: 1.10.x -> 1.10
+  const trimmedVersion = version.slice(0, version.length - 2);
+
+  const versions = await getPossibleVersions(trimmedVersion);
+
+  if (version.length === 0) {
+    return trimmedVersion;
+  }
+
+  return versions[0];
+}
+
+function unique(value: string, index: number, self: string[]) {
+  return self.indexOf(value) === index;
+}
+
+async function getAvailableVersions(): Promise<string[]> {
+  let http: httpm.HttpClient = new httpm.HttpClient('setup-java');
+  let contents = await (await http.get(
+    'https://api.github.com/repos/golang/go/git/refs/tags'
+  )).readBody();
+
+  const matches = contents.match(/go\d+\.[\w\.]+/g) || [];
+  const versions = matches
+    .map(version => version.replace('go', ''))
+    .filter(unique);
+
+  return versions;
+}
+
+async function getPossibleVersions(version: string): Promise<string[]> {
+  const versions = await getAvailableVersions();
+  const possibleVersions = versions.filter(v => v.startsWith(version));
+
+  const versionMap = new Map();
+  possibleVersions.forEach(v => versionMap.set(normalizeVersion(v), v));
+
+  return Array.from(versionMap.keys())
+    .sort(semver.rcompare)
+    .map(v => versionMap.get(v));
 }
