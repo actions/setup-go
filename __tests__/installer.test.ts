@@ -2,9 +2,11 @@ import io = require('@actions/io');
 import fs = require('fs');
 import os = require('os');
 import path = require('path');
+import nock = require('nock');
 
 const toolDir = path.join(__dirname, 'runner', 'tools');
 const tempDir = path.join(__dirname, 'runner', 'temp');
+const dataDir = path.join(__dirname, 'data');
 
 process.env['RUNNER_TOOL_CACHE'] = toolDir;
 process.env['RUNNER_TEMP'] = tempDir;
@@ -30,6 +32,22 @@ describe('installer tests', () => {
   it('Acquires version of go if no matching version is installed', async () => {
     await installer.getGo('1.10');
     const goDir = path.join(toolDir, 'go', '1.10.0', os.arch());
+
+    expect(fs.existsSync(`${goDir}.complete`)).toBe(true);
+    if (IS_WINDOWS) {
+      expect(fs.existsSync(path.join(goDir, 'bin', 'go.exe'))).toBe(true);
+    } else {
+      expect(fs.existsSync(path.join(goDir, 'bin', 'go'))).toBe(true);
+    }
+  }, 100000);
+
+  it('Acquires latest release version of go if using .x syntax and no matching version is installed', async () => {
+    nock('https://api.github.com')
+      .get('/repos/golang/go/git/refs/tags')
+      .replyWithFile(200, path.join(dataDir, 'golang-tags.json'));
+
+    await installer.getGo('1.10.x');
+    const goDir = path.join(toolDir, 'go', '1.10.8', os.arch());
 
     expect(fs.existsSync(`${goDir}.complete`)).toBe(true);
     if (IS_WINDOWS) {
