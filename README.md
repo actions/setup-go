@@ -30,7 +30,7 @@ jobs:
     runs-on: ubuntu-16.04
     strategy:
       matrix:
-        go: [ '1.8', '1.9.3', '1.10' ]
+        go: [ '1.8', '1.9.3', '1.10.x' ]
     name: Go ${{ matrix.go }} sample
     steps:
       - uses: actions/checkout@master
