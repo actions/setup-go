@@ -27,7 +27,10 @@ if (!tempDirectory) {
 }
 
 export async function getGo(version: string) {
-  version = await determineVersion(version);
+  const selected = await determineVersion(version);
+  if (selected) {
+    version = selected;
+  }
 
   // check cache
   let toolPath: string;
@@ -126,7 +129,7 @@ function normalizeVersion(version: string): string {
   if (versionPart[1] == null) {
     //append minor and patch version if not available
     return version.concat('.0.0');
-  } else if (versionPart[2] == null) {
+  } else {
     // handle beta and rc: 1.10beta1 => 1.10.0-beta1, 1.10rc1 => 1.10.0-rc1
     if (versionPart[1].includes('beta') || versionPart[1].includes('rc')) {
       versionPart[1] = versionPart[1]
@@ -134,16 +137,33 @@ function normalizeVersion(version: string): string {
         .replace('rc', '.0-rc');
       return versionPart.join('.');
     }
+  }
 
+  if (versionPart[2] == null) {
     //append patch version if not available
     return version.concat('.0');
+  } else {
+    // handle beta and rc: 1.8.5beta1 => 1.8.5-beta1, 1.8.5rc1 => 1.8.5-rc1
+    if (versionPart[2].includes('beta') || versionPart[2].includes('rc')) {
+      versionPart[2] = versionPart[2]
+        .replace('beta', '-beta')
+        .replace('rc', '-rc');
+      return versionPart.join('.');
+    }
   }
+
   return version;
 }
 
 async function determineVersion(version: string): Promise<string> {
   if (!version.endsWith('.x')) {
-    return version;
+    const versionPart = version.split('.');
+
+    if (versionPart[1] == null || versionPart[2] == null) {
+      return await getLatestVersion(version.concat('.x'));
+    } else {
+      return version;
+    }
   }
 
   return await getLatestVersion(version);
@@ -158,8 +178,7 @@ async function getLatestVersion(version: string): Promise<string> {
   core.debug(`evaluating ${versions.length} versions`);
 
   if (version.length === 0) {
-    core.debug('match not found');
-    return trimmedVersion;
+    throw new Error('unable to get latest version');
   }
 
   core.debug(`matched: ${versions[0]}`);

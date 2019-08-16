@@ -30,8 +30,8 @@ describe('installer tests', () => {
   }, 100000);
 
   it('Acquires version of go if no matching version is installed', async () => {
-    await installer.getGo('1.10');
-    const goDir = path.join(toolDir, 'go', '1.10.0', os.arch());
+    await installer.getGo('1.10.8');
+    const goDir = path.join(toolDir, 'go', '1.10.8', os.arch());
 
     expect(fs.existsSync(`${goDir}.complete`)).toBe(true);
     if (IS_WINDOWS) {
@@ -41,13 +41,45 @@ describe('installer tests', () => {
     }
   }, 100000);
 
-  it('Acquires latest release version of go if using .x syntax and no matching version is installed', async () => {
+  it('Acquires latest release version of go 1.10 if using 1.10 and no matching version is installed', async () => {
+    nock('https://api.github.com')
+      .get('/repos/golang/go/git/refs/tags')
+      .replyWithFile(200, path.join(dataDir, 'golang-tags.json'));
+
+    await installer.getGo('1.10');
+    const goDir = path.join(toolDir, 'go', '1.10.8', os.arch());
+
+    expect(fs.existsSync(`${goDir}.complete`)).toBe(true);
+    if (IS_WINDOWS) {
+      expect(fs.existsSync(path.join(goDir, 'bin', 'go.exe'))).toBe(true);
+    } else {
+      expect(fs.existsSync(path.join(goDir, 'bin', 'go'))).toBe(true);
+    }
+  }, 100000);
+
+  it('Acquires latest release version of go 1.10 if using 1.10.x and no matching version is installed', async () => {
     nock('https://api.github.com')
       .get('/repos/golang/go/git/refs/tags')
       .replyWithFile(200, path.join(dataDir, 'golang-tags.json'));
 
     await installer.getGo('1.10.x');
     const goDir = path.join(toolDir, 'go', '1.10.8', os.arch());
+
+    expect(fs.existsSync(`${goDir}.complete`)).toBe(true);
+    if (IS_WINDOWS) {
+      expect(fs.existsSync(path.join(goDir, 'bin', 'go.exe'))).toBe(true);
+    } else {
+      expect(fs.existsSync(path.join(goDir, 'bin', 'go'))).toBe(true);
+    }
+  }, 100000);
+
+  it('Acquires latest release version of go if using 1.x and no matching version is installed', async () => {
+    nock('https://api.github.com')
+      .get('/repos/golang/go/git/refs/tags')
+      .replyWithFile(200, path.join(dataDir, 'golang-tags.json'));
+
+    await installer.getGo('1.x');
+    const goDir = path.join(toolDir, 'go', '1.13.0-beta1', os.arch());
 
     expect(fs.existsSync(`${goDir}.complete`)).toBe(true);
     if (IS_WINDOWS) {
@@ -72,7 +104,7 @@ describe('installer tests', () => {
     await io.mkdirP(goDir);
     fs.writeFileSync(`${goDir}.complete`, 'hello');
     // This will throw if it doesn't find it in the cache (because no such version exists)
-    await installer.getGo('250.0');
+    await installer.getGo('250.0.0');
     return;
   });
 
