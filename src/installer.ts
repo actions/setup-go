@@ -167,7 +167,7 @@ function unique(value: string, index: number, self: string[]) {
 }
 
 async function getAvailableVersions(): Promise<string[]> {
-  let http: httpm.HttpClient = new httpm.HttpClient('setup-java');
+  let http: httpm.HttpClient = new httpm.HttpClient('setup-go');
   let contents = await (await http.get(
     'https://api.github.com/repos/golang/go/git/refs/tags'
   )).readBody();
