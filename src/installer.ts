@@ -6,7 +6,7 @@ import * as os from 'os';
 import * as path from 'path';
 import * as util from 'util';
 import * as semver from 'semver';
-import * as httpm from 'typed-rest-client/HttpClient';
+import * as restm from 'typed-rest-client/RestClient';
 
 let osPlat: string = os.platform();
 let osArch: string = os.arch();
@@ -155,29 +155,32 @@ async function getLatestVersion(version: string): Promise<string> {
 
   const versions = await getPossibleVersions(trimmedVersion);
 
+  core.debug(`evaluating ${versions.length} versions`);
+
   if (version.length === 0) {
+    core.debug('match not found');
     return trimmedVersion;
   }
+
+  core.debug(`matched: ${versions[0]}`);
 
   return versions[0];
 }
 
-function unique(value: string, index: number, self: string[]) {
-  return self.indexOf(value) === index;
+interface IGoRef {
+  ref: string;
 }
 
 async function getAvailableVersions(): Promise<string[]> {
-  let http: httpm.HttpClient = new httpm.HttpClient('setup-go');
-  let contents = await (await http.get(
-    'https://api.github.com/repos/golang/go/git/refs/tags'
-  )).readBody();
+  let rest: restm.RestClient = new restm.RestClient('setup-go');
+  let tags: IGoRef[] =
+    (await rest.get<IGoRef[]>(
+      'https://api.github.com/repos/golang/go/git/refs/tags'
+    )).result || [];
 
-  const matches = contents.match(/go\d+\.[\w\.]+/g) || [];
-  const versions = matches
-    .map(version => version.replace('go', ''))
-    .filter(unique);
-
-  return versions;
+  return tags
+    .filter(tag => tag.ref.match(/go\d+\.[\w\.]+/g))
+    .map(tag => tag.ref.replace('refs/tags/go', ''));
 }
 
 async function getPossibleVersions(version: string): Promise<string[]> {
