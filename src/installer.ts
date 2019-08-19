@@ -5,6 +5,8 @@ import * as tc from '@actions/tool-cache';
 import * as os from 'os';
 import * as path from 'path';
 import * as util from 'util';
+import * as semver from 'semver';
+import * as restm from 'typed-rest-client/RestClient';
 
 let osPlat: string = os.platform();
 let osArch: string = os.arch();
@@ -25,6 +27,11 @@ if (!tempDirectory) {
 }
 
 export async function getGo(version: string) {
+  const selected = await determineVersion(version);
+  if (selected) {
+    version = selected;
+  }
+
   // check cache
   let toolPath: string;
   toolPath = tc.find('go', normalizeVersion(version));
@@ -122,9 +129,87 @@ function normalizeVersion(version: string): string {
   if (versionPart[1] == null) {
     //append minor and patch version if not available
     return version.concat('.0.0');
-  } else if (versionPart[2] == null) {
+  } else {
+    // handle beta and rc: 1.10beta1 => 1.10.0-beta1, 1.10rc1 => 1.10.0-rc1
+    if (versionPart[1].includes('beta') || versionPart[1].includes('rc')) {
+      versionPart[1] = versionPart[1]
+        .replace('beta', '.0-beta')
+        .replace('rc', '.0-rc');
+      return versionPart.join('.');
+    }
+  }
+
+  if (versionPart[2] == null) {
     //append patch version if not available
     return version.concat('.0');
+  } else {
+    // handle beta and rc: 1.8.5beta1 => 1.8.5-beta1, 1.8.5rc1 => 1.8.5-rc1
+    if (versionPart[2].includes('beta') || versionPart[2].includes('rc')) {
+      versionPart[2] = versionPart[2]
+        .replace('beta', '-beta')
+        .replace('rc', '-rc');
+      return versionPart.join('.');
+    }
   }
+
   return version;
+}
+
+async function determineVersion(version: string): Promise<string> {
+  if (!version.endsWith('.x')) {
+    const versionPart = version.split('.');
+
+    if (versionPart[1] == null || versionPart[2] == null) {
+      return await getLatestVersion(version.concat('.x'));
+    } else {
+      return version;
+    }
+  }
+
+  return await getLatestVersion(version);
+}
+
+async function getLatestVersion(version: string): Promise<string> {
+  // clean .x syntax: 1.10.x -> 1.10
+  const trimmedVersion = version.slice(0, version.length - 2);
+
+  const versions = await getPossibleVersions(trimmedVersion);
+
+  core.debug(`evaluating ${versions.length} versions`);
+
+  if (version.length === 0) {
+    throw new Error('unable to get latest version');
+  }
+
+  core.debug(`matched: ${versions[0]}`);
+
+  return versions[0];
+}
+
+interface IGoRef {
+  ref: string;
+}
+
+async function getAvailableVersions(): Promise<string[]> {
+  let rest: restm.RestClient = new restm.RestClient('setup-go');
+  let tags: IGoRef[] =
+    (await rest.get<IGoRef[]>(
+      'https://api.github.com/repos/golang/go/git/refs/tags'
+    )).result || [];
+
+  return tags
+    .filter(tag => tag.ref.match(/go\d+\.[\w\.]+/g))
+    .map(tag => tag.ref.replace('refs/tags/go', ''));
+}
+
+async function getPossibleVersions(version: string): Promise<string[]> {
+  const versions = await getAvailableVersions();
+  const possibleVersions = versions.filter(v => v.startsWith(version));
+
+  const versionMap = new Map();
+  possibleVersions.forEach(v => versionMap.set(normalizeVersion(v), v));
+
+  return Array.from(versionMap.keys())
+    .sort(semver.rcompare)
+    .map(v => versionMap.get(v));
 }
