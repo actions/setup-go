@@ -109,16 +109,31 @@ function getDownloadUrl(filename: string): string {
 function setGoEnvironmentVariables(goRoot: string) {
   core.exportVariable('GOROOT', goRoot);
 
-  const goPath: string = process.env['GOPATH'] || '';
-  const goBin: string = process.env['GOBIN'] || '';
+  const goPath = getGoPath();
+  const goBin = process.env['GOBIN'] || '';
 
   // set GOPATH and GOBIN as user value
   if (goPath) {
     core.exportVariable('GOPATH', goPath);
+    core.addPath(path.join(goPath, 'bin'));
   }
   if (goBin) {
     core.exportVariable('GOBIN', goBin);
   }
+}
+
+// Get GOPATH as user value or as defined by https://golang.org/doc/code.html#GOPATH
+function getGoPath(): string {
+  const home: string = process.env['HOME'] || '';
+  const goPath: string = process.env['GOPATH'] || '';
+
+  if (goPath) {
+    return goPath;
+  } else if (home) {
+    return path.join(home, 'go');
+  }
+
+  return '';
 }
 
 // This function is required to convert the version 1.10 to 1.10.0.
