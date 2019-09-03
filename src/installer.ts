@@ -109,8 +109,8 @@ function getDownloadUrl(filename: string): string {
 function setGoEnvironmentVariables(goRoot: string) {
   core.exportVariable('GOROOT', goRoot);
 
-  const goPath = getGoPath();
-  const goBin = process.env['GOBIN'] || '';
+  const goPath: string = getGoPath();
+  const goBin: string = process.env['GOBIN'] || '';
 
   // set GOPATH and GOBIN as user value
   if (goPath) {
