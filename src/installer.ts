@@ -187,19 +187,16 @@ async function getLatestVersion(version: string): Promise<string> {
 }
 
 interface IGoRef {
-  ref: string;
+  version: string;
 }
 
 async function getAvailableVersions(): Promise<string[]> {
   let rest: restm.RestClient = new restm.RestClient('setup-go');
   let tags: IGoRef[] =
-    (await rest.get<IGoRef[]>(
-      'https://api.github.com/repos/golang/go/git/refs/tags'
-    )).result || [];
+    (await rest.get<IGoRef[]>('https://golang.org/dl/?mode=json&include=all'))
+      .result || [];
 
-  return tags
-    .filter(tag => tag.ref.match(/go\d+\.[\w\.]+/g))
-    .map(tag => tag.ref.replace('refs/tags/go', ''));
+  return tags.map(tag => tag.version.replace('go', ''));
 }
 
 async function getPossibleVersions(version: string): Promise<string[]> {

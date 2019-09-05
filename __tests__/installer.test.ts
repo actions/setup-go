@@ -43,9 +43,10 @@ describe('installer tests', () => {
 
   describe('the latest release of a go version', () => {
     beforeEach(() => {
-      nock('https://api.github.com')
-        .get('/repos/golang/go/git/refs/tags')
-        .replyWithFile(200, path.join(dataDir, 'golang-tags.json'));
+      nock('https://golang.org')
+        .get('/dl/')
+        .query({mode: 'json', include: 'all'})
+        .replyWithFile(200, path.join(dataDir, 'golang-dl.json'));
     });
 
     afterEach(() => {
