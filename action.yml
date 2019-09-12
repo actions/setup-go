@@ -8,6 +8,7 @@ inputs:
 # Deprecated option, do not use. Will not be supported after October 1, 2019
   version:
     description: 'Deprecated. Use go-version instead. Will not be supported after October 1, 2019'
+    deprecationMessage: 'The version property will not be supported after October 1, 2019. Use go-version instead'
 runs:
   using: 'node12'
   main: 'lib/setup-go.js'
