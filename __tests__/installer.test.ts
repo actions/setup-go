@@ -43,9 +43,10 @@ describe('installer tests', () => {
 
   describe('the latest release of a go version', () => {
     beforeEach(() => {
-      nock('https://api.github.com')
-        .get('/repos/golang/go/git/refs/tags')
-        .replyWithFile(200, path.join(dataDir, 'golang-tags.json'));
+      nock('https://golang.org')
+        .get('/dl/')
+        .query({mode: 'json', include: 'all'})
+        .replyWithFile(200, path.join(dataDir, 'golang-dl.json'));
     });
 
     afterEach(() => {
@@ -79,7 +80,7 @@ describe('installer tests', () => {
 
     it('Acquires latest release version of go if using 1.x and no matching version is installed', async () => {
       await installer.getGo('1.x');
-      const goDir = path.join(toolDir, 'go', '1.13.0-beta1', os.arch());
+      const goDir = path.join(toolDir, 'go', '1.13.0', os.arch());
 
       expect(fs.existsSync(`${goDir}.complete`)).toBe(true);
       if (IS_WINDOWS) {
