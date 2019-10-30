@@ -1,10 +1,10 @@
 name: 'Setup Go environment'
 description: 'Setup a Go environment and add it to the PATH, additionally providing proxy support'
 author: 'GitHub'
-inputs: 
+inputs:
   go-version:
-    description: 'The Go version to download (if necessary) and use. Example: 1.9.3'
-    default: '1.10'
+    description: 'The Go version to download (if necessary) and use. Example: 1.13.3'
+    default: '1.13.x'
 # Deprecated option, do not use. Will not be supported after October 1, 2019
   version:
     description: 'Deprecated. Use go-version instead. Will not be supported after October 1, 2019'

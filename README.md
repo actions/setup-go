@@ -19,7 +19,7 @@ steps:
 - uses: actions/checkout@master
 - uses: actions/setup-go@v1
   with:
-    go-version: '1.9.3' # The Go version to download (if necessary) and use.
+    go-version: '1.13.x' # The Go version to download (if necessary) and use, default to latest v1.13.x
 - run: go run hello.go
 ```
 
@@ -30,7 +30,7 @@ jobs:
     runs-on: ubuntu-16.04
     strategy:
       matrix:
-        go: [ '1.8', '1.9.3', '1.10.x' ]
+        go: [ '1.11', '1.12.12', '1.13.x' ]
     name: Go ${{ matrix.go }} sample
     steps:
       - uses: actions/checkout@master
