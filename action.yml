@@ -1,5 +1,5 @@
-name: 'Setup Go environment'
-description: 'Setup a Go environment and add it to the PATH, additionally providing proxy support'
+name: 'Setup Go'
+description: 'Set up a specific version of Go and add the command-line tools to the PATH'
 author: 'GitHub'
 inputs: 
   go-version:
