@@ -57,6 +57,9 @@ async function acquireGo(version: string): Promise<string> {
   //
   let fileName: string = getFileName(version);
   let downloadUrl: string = getDownloadUrl(fileName);
+
+  core.debug('Downloading Go from: ' + downloadUrl);
+
   let downloadPath: string | null = null;
   try {
     downloadPath = await tc.downloadTool(downloadUrl);
@@ -89,8 +92,15 @@ async function acquireGo(version: string): Promise<string> {
 }
 
 function getFileName(version: string): string {
+  const arches: {[arch: string]: string} = {
+    x64: 'amd64',
+    arm: 'armv6l',
+    arm64: 'arm64',
+    default: '386'
+  };
+
   const platform: string = osPlat == 'win32' ? 'windows' : osPlat;
-  const arch: string = osArch == 'x64' ? 'amd64' : '386';
+  const arch: string = arches[osArch] || arches['default'];
   const ext: string = osPlat == 'win32' ? 'zip' : 'tar.gz';
   const filename: string = util.format(
     'go%s.%s-%s.%s',
@@ -99,6 +109,7 @@ function getFileName(version: string): string {
     arch,
     ext
   );
+
   return filename;
 }
 
