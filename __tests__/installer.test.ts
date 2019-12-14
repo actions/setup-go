@@ -89,6 +89,18 @@ describe('installer tests', () => {
         expect(fs.existsSync(path.join(goDir, 'bin', 'go'))).toBe(true);
       }
     }, 100000);
+
+    it('Acquires latest release version of go if using latest and matching version is installed', async () => {
+      await installer.getGo('latest');
+      const goDir = path.join(toolDir, 'go', '1.13.0', os.arch());
+
+      expect(fs.existsSync(`${goDir}.complete`)).toBe(true);
+      if (IS_WINDOWS) {
+        expect(fs.existsSync(path.join(goDir, 'bin', 'go.exe'))).toBe(true);
+      } else {
+        expect(fs.existsSync(path.join(goDir, 'bin', 'go'))).toBe(true);
+      }
+    }, 100000);
   });
 
   it('Throws if no location contains correct go version', async () => {

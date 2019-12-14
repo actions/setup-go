@@ -167,6 +167,10 @@ function normalizeVersion(version: string): string {
 }
 
 async function determineVersion(version: string): Promise<string> {
+  if (version == 'latest') {
+    return await getLatestVersion('');
+  }
+
   if (!version.endsWith('.x')) {
     const versionPart = version.split('.');
 
@@ -188,7 +192,7 @@ async function getLatestVersion(version: string): Promise<string> {
 
   core.debug(`evaluating ${versions.length} versions`);
 
-  if (version.length === 0) {
+  if (versions.length === 0) {
     throw new Error('unable to get latest version');
   }
 
