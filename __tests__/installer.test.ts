@@ -11,116 +11,107 @@ const dataDir = path.join(__dirname, 'data');
 process.env['RUNNER_TOOL_CACHE'] = toolDir;
 process.env['RUNNER_TEMP'] = tempDir;
 import * as installer from '../src/installer';
+import * as executil from '../src/executil';
 
+const osarch = os.arch();
 const IS_WINDOWS = process.platform === 'win32';
+const goExe: string = IS_WINDOWS ? 'go.exe' : 'go';
 
-describe('installer tests', () => {
-  beforeAll(async () => {
-    await io.rmRF(toolDir);
-    await io.rmRF(tempDir);
-  }, 100000);
+const cleanup = async () => {
+  await io.rmRF(toolDir);
+  await io.rmRF(tempDir);
+}
+beforeAll(cleanup, 100000);
+afterAll(cleanup, 100000);
 
-  afterAll(async () => {
-    try {
-      await io.rmRF(toolDir);
-      await io.rmRF(tempDir);
-    } catch {
-      console.log('Failed to remove test directories');
-    }
-  }, 100000);
+const describeTable = describe.each([
+  ['tip',    '+a5bfd9d', 'go1.14beta1', 'a5bfd9da1d1b24f326399b6b75558ded14514f23'],
+  ['latest', 'go1.13',   'n/a',         '1.13.0'],
+  ['1.x',    'go1.13',   'n/a',         '1.13.0'],
+  ['1.10.x', 'go1.10.8', 'n/a',         '1.10.8'],
+  ['1.10.8', 'go1.10.8', 'n/a',         '1.10.8'],
+  ['1.10',   'go1.10',   'n/a',         '1.10.0'],
+]);
+describeTable('Go %s (%s)', (version: string, goVersion: string, gitRef: string, normVersion: string) => {
+  const gotip = version == 'tip';
+  const cacheDir = gotip ? 'gotip' : 'go';
+  const goRoot = path.join(toolDir, cacheDir, normVersion, osarch);
+  const goTool = path.join(goRoot, 'bin', goExe);
 
-  it('Acquires version of go if no matching version is installed', async () => {
-    await installer.getGo('1.10.8');
-    const goDir = path.join(toolDir, 'go', '1.10.8', os.arch());
-
-    expect(fs.existsSync(`${goDir}.complete`)).toBe(true);
-    if (IS_WINDOWS) {
-      expect(fs.existsSync(path.join(goDir, 'bin', 'go.exe'))).toBe(true);
-    } else {
-      expect(fs.existsSync(path.join(goDir, 'bin', 'go'))).toBe(true);
-    }
-  }, 100000);
-
-  describe('the latest release of a go version', () => {
-    beforeEach(() => {
+  let cgo: string = '';
+  if (!gotip) {
+    beforeAll(() => {
       nock('https://golang.org')
         .get('/dl/')
         .query({mode: 'json', include: 'all'})
         .replyWithFile(200, path.join(dataDir, 'golang-dl.json'));
     });
-
-    afterEach(() => {
+    afterAll(() => {
       nock.cleanAll();
       nock.enableNetConnect();
     });
+  } else {
+    beforeAll(async () => {
+      cgo = await executil.goEnv('CGO_ENABLED');
+    });
+  }
 
-    it('Acquires latest release version of go 1.10 if using 1.10 and no matching version is installed', async () => {
-      await installer.getGo('1.10');
-      const goDir = path.join(toolDir, 'go', '1.10.8', os.arch());
+  const timeout = gotip ? 300000 : 100000;
+  test('installation', async () => {
+    const promise = installer.getGo(version, gitRef);
+    await expect(promise).resolves.toBeUndefined();
+  }, timeout);
 
-      expect(fs.existsSync(`${goDir}.complete`)).toBe(true);
-      if (IS_WINDOWS) {
-        expect(fs.existsSync(path.join(goDir, 'bin', 'go.exe'))).toBe(true);
-      } else {
-        expect(fs.existsSync(path.join(goDir, 'bin', 'go'))).toBe(true);
-      }
-    }, 100000);
-
-    it('Acquires latest release version of go 1.10 if using 1.10.x and no matching version is installed', async () => {
-      await installer.getGo('1.10.x');
-      const goDir = path.join(toolDir, 'go', '1.10.8', os.arch());
-
-      expect(fs.existsSync(`${goDir}.complete`)).toBe(true);
-      if (IS_WINDOWS) {
-        expect(fs.existsSync(path.join(goDir, 'bin', 'go.exe'))).toBe(true);
-      } else {
-        expect(fs.existsSync(path.join(goDir, 'bin', 'go'))).toBe(true);
-      }
-    }, 100000);
-
-    it('Acquires latest release version of go if using 1.x and no matching version is installed', async () => {
-      await installer.getGo('1.x');
-      const goDir = path.join(toolDir, 'go', '1.13.0', os.arch());
-
-      expect(fs.existsSync(`${goDir}.complete`)).toBe(true);
-      if (IS_WINDOWS) {
-        expect(fs.existsSync(path.join(goDir, 'bin', 'go.exe'))).toBe(true);
-      } else {
-        expect(fs.existsSync(path.join(goDir, 'bin', 'go'))).toBe(true);
-      }
-    }, 100000);
+  test('tool executable check', async () => {
+    const promise = fs.promises.access(goTool);
+    await expect(promise).resolves.toBeUndefined();
   });
 
-  it('Throws if no location contains correct go version', async () => {
-    let thrown = false;
-    try {
-      await installer.getGo('1000.0');
-    } catch {
-      thrown = true;
-    }
-    expect(thrown).toBe(true);
+  test('cache completeness check', async () => {
+    const promise = fs.promises.access(`${goRoot}.complete`);
+    await expect(promise).resolves.toBeUndefined();
   });
 
-  it('Uses version of go installed in cache', async () => {
-    const goDir: string = path.join(toolDir, 'go', '250.0.0', os.arch());
-    await io.mkdirP(goDir);
-    fs.writeFileSync(`${goDir}.complete`, 'hello');
-    // This will throw if it doesn't find it in the cache (because no such version exists)
-    await installer.getGo('250.0');
+  goVersion = ' ' + goVersion;
+  if (!gotip) {
+    goVersion += ' ';
+  }
+  test('version check', async () => {
+    const promise = executil.stdout(goTool, ['version']);
+    await expect(promise).resolves.toContain(goVersion);
+  });
+
+  if (!gotip) {
     return;
+  }
+  test('CGO_ENABLED check', async () => {
+    const promise = executil.goEnv('CGO_ENABLED', goTool);
+    await expect(promise).resolves.toBe(cgo);
+  });
+});
+
+describe('installer cache', () => {
+  const version = '1000.0';
+  const normVersion = '1000.0.0';
+  const cacheDir = 'go';
+  const goRoot = path.join(toolDir, cacheDir, normVersion, osarch);
+
+  test('throws on incorrect version', async () => {
+    const promise = installer.getGo(version);
+    await expect(promise).rejects.toThrow();
   });
 
-  it('Doesnt use version of go that was only partially installed in cache', async () => {
-    const goDir: string = path.join(toolDir, 'go', '251.0.0', os.arch());
-    await io.mkdirP(goDir);
-    let thrown = false;
-    try {
-      // This will throw if it doesn't find it in the cache (because no such version exists)
-      await installer.getGo('251.0');
-    } catch {
-      thrown = true;
-    }
-    expect(thrown).toBe(true);
-    return;
+  test('throws on partial install', async () => {
+    await io.mkdirP(goRoot);
+
+    const promise = installer.getGo(version);
+    await expect(promise).rejects.toThrow();
+  })
+
+  test('uses existing version', async () => {
+    await fs.promises.writeFile(`${goRoot}.complete`, 'hello');
+
+    const promise = installer.getGo(version);
+    await expect(promise).resolves.toBeUndefined();
   });
 });

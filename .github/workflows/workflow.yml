@@ -5,6 +5,7 @@ jobs:
     name: Run
     runs-on: ${{ matrix.operating-system }}
     strategy:
+      fail-fast: false
       matrix:
         operating-system: [ubuntu-latest, windows-latest]
     steps:
@@ -14,13 +15,14 @@ jobs:
     - name: Set Node.js 10.x
       uses: actions/setup-node@master
       with:
-        version: 10.x
+        node-version: 10.x
 
     - name: npm install
       run: npm install
 
-    - name: Lint
-      run: npm run format-check
-
     - name: npm test
       run: npm test
+
+    - name: Lint
+      run: npm run format-check
+      continue-on-error: true
