@@ -63,8 +63,7 @@ async function acquireGo(version: string, gotipRef: string, bootstrapGo: string)
       let workTree: string;
       let commitHash: string;
       // Avoid cloning multiple times by caching git dir.
-      // Empty string means that we don’t care about arch.
-      gitDir = tc.find('gotip', 'master', '')
+      gitDir = tc.find('gotip', '0.0.0-devel', 'noarch');
       if (!gitDir) {
         gitDir = path.join(extPath, 'gotip.git');
         workTree = path.join(extPath, filename);
@@ -74,6 +73,13 @@ async function acquireGo(version: string, gotipRef: string, bootstrapGo: string)
 
         // Extract current commit hash.
         commitHash = await executil.gitRevParse(gitDir, 'HEAD');
+
+        // Add cache for git dir. Note that in the current tool-cache
+        // implementation adding result of find to the cache actually
+        // purges both. That is, we can’t update the cache explicitly
+        // and tool-cache assumes we won’t change tool in the cache.
+        // And in the other branch we break that assumption.
+        gitDir = await tc.cacheDir(gitDir, 'gotip', '0.0.0-devel', 'noarch');
       } else {
         // We don’t have a work tree (yet) in this case.
         workTree = '';
@@ -84,11 +90,9 @@ async function acquireGo(version: string, gotipRef: string, bootstrapGo: string)
         // Extract latest commit hash.
         commitHash = await executil.gitRevParse(gitDir, 'FETCH_HEAD');
       }
-      // Update cache for git dir.
-      gitDir = await tc.cacheDir(gitDir, 'gotip', 'master', '');
 
       // Avoid building multiple times by caching work tree.
-      let workTreeCache = tc.find('gotip', commitHash);
+      let workTreeCache = tc.find('gotip', `0.0.0-devel.${commitHash}`);
       if (workTreeCache) {
         workTree = workTreeCache;
       } else {
@@ -140,8 +144,9 @@ async function acquireGo(version: string, gotipRef: string, bootstrapGo: string)
           cmd = 'make.bat';
         }
         await exec.exec(cmd, undefined, { cwd, env });
-        // Update cache for work tree.
-        workTree = await tc.cacheDir(workTree, 'gotip', commitHash);
+
+        // Add cache for work tree.
+        workTree = await tc.cacheDir(workTree, 'gotip', `0.0.0-devel.${commitHash}`);
       }
       toolRoot = workTree;
   } else {

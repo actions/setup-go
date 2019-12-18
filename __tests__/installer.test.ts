@@ -25,8 +25,8 @@ beforeAll(cleanup, 100000);
 afterAll(cleanup, 100000);
 
 const describeTable = describe.each([
-  ['tip',    '+60f14fd', 'go1.13beta1', '60f14fddfee107dedd76c0be6b422a3d8ccc841a'],
-  ['tip',    '+a5bfd9d', 'go1.14beta1', 'a5bfd9da1d1b24f326399b6b75558ded14514f23'],
+  ['tip',    '+60f14fd', 'go1.13beta1', '0.0.0-devel.60f14fddfee107dedd76c0be6b422a3d8ccc841a'],
+  ['tip',    '+a5bfd9d', 'go1.14beta1', '0.0.0-devel.a5bfd9da1d1b24f326399b6b75558ded14514f23'],
   ['latest', 'go1.13',   'n/a',         '1.13.0'],
   ['1.x',    'go1.13',   'n/a',         '1.13.0'],
   ['1.10.x', 'go1.10.8', 'n/a',         '1.10.8'],
@@ -64,14 +64,14 @@ describeTable('Go %s (%s)', (version: string, goVersion: string, gitRef: string,
   }, timeout);
 
   if (gotip) {
-    const gitDir = path.join(toolDir, cacheDir, 'master', '');
+    const gitDir = path.join(toolDir, cacheDir, '0.0.0-devel', 'noarch');
     test('git cache check', async () => {
       const promise = fs.promises.access(gitDir);
       await expect(promise).resolves.toBeUndefined();
     });
   }
 
-  test('tool executable check', async () => {
+  test('tool existence check', async () => {
     const promise = fs.promises.access(goTool);
     await expect(promise).resolves.toBeUndefined();
   });
