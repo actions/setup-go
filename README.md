@@ -7,6 +7,7 @@
 This action sets up a go environment for use in actions by:
 
 - optionally downloading and caching a version of Go by version and adding to PATH
+- optionally building and caching Go tip (master branch) from source
 - registering problem matchers for error output
 
 # Usage
@@ -30,7 +31,7 @@ jobs:
     runs-on: ubuntu-16.04
     strategy:
       matrix:
-        go: [ '1.8', '1.9.3', '1.10.x' ]
+        go: [ '1.8', '1.9.3', '1.10.x', 'latest', 'tip' ]
     name: Go ${{ matrix.go }} sample
     steps:
       - uses: actions/checkout@master
