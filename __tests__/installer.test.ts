@@ -24,6 +24,20 @@ const cleanup = async () => {
 beforeAll(cleanup, 100000);
 afterAll(cleanup, 100000);
 
+let bootstrapCgo: string = '';
+let bootstrapGo: string = '';
+beforeAll(async () => {
+  bootstrapGo = await io.which('go', false);
+  if (!bootstrapGo) {
+    return;
+  }
+  bootstrapCgo = await executil.goEnv('CGO_ENABLED', bootstrapGo);
+  // Override the value for acquireGo, because running getGo tests
+  // exports different GOROOT each time.
+  const bootstrapGoroot = await executil.goEnv('GOROOT', bootstrapGo);
+  process.env['GOROOT_BOOTSTRAP'] = bootstrapGoroot
+})
+
 const describeTable = describe.each([
   ['tip',    '+60f14fd', 'go1.13beta1', '0.0.0-devel.60f14fddfee107dedd76c0be6b422a3d8ccc841a'],
   ['tip',    '+a5bfd9d', 'go1.14beta1', '0.0.0-devel.a5bfd9da1d1b24f326399b6b75558ded14514f23'],
@@ -39,7 +53,6 @@ describeTable('Go %s (%s)', (version: string, goVersion: string, gitRef: string,
   const goRoot = path.join(toolDir, cacheDir, normVersion, osarch);
   const goTool = path.join(goRoot, 'bin', goExe);
 
-  let cgo: string = '';
   if (!gotip) {
     beforeAll(() => {
       nock('https://golang.org')
@@ -51,15 +64,11 @@ describeTable('Go %s (%s)', (version: string, goVersion: string, gitRef: string,
       nock.cleanAll();
       nock.enableNetConnect();
     });
-  } else {
-    beforeAll(async () => {
-      cgo = await executil.goEnv('CGO_ENABLED');
-    });
   }
 
   const timeout = gotip ? 300000 : 100000;
   test('installation', async () => {
-    const promise = installer.getGo(version, gitRef);
+    const promise = installer.getGo(version, gitRef, bootstrapGo);
     await expect(promise).resolves.toBeUndefined();
   }, timeout);
 
@@ -95,7 +104,7 @@ describeTable('Go %s (%s)', (version: string, goVersion: string, gitRef: string,
   }
   test('CGO_ENABLED check', async () => {
     const promise = executil.goEnv('CGO_ENABLED', goTool);
-    await expect(promise).resolves.toBe(cgo);
+    await expect(promise).resolves.toBe(bootstrapCgo);
   });
 });
 

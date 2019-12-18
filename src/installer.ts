@@ -112,8 +112,9 @@ async function acquireGo(version: string, gotipRef: string, bootstrapGo: string)
 
         // The make.bat script on Windows is not smart enough
         // to figure out the path to bootstrap Go toolchain.
-        // Make script will show descriptive error message even
-        // if we don’t find Go installation on the host.
+        // We have to spoonfeed it with GOROOT_BOOTSTRAP value.
+        // At least make script will show descriptive error message
+        // even if we don’t find Go installation on the host.
         let bootstrap: string = '';
         if (bootstrapGo) {
           bootstrap = await executil.goEnv('GOROOT', bootstrapGo);
