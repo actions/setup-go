@@ -186,7 +186,7 @@ function getFileName(version: string): string {
   const arch: string = arches[osArch] || arches['default'];
   let ext: string;
   if (version == 'tip') {
-    // Git work tree for tip builds does not have an externsion.
+    // Git work tree for tip builds does not have an extension.
     ext = '';
   } else if (osPlat == 'win32') {
     ext = '.zip';
