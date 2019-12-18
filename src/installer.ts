@@ -85,7 +85,7 @@ async function acquireGo(version: string, gotipRef: string, bootstrapGo: string)
         workTree = '';
 
         // Cache hit for git dir, fetch new commits from upstream.
-        await executil.gitFetch(gitDir);
+        await executil.gitFetch(gitDir, gotipRef);
 
         // Extract latest commit hash.
         commitHash = await executil.gitRevParse(gitDir, 'FETCH_HEAD');

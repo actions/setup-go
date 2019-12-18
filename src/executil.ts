@@ -43,11 +43,13 @@ export async function gitClone(gitDir: string, gitRepo: string, workTree: string
   await git(args);
 }
 
-export async function gitFetch(gitDir: string) {
+export async function gitFetch(gitDir: string, ref: string) {
   let args: string[] = [
     `--git-dir=${gitDir}`,
     'fetch',
     '--depth=1',
+    'origin',
+    ref,
   ];
   await git(args);
 }
