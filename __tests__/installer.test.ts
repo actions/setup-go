@@ -25,6 +25,7 @@ beforeAll(cleanup, 100000);
 afterAll(cleanup, 100000);
 
 const describeTable = describe.each([
+  ['tip',    '+60f14fd', 'go1.13beta1', '60f14fddfee107dedd76c0be6b422a3d8ccc841a'],
   ['tip',    '+a5bfd9d', 'go1.14beta1', 'a5bfd9da1d1b24f326399b6b75558ded14514f23'],
   ['latest', 'go1.13',   'n/a',         '1.13.0'],
   ['1.x',    'go1.13',   'n/a',         '1.13.0'],
@@ -61,6 +62,14 @@ describeTable('Go %s (%s)', (version: string, goVersion: string, gitRef: string,
     const promise = installer.getGo(version, gitRef);
     await expect(promise).resolves.toBeUndefined();
   }, timeout);
+
+  if (gotip) {
+    const gitDir = path.join(toolDir, cacheDir, 'master', '');
+    test('git cache check', async () => {
+      const promise = fs.promises.access(gitDir);
+      await expect(promise).resolves.toBeUndefined();
+    });
+  }
 
   test('tool executable check', async () => {
     const promise = fs.promises.access(goTool);
