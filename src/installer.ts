@@ -99,7 +99,9 @@ async function acquireGo(version: string, gotipRef: string, bootstrapGo: string)
         if (!workTree) {
           // We found gotip.git in cache, but not the work tree.
           //
-          workTree = path.join(extPath, filename);
+          // Also append commit hash to prevent conflicts with
+          // other checkouts.
+          workTree = path.join(extPath, filename, commitHash);
           // Work tree must exist, otherwise Git will complain
           // that “this operation must be run in a work tree”.
           await io.mkdirP(workTree);
@@ -122,6 +124,10 @@ async function acquireGo(version: string, gotipRef: string, bootstrapGo: string)
         const env = {
           'GOROOT_BOOTSTRAP': bootstrap,
           ...process.env,
+          // Tell Git where to look for the repo. Git will be invoked
+          // by cmd/dist to find Go version and write VERSION file.
+          'GIT_DIR': gitDir,
+          'GIT_WORK_TREE': workTree,
           // Note that while we disable Cgo for tip builds, it does
           // not disable Cgo entirely. Moreover, we override this
           // value in setGoEnvironmentVariables with whatever the
