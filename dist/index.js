@@ -4506,15 +4506,8 @@ module.exports = bytesToUuid;
 
 "use strict";
 
-var __importStar = (this && this.__importStar) || function (mod) {
-    if (mod && mod.__esModule) return mod;
-    var result = {};
-    if (mod != null) for (var k in mod) if (Object.hasOwnProperty.call(mod, k)) result[k] = mod[k];
-    result["default"] = mod;
-    return result;
-};
 Object.defineProperty(exports, "__esModule", { value: true });
-const os = __importStar(__webpack_require__(87));
+let os = __webpack_require__(87);
 function getPlatform() {
     // darwin and linux match already
     // freebsd not supported yet but future proofed.
@@ -4536,9 +4529,9 @@ function getArch() {
         case 'x64':
             arch = 'amd64';
             break;
-        case 'ppc':
-            arch = 'ppc64';
-            break;
+        // case 'ppc':
+        //   arch = 'ppc64';
+        //   break;
         case 'x32':
             arch = '386';
             break;

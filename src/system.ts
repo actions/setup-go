@@ -1,4 +1,4 @@
-import * as os from 'os';
+let os = require('os');
 
 export function getPlatform(): string {
   // darwin and linux match already
@@ -25,9 +25,9 @@ export function getArch(): string {
     case 'x64':
       arch = 'amd64';
       break;
-    case 'ppc':
-      arch = 'ppc64';
-      break;
+    // case 'ppc':
+    //   arch = 'ppc64';
+    //   break;
     case 'x32':
       arch = '386';
       break;

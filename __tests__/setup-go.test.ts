@@ -26,8 +26,8 @@ describe('setup-go', () => {
     findSpy = jest.spyOn(tc, 'find');
     inSpy = jest.spyOn(core, 'getInput');
     cnSpy = jest.spyOn(process.stdout, 'write');
-    platSpy = jest.spyOn(sys, 'getPlatform');
-    archSpy = jest.spyOn(sys, 'getArch');
+    platSpy = jest.spyOn(os, 'platform');
+    archSpy = jest.spyOn(os, 'arch');
     dlSpy = jest.spyOn(tc, 'downloadTool');
     exSpy = jest.spyOn(tc, 'extractTar');
     cacheSpy = jest.spyOn(tc, 'cacheDir');
@@ -78,7 +78,7 @@ describe('setup-go', () => {
 
   it('downloads a version not in the cache', async () => {
     platSpy.mockImplementation(() => 'linux');
-    archSpy.mockImplementation(() => 'amd64');
+    archSpy.mockImplementation(() => 'x64');
 
     inSpy.mockImplementation(() => '1.13.1');
     findSpy.mockImplementation(() => '');
@@ -97,7 +97,7 @@ describe('setup-go', () => {
 
   it('does not find a version that does not exist', async () => {
     platSpy.mockImplementation(() => 'linux');
-    archSpy.mockImplementation(() => 'amd64');
+    archSpy.mockImplementation(() => 'x64');
 
     inSpy.mockImplementation(() => '9.99.9');
     findSpy.mockImplementation(() => '');
@@ -118,8 +118,8 @@ describe('setup-go', () => {
   });
 
   it('finds stable match for exact version', async () => {
-    platSpy.mockImplementation(() => 'windows');
-    archSpy.mockImplementation(() => 'amd64');
+    platSpy.mockImplementation(() => 'win32');
+    archSpy.mockImplementation(() => 'x64');
 
     // get request is already mocked
     // spec: 1.13.7 => 1.13.7 (exact)
@@ -133,7 +133,7 @@ describe('setup-go', () => {
 
   it('finds stable match for exact dot zero version', async () => {
     platSpy.mockImplementation(() => 'darwin');
-    archSpy.mockImplementation(() => 'amd64');
+    archSpy.mockImplementation(() => 'x64');
 
     // spec: 1.13.0 => 1.13
     let match: im.IGoVersion | undefined = await im.findMatch('1.13.0', true);
@@ -146,7 +146,7 @@ describe('setup-go', () => {
 
   it('finds latest patch version for minor version spec', async () => {
     platSpy.mockImplementation(() => 'linux');
-    archSpy.mockImplementation(() => 'amd64');
+    archSpy.mockImplementation(() => 'x64');
     core.debug('plat mocks ok');
 
     // spec: 1.13 => 1.13.7 (latest)
@@ -160,7 +160,7 @@ describe('setup-go', () => {
 
   it('finds latest patch version for caret version spec', async () => {
     platSpy.mockImplementation(() => 'linux');
-    archSpy.mockImplementation(() => 'amd64');
+    archSpy.mockImplementation(() => 'x64');
 
     // spec: ^1.13.6 => 1.13.7
     let match: im.IGoVersion | undefined = await im.findMatch('^1.13.6', true);
@@ -172,8 +172,8 @@ describe('setup-go', () => {
   });
 
   it('finds latest version for major version spec', async () => {
-    platSpy.mockImplementation(() => 'linux');
-    archSpy.mockImplementation(() => 'amd64');
+    platSpy.mockImplementation(() => 'windows');
+    archSpy.mockImplementation(() => 'x32');
 
     // spec: 1 => 1.13.7 (latest)
     let match: im.IGoVersion | undefined = await im.findMatch('1', true);
@@ -181,6 +181,6 @@ describe('setup-go', () => {
     let version: string = match ? match.version : '';
     expect(version).toBe('go1.13.7');
     let fileName = match ? match.files[0].filename : '';
-    expect(fileName).toBe('go1.13.7.linux-amd64.tar.gz');
+    expect(fileName).toBe('go1.13.7.windows-386.zip');
   });
 });
