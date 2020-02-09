@@ -1,0 +1,29 @@
+name: go-versions
+on:
+    push:
+      branches:
+        - master
+      paths-ignore:
+        - '**.md'
+    pull_request:
+      paths-ignore:
+        - '**.md'
+jobs:
+  run:
+    name: Go
+    runs-on: ${{ matrix.operating-system }}
+    strategy:
+      matrix:
+        operating-system: [ubuntu-latest, windows-latest, macos-latest]
+        version: [1.13, 1.12.9]
+    steps:
+    - name: Checkout
+      uses: actions/checkout@v2
+
+    - name: setup-go ${{ matrix.version }}
+      uses: ./
+      with:
+        go-version: ${{ matrix.version}}
+
+    - name: go version
+      run: go version
