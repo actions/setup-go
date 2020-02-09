@@ -4617,7 +4617,7 @@ function findMatch(versionSpec, stable) {
         const dlUrl = 'https://golang.org/dl/?mode=json&include=all';
         let candidates = yield module.exports.getVersions(dlUrl);
         if (!candidates) {
-            throw new Error(`golang download url did not return results: ${dlUrl}`);
+            throw new Error(`golang download url did not return results`);
         }
         let goFile;
         for (let i = 0; i < candidates.length; i++) {
@@ -4656,8 +4656,7 @@ function getVersions(dlUrl) {
     return __awaiter(this, void 0, void 0, function* () {
         // this returns versions descending so latest is first
         let http = new httpm.HttpClient('setup-go');
-        let candidates = (yield http.getJson(dlUrl)).result;
-        return candidates;
+        return (yield http.getJson(dlUrl)).result;
     });
 }
 exports.getVersions = getVersions;

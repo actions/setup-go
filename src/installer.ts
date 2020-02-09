@@ -68,7 +68,7 @@ export async function findMatch(
   const dlUrl: string = 'https://golang.org/dl/?mode=json&include=all';
   let candidates: IGoVersion[] | null = await module.exports.getVersions(dlUrl);
   if (!candidates) {
-    throw new Error(`golang download url did not return results: ${dlUrl}`);
+    throw new Error(`golang download url did not return results`);
   }
 
   let goFile: IGoVersionFile | undefined;
@@ -111,9 +111,5 @@ export async function findMatch(
 export async function getVersions(dlUrl: string): Promise<IGoVersion[] | null> {
   // this returns versions descending so latest is first
   let http: httpm.HttpClient = new httpm.HttpClient('setup-go');
-  let candidates: IGoVersion[] | null = (await http.getJson<IGoVersion[]>(
-    dlUrl
-  )).result;
-
-  return candidates;
+  return (await http.getJson<IGoVersion[]>(dlUrl)).result;
 }

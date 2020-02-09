@@ -108,6 +108,38 @@ describe('setup-go', () => {
     );
   });
 
+  it('reports a failed download', async () => {
+    let errMsg = 'unhandled download message';
+    platSpy.mockImplementation(() => 'linux');
+    archSpy.mockImplementation(() => 'x64');
+
+    inSpy.mockImplementation(() => '1.13.1');
+    findSpy.mockImplementation(() => '');
+    dlSpy.mockImplementation(() => {
+      throw new Error(errMsg);
+    });
+    await run();
+
+    expect(cnSpy).toHaveBeenCalledWith(
+      `::error::Failed to download version 1.13.1: Error: ${errMsg}${os.EOL}`
+    );
+  });
+
+  it('reports empty query results', async () => {
+    let errMsg = 'unhandled download message';
+    platSpy.mockImplementation(() => 'linux');
+    archSpy.mockImplementation(() => 'x64');
+
+    inSpy.mockImplementation(() => '1.13.1');
+    findSpy.mockImplementation(() => '');
+    getSpy.mockImplementation(() => null);
+    await run();
+
+    expect(cnSpy).toHaveBeenCalledWith(
+      `::error::Failed to download version 1.13.1: Error: golang download url did not return results${os.EOL}`
+    );
+  });
+
   it('can query versions', async () => {
     let versions: im.IGoVersion[] | null = await im.getVersions(
       'https://non.existant.com/path'
