@@ -4583,26 +4583,33 @@ const path = __importStar(__webpack_require__(622));
 const semver = __importStar(__webpack_require__(280));
 const httpm = __importStar(__webpack_require__(539));
 const sys = __importStar(__webpack_require__(737));
+const core_1 = __webpack_require__(470);
 function downloadGo(versionSpec, stable) {
     return __awaiter(this, void 0, void 0, function* () {
         let toolPath;
         try {
             let match = yield findMatch(versionSpec, stable);
             if (match) {
+                console.log('match', match.version);
+            }
+            if (match) {
                 // download
+                core_1.debug(`match ${match.version}`);
                 let downloadUrl = `https://storage.googleapis.com/golang/${match.files[0].filename}`;
                 let downloadPath = yield tc.downloadTool(downloadUrl);
+                core_1.debug(`downloaded to ${downloadPath}`);
                 // extract
                 let extPath = sys.getPlatform() == 'windows'
                     ? yield tc.extractZip(downloadPath)
                     : yield tc.extractTar(downloadPath);
+                core_1.debug(`extracted to ${extPath}`);
                 // extracts with a root folder that matches the fileName downloaded
                 const toolRoot = path.join(extPath, 'go');
                 toolPath = yield tc.cacheDir(toolRoot, 'go', versionSpec);
             }
         }
         catch (error) {
-            throw `Failed to download version ${versionSpec}: ${error}`;
+            throw new Error(`Failed to download version ${versionSpec}: ${error}`);
         }
         return toolPath;
     });
@@ -4612,6 +4619,7 @@ function findMatch(versionSpec, stable) {
     return __awaiter(this, void 0, void 0, function* () {
         let archFilter = sys.getArch();
         let platFilter = sys.getPlatform();
+        let result;
         let match;
         const dlUrl = 'https://golang.org/dl/?mode=json&include=all';
         let candidates = yield module.exports.getVersions(dlUrl);
@@ -4621,6 +4629,7 @@ function findMatch(versionSpec, stable) {
         let goFile;
         for (let i = 0; i < candidates.length; i++) {
             let candidate = candidates[i];
+            console.log(JSON.stringify(candidate, null, 2));
             let version = candidate.version.replace('go', '');
             // 1.13.0 is advertised as 1.13 preventing being able to match exactly 1.13.0
             // since a semver of 1.13 would match latest 1.13
@@ -4628,20 +4637,25 @@ function findMatch(versionSpec, stable) {
             if (parts.length == 2) {
                 version = version + '.0';
             }
+            core_1.debug(`check ${version} satisfies ${versionSpec}`);
             if (semver.satisfies(version, versionSpec) && candidate.stable == stable) {
                 goFile = candidate.files.find(file => {
+                    core_1.debug(`${file.arch}===${archFilter} && ${file.os}===${platFilter}`);
                     return file.arch === archFilter && file.os === platFilter;
                 });
                 if (goFile) {
+                    core_1.debug(`matched ${candidate.version}`);
                     match = candidate;
                     break;
                 }
             }
         }
         if (match && goFile) {
-            match.files = [goFile];
+            // clone since we're mutating the file list to be only the file that matches
+            result = Object.assign({}, match);
+            result.files = [goFile];
         }
-        return match;
+        return result;
     });
 }
 exports.findMatch = findMatch;

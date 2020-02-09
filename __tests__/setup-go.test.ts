@@ -13,27 +13,29 @@ let goJsonData = require('./data/golang-dl.json');
 
 describe('setup-go', () => {
   let inSpy: jest.SpyInstance;
-  let tcSpy: jest.SpyInstance;
+  let findSpy: jest.SpyInstance;
   let cnSpy: jest.SpyInstance;
   let getSpy: jest.SpyInstance;
   let platSpy: jest.SpyInstance;
   let archSpy: jest.SpyInstance;
   let dlSpy: jest.SpyInstance;
   let exSpy: jest.SpyInstance;
+  let cacheSpy: jest.SpyInstance;
 
   beforeEach(() => {
-    tcSpy = jest.spyOn(tc, 'find');
+    findSpy = jest.spyOn(tc, 'find');
     inSpy = jest.spyOn(core, 'getInput');
     cnSpy = jest.spyOn(process.stdout, 'write');
     platSpy = jest.spyOn(sys, 'getPlatform');
     archSpy = jest.spyOn(sys, 'getArch');
     dlSpy = jest.spyOn(tc, 'downloadTool');
     exSpy = jest.spyOn(tc, 'extractTar');
+    cacheSpy = jest.spyOn(tc, 'cacheDir');
     getSpy = jest.spyOn(im, 'getVersions');
     getSpy.mockImplementation(() => <im.IGoVersion[]>goJsonData);
     cnSpy.mockImplementation(line => {
       // uncomment to debug
-      //process.stderr.write('write2:' + line + '\n');
+      // process.stderr.write('write2:' + line + '\n');
     });
   });
 
@@ -47,7 +49,7 @@ describe('setup-go', () => {
   it('finds a version of go already in the cache', async () => {
     inSpy.mockImplementation(() => '1.13.0');
     let toolPath = path.normalize('/cache/go/1.13.0/x64');
-    tcSpy.mockImplementation(() => toolPath);
+    findSpy.mockImplementation(() => toolPath);
     await run();
 
     let expPath = path.join(toolPath, 'bin');
@@ -57,7 +59,7 @@ describe('setup-go', () => {
   it('finds a version in the cache and adds it to the path', async () => {
     let toolPath = path.normalize('/cache/go/1.13.0/x64');
     inSpy.mockImplementation(() => '1.13.0');
-    tcSpy.mockImplementation(() => toolPath);
+    findSpy.mockImplementation(() => toolPath);
     await run();
 
     let expPath = path.join(toolPath, 'bin');
@@ -67,11 +69,43 @@ describe('setup-go', () => {
   it('handles unhandled error and reports error', async () => {
     let errMsg = 'unhandled error message';
     inSpy.mockImplementation(() => '1.13.0');
-    tcSpy.mockImplementation(() => {
+    findSpy.mockImplementation(() => {
       throw new Error(errMsg);
     });
     await run();
     expect(cnSpy).toHaveBeenCalledWith('::error::' + errMsg + os.EOL);
+  });
+
+  it('downloads a version not in the cache', async () => {
+    platSpy.mockImplementation(() => 'linux');
+    archSpy.mockImplementation(() => 'amd64');
+
+    inSpy.mockImplementation(() => '1.13.1');
+    findSpy.mockImplementation(() => '');
+    dlSpy.mockImplementation(() => '/some/temp/path');
+    let toolPath = path.normalize('/cache/go/1.13.0/x64');
+    exSpy.mockImplementation(() => '/some/other/temp/path');
+    cacheSpy.mockImplementation(() => toolPath);
+    await run();
+
+    let expPath = path.join(toolPath, 'bin');
+
+    expect(dlSpy).toHaveBeenCalled();
+    expect(exSpy).toHaveBeenCalled();
+    expect(cnSpy).toHaveBeenCalledWith(`::add-path::${expPath}${os.EOL}`);
+  });
+
+  it('does not find a version that does not exist', async () => {
+    platSpy.mockImplementation(() => 'linux');
+    archSpy.mockImplementation(() => 'amd64');
+
+    inSpy.mockImplementation(() => '9.99.9');
+    findSpy.mockImplementation(() => '');
+    await run();
+
+    expect(cnSpy).toHaveBeenCalledWith(
+      `::error::Could not find a version that satisfied version spec: 9.99.9${os.EOL}`
+    );
   });
 
   it('can query versions', async () => {
@@ -84,21 +118,21 @@ describe('setup-go', () => {
   });
 
   it('finds stable match for exact version', async () => {
-    platSpy.mockImplementation(() => 'linux');
+    platSpy.mockImplementation(() => 'windows');
     archSpy.mockImplementation(() => 'amd64');
 
     // get request is already mocked
-    // spec: 1.13.1 => 1.13.1 (exact)
-    let match: im.IGoVersion | undefined = await im.findMatch('1.13.1', true);
+    // spec: 1.13.7 => 1.13.7 (exact)
+    let match: im.IGoVersion | undefined = await im.findMatch('1.13.7', true);
     expect(match).toBeDefined();
     let version: string = match ? match.version : '';
-    expect(version).toBe('go1.13.1');
+    expect(version).toBe('go1.13.7');
     let fileName = match ? match.files[0].filename : '';
-    expect(fileName).toBe('go1.13.1.linux-amd64.tar.gz');
+    expect(fileName).toBe('go1.13.7.windows-amd64.zip');
   });
 
   it('finds stable match for exact dot zero version', async () => {
-    platSpy.mockImplementation(() => 'linux');
+    platSpy.mockImplementation(() => 'darwin');
     archSpy.mockImplementation(() => 'amd64');
 
     // spec: 1.13.0 => 1.13
@@ -107,12 +141,13 @@ describe('setup-go', () => {
     let version: string = match ? match.version : '';
     expect(version).toBe('go1.13');
     let fileName = match ? match.files[0].filename : '';
-    expect(fileName).toBe('go1.13.linux-amd64.tar.gz');
+    expect(fileName).toBe('go1.13.darwin-amd64.tar.gz');
   });
 
   it('finds latest patch version for minor version spec', async () => {
     platSpy.mockImplementation(() => 'linux');
     archSpy.mockImplementation(() => 'amd64');
+    core.debug('plat mocks ok');
 
     // spec: 1.13 => 1.13.7 (latest)
     let match: im.IGoVersion | undefined = await im.findMatch('1.13', true);
