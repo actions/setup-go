@@ -10,8 +10,10 @@ export async function run() {
     // If not supplied then problem matchers will still be setup.  Useful for self-hosted.
     //
     let versionSpec = core.getInput('go-version');
-    let stable: boolean =
-      (core.getInput('stable') || '').toUpperCase() == 'TRUE';
+    
+    // stable will be true unless false is the exact input
+    // since getting unstable versions should be explicit
+    let stable = Boolean(core.getInput('stable') || 'true');
 
     if (versionSpec) {
       let installDir: string | undefined = tc.find('go', versionSpec);

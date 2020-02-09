@@ -1287,7 +1287,9 @@ function run() {
             // If not supplied then problem matchers will still be setup.  Useful for self-hosted.
             //
             let versionSpec = core.getInput('go-version');
-            let stable = (core.getInput('stable') || '').toUpperCase() == 'TRUE';
+            // stable will be true unless false is the exact input
+            // since getting unstable versions should be explicit
+            let stable = Boolean(core.getInput('stable') || 'true');
             if (versionSpec) {
                 let installDir = tc.find('go', versionSpec);
                 if (!installDir) {
@@ -4588,7 +4590,7 @@ function downloadGo(versionSpec, stable) {
             let match = yield findMatch(versionSpec, stable);
             if (match) {
                 // download
-                let downloadUrl = `https://storage.googleapis.com/golang/${match.files[0]}`;
+                let downloadUrl = `https://storage.googleapis.com/golang/${match.files[0].filename}`;
                 let downloadPath = yield tc.downloadTool(downloadUrl);
                 // extract
                 let extPath = sys.getPlatform() == 'windows'
@@ -4628,7 +4630,6 @@ function findMatch(versionSpec, stable) {
             if (parts.length == 2) {
                 version = version + '.0';
             }
-            //console.log(version, versionSpec);
             if (semver.satisfies(version, versionSpec) && candidate.stable == stable) {
                 goFile = candidate.files.find(file => {
                     return file.arch === archFilter && file.os === platFilter;

@@ -15,7 +15,7 @@ export async function downloadGo(
 
     if (match) {
       // download
-      let downloadUrl: string = `https://storage.googleapis.com/golang/${match.files[0]}`;
+      let downloadUrl: string = `https://storage.googleapis.com/golang/${match.files[0].filename}`;
       let downloadPath: string = await tc.downloadTool(downloadUrl);
 
       // extract
@@ -80,7 +80,6 @@ export async function findMatch(
       version = version + '.0';
     }
 
-    //console.log(version, versionSpec);
     if (semver.satisfies(version, versionSpec) && candidate.stable == stable) {
       goFile = candidate.files.find(file => {
         return file.arch === archFilter && file.os === platFilter;
