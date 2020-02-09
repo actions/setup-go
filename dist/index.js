@@ -4558,7 +4558,7 @@ module.exports = require("fs");
 /***/ }),
 
 /***/ 749:
-/***/ (function(__unusedmodule, exports, __webpack_require__) {
+/***/ (function(module, exports, __webpack_require__) {
 
 "use strict";
 
@@ -4614,9 +4614,7 @@ function findMatch(versionSpec, stable) {
         let platFilter = sys.getPlatform();
         let match;
         const dlUrl = 'https://golang.org/dl/?mode=json&include=all';
-        // this returns versions descending so latest is first
-        let http = new httpm.HttpClient('setup-go');
-        let candidates = (yield http.getJson(dlUrl)).result;
+        let candidates = yield module.exports.getVersions(dlUrl);
         if (!candidates) {
             throw new Error(`golang download url did not return results: ${dlUrl}`);
         }
@@ -4647,6 +4645,15 @@ function findMatch(versionSpec, stable) {
     });
 }
 exports.findMatch = findMatch;
+function getVersions(dlUrl) {
+    return __awaiter(this, void 0, void 0, function* () {
+        // this returns versions descending so latest is first
+        let http = new httpm.HttpClient('setup-go');
+        let candidates = (yield http.getJson(dlUrl)).result;
+        return candidates;
+    });
+}
+exports.getVersions = getVersions;
 
 
 /***/ }),

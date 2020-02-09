@@ -20,7 +20,7 @@ describe('setup-go', () => {
   let archSpy: jest.SpyInstance;
   let dlSpy: jest.SpyInstance;
   let exSpy: jest.SpyInstance;
-  let http: httpm.HttpClient = new httpm.HttpClient('setup-go-tests');
+  //let http: httpm.HttpClient = new httpm.HttpClient('setup-go-tests');
 
   beforeEach(() => {
     tcSpy = jest.spyOn(tc, 'find');
@@ -30,13 +30,7 @@ describe('setup-go', () => {
     archSpy = jest.spyOn(sys, 'getArch');
     dlSpy = jest.spyOn(tc, 'downloadTool');
     exSpy = jest.spyOn(tc, 'extractTar');
-    getSpy = jest.spyOn(http, 'getJson');
-    getSpy.mockImplementation(
-      () =>
-        <ITypedResponse<im.IGoVersion[]>>{
-          result: goJsonData
-        }
-    );
+    getSpy = jest.spyOn(im, 'getVersions');
     cnSpy.mockImplementation(line => {
       // uncomment to debug
       //process.stderr.write('write2:' + line + '\n');
@@ -82,19 +76,21 @@ describe('setup-go', () => {
   });
 
   it('can mock go versions query', async () => {
-    let r: ITypedResponse<im.IGoVersion[]> = await http.getJson<
-      im.IGoVersion[]
-    >('https://asite.notexist.com/path');
-    expect(r).toBeDefined();
-    let versions = r.result;
+    getSpy.mockImplementation(
+      () => <im.IGoVersion[]>goJsonData
+    );
+    let versions: im.IGoVersion[] | null = await im.getVersions('https://non.existant.com/path');
     expect(versions).toBeDefined();
     let l: number = versions ? versions.length : 0;
-    expect(l).toBe(76);
+    expect(l).toBe(91);
   });
 
   it('finds stable match for exact version', async () => {
     platSpy.mockImplementation(() => 'linux');
     archSpy.mockImplementation(() => 'amd64');
+    getSpy.mockImplementation(
+      () => <im.IGoVersion[]>goJsonData
+    );
 
     // get request is already mocked
     // spec: 1.13.1 => 1.13.1 (exact)
