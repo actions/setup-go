@@ -10,22 +10,24 @@ export async function run() {
     // If not supplied then problem matchers will still be setup.  Useful for self-hosted.
     //
     let versionSpec = core.getInput('go-version');
-    let stable: boolean = (core.getInput('stable') || '').toUpperCase() == "TRUE";
+    let stable: boolean =
+      (core.getInput('stable') || '').toUpperCase() == 'TRUE';
 
     if (versionSpec) {
-        let installDir: string | undefined = tc.find('go', versionSpec);
+      let installDir: string | undefined = tc.find('go', versionSpec);
 
-        if (!installDir) {
-            installDir = await installer.downloadGo(versionSpec, stable);
-        }
-        
-        if (installDir) {
-            core.exportVariable('GOROOT', installDir);
-            core.addPath(path.join(installDir, 'bin'));
-        }   
-        else {
-            throw new Error(`Could not find a version that satisfied version spec: ${versionSpec}`);
-        }
+      if (!installDir) {
+        installDir = await installer.downloadGo(versionSpec, stable);
+      }
+
+      if (installDir) {
+        core.exportVariable('GOROOT', installDir);
+        core.addPath(path.join(installDir, 'bin'));
+      } else {
+        throw new Error(
+          `Could not find a version that satisfied version spec: ${versionSpec}`
+        );
+      }
     }
 
     // add problem matchers

@@ -1287,7 +1287,7 @@ function run() {
             // If not supplied then problem matchers will still be setup.  Useful for self-hosted.
             //
             let versionSpec = core.getInput('go-version');
-            let stable = (core.getInput('stable') || '').toUpperCase() == "TRUE";
+            let stable = (core.getInput('stable') || '').toUpperCase() == 'TRUE';
             if (versionSpec) {
                 let installDir = tc.find('go', versionSpec);
                 if (!installDir) {
@@ -4591,8 +4591,9 @@ function downloadGo(versionSpec, stable) {
                 let downloadUrl = `https://storage.googleapis.com/golang/${match.files[0]}`;
                 let downloadPath = yield tc.downloadTool(downloadUrl);
                 // extract
-                let extPath = sys.getPlatform() == 'windows' ?
-                    yield tc.extractZip(downloadPath) : yield tc.extractTar(downloadPath);
+                let extPath = sys.getPlatform() == 'windows'
+                    ? yield tc.extractZip(downloadPath)
+                    : yield tc.extractTar(downloadPath);
                 // extracts with a root folder that matches the fileName downloaded
                 const toolRoot = path.join(extPath, 'go');
                 toolPath = yield tc.cacheDir(toolRoot, 'go', versionSpec);
@@ -4638,7 +4639,6 @@ function findMatch(versionSpec, stable) {
                 }
             }
         }
-        ;
         if (match && goFile) {
             match.files = [goFile];
         }
