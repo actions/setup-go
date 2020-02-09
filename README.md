@@ -11,6 +11,22 @@ This action sets up a go environment for use in actions by:
 - optionally downloading and caching a version of Go by version and adding to PATH
 - registering problem matchers for error output
 
+# V2 Beta
+
+The V2 beta offers:
+- Proxy Support
+- stable input 
+- Bug Fixes (including issues around version matching and semver)
+
+```yaml
+steps:
+- uses: actions/checkout@v2
+- uses: actions/setup-go@v2-beta
+  with:
+    go-version: '^1.13.1' # The Go version to download (if necessary) and use.
+- run: go version
+```
+
 # Usage
 
 See [action.yml](action.yml)

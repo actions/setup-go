@@ -96,7 +96,7 @@ export async function findMatch(
 
 export async function getVersions(dlUrl: string): Promise<IGoVersion[] | null> {
   // this returns versions descending so latest is first
-  let http: httpm.HttpClient = new httpm.HttpClient('setup-go');  
+  let http: httpm.HttpClient = new httpm.HttpClient('setup-go');
   let candidates: IGoVersion[] | null = (await http.getJson<IGoVersion[]>(
     dlUrl
   )).result;
