@@ -1296,12 +1296,12 @@ function run() {
                 if (!installDir) {
                     console.log(`A version satisfying ${versionSpec} not found locally, attempting to download ...`);
                     installDir = yield installer.downloadGo(versionSpec, stable);
-                    console.log('installed');
+                    console.log('Installed');
                 }
                 if (installDir) {
                     core.exportVariable('GOROOT', installDir);
                     core.addPath(path.join(installDir, 'bin'));
-                    console.log('added to the path');
+                    console.log('Added go to the path');
                 }
                 else {
                     throw new Error(`Could not find a version that satisfied version spec: ${versionSpec}`);
