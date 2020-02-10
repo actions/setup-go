@@ -13,7 +13,7 @@ export async function run() {
 
     // stable will be true unless false is the exact input
     // since getting unstable versions should be explicit
-    let stable = Boolean(core.getInput('stable') || 'true');
+    let stable = (core.getInput('stable') || 'true').toUpperCase() === 'TRUE';
 
     console.log(
       `Setup go ${stable ? 'stable' : ''} version spec ${versionSpec}`

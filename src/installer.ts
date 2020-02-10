@@ -84,7 +84,10 @@ export async function findMatch(
     }
 
     debug(`check ${version} satisfies ${versionSpec}`);
-    if (semver.satisfies(version, versionSpec) && candidate.stable == stable) {
+    if (
+      semver.satisfies(version, versionSpec) &&
+      (!stable || candidate.stable === stable)
+    ) {
       goFile = candidate.files.find(file => {
         debug(`${file.arch}===${archFilter} && ${file.os}===${platFilter}`);
         return file.arch === archFilter && file.os === platFilter;

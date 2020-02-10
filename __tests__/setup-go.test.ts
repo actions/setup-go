@@ -1,7 +1,7 @@
 import * as tc from '@actions/tool-cache';
 import * as core from '@actions/core';
 import fs = require('fs');
-import os = require('os');
+import osm = require('os');
 import path = require('path');
 import {run} from '../src/main';
 import * as httpm from '@actions/http-client';
@@ -12,9 +12,13 @@ import {ITypedResponse} from '@actions/http-client/interfaces';
 let goJsonData = require('./data/golang-dl.json');
 
 describe('setup-go', () => {
+  let inputs = {} as any;
+  let os = {} as any;
+
   let inSpy: jest.SpyInstance;
   let findSpy: jest.SpyInstance;
   let cnSpy: jest.SpyInstance;
+  let logSpy: jest.SpyInstance;
   let getSpy: jest.SpyInstance;
   let platSpy: jest.SpyInstance;
   let archSpy: jest.SpyInstance;
@@ -23,19 +27,36 @@ describe('setup-go', () => {
   let cacheSpy: jest.SpyInstance;
 
   beforeEach(() => {
-    findSpy = jest.spyOn(tc, 'find');
+    // @actions/core
+    inputs = {};
     inSpy = jest.spyOn(core, 'getInput');
-    cnSpy = jest.spyOn(process.stdout, 'write');
-    platSpy = jest.spyOn(os, 'platform');
-    archSpy = jest.spyOn(os, 'arch');
+    inSpy.mockImplementation(name => inputs[name]);
+
+    // node 'os'
+    os = {};
+    platSpy = jest.spyOn(osm, 'platform');
+    platSpy.mockImplementation(() => os['platform']);
+    archSpy = jest.spyOn(osm, 'arch');
+    archSpy.mockImplementation(() => os['arch']);
+
+    // @actions/tool-cache
+    findSpy = jest.spyOn(tc, 'find');
     dlSpy = jest.spyOn(tc, 'downloadTool');
     exSpy = jest.spyOn(tc, 'extractTar');
     cacheSpy = jest.spyOn(tc, 'cacheDir');
     getSpy = jest.spyOn(im, 'getVersions');
+
+    // writes
+    cnSpy = jest.spyOn(process.stdout, 'write');
+    logSpy = jest.spyOn(console, 'log');
     getSpy.mockImplementation(() => <im.IGoVersion[]>goJsonData);
     cnSpy.mockImplementation(line => {
       // uncomment to debug
-      // process.stderr.write('write2:' + line + '\n');
+      // process.stderr.write('write:' + line + '\n');
+    });
+    logSpy.mockImplementation(line => {
+      // uncomment to debug
+      // process.stderr.write('log:' + line + '\n');
     });
   });
 
@@ -47,8 +68,8 @@ describe('setup-go', () => {
   afterAll(async () => {}, 100000);
 
   it('finds stable match for exact dot zero version', async () => {
-    platSpy.mockImplementation(() => 'darwin');
-    archSpy.mockImplementation(() => 'x64');
+    os.platform = 'darwin';
+    os.arch = 'x64';
 
     // spec: 1.13.0 => 1.13
     let match: im.IGoVersion | undefined = await im.findMatch('1.13.0', true);
@@ -60,9 +81,8 @@ describe('setup-go', () => {
   });
 
   it('finds latest patch version for minor version spec', async () => {
-    platSpy.mockImplementation(() => 'linux');
-    archSpy.mockImplementation(() => 'x64');
-    core.debug('plat mocks ok');
+    os.platform = 'linux';
+    os.arch = 'x64';
 
     // spec: 1.13 => 1.13.7 (latest)
     let match: im.IGoVersion | undefined = await im.findMatch('1.13', true);
@@ -74,8 +94,8 @@ describe('setup-go', () => {
   });
 
   it('finds latest patch version for caret version spec', async () => {
-    platSpy.mockImplementation(() => 'linux');
-    archSpy.mockImplementation(() => 'x64');
+    os.platform = 'linux';
+    os.arch = 'x64';
 
     // spec: ^1.13.6 => 1.13.7
     let match: im.IGoVersion | undefined = await im.findMatch('^1.13.6', true);
@@ -87,8 +107,8 @@ describe('setup-go', () => {
   });
 
   it('finds latest version for major version spec', async () => {
-    platSpy.mockImplementation(() => 'windows');
-    archSpy.mockImplementation(() => 'x32');
+    os.platform = 'win32';
+    os.arch = 'x32';
 
     // spec: 1 => 1.13.7 (latest)
     let match: im.IGoVersion | undefined = await im.findMatch('1', true);
@@ -99,8 +119,32 @@ describe('setup-go', () => {
     expect(fileName).toBe('go1.13.7.windows-386.zip');
   });
 
+  it('evaluates to stable with input as true', async () => {
+    inputs['go-version'] = '1.13.0';
+    inputs.stable = 'true';
+
+    let toolPath = path.normalize('/cache/go/1.13.0/x64');
+    findSpy.mockImplementation(() => toolPath);
+    await run();
+
+    expect(logSpy).toHaveBeenCalledWith(`Setup go stable version spec 1.13.0`);
+  });
+
+  it('evaluates to stable with no input', async () => {
+    inputs['go-version'] = '1.13.0';
+
+    inSpy.mockImplementation(name => inputs[name]);
+
+    let toolPath = path.normalize('/cache/go/1.13.0/x64');
+    findSpy.mockImplementation(() => toolPath);
+    await run();
+
+    expect(logSpy).toHaveBeenCalledWith(`Setup go stable version spec 1.13.0`);
+  });
+
   it('finds a version of go already in the cache', async () => {
-    inSpy.mockImplementation(() => '1.13.0');
+    inputs['go-version'] = '1.13.0';
+
     let toolPath = path.normalize('/cache/go/1.13.0/x64');
     findSpy.mockImplementation(() => toolPath);
     await run();
@@ -109,30 +153,32 @@ describe('setup-go', () => {
   });
 
   it('finds a version in the cache and adds it to the path', async () => {
+    inputs['go-version'] = '1.13.0';
     let toolPath = path.normalize('/cache/go/1.13.0/x64');
-    inSpy.mockImplementation(() => '1.13.0');
     findSpy.mockImplementation(() => toolPath);
     await run();
 
     let expPath = path.join(toolPath, 'bin');
-    expect(cnSpy).toHaveBeenCalledWith(`::add-path::${expPath}${os.EOL}`);
+    expect(cnSpy).toHaveBeenCalledWith(`::add-path::${expPath}${osm.EOL}`);
   });
 
   it('handles unhandled error and reports error', async () => {
     let errMsg = 'unhandled error message';
-    inSpy.mockImplementation(() => '1.13.0');
+    inputs['go-version'] = '1.13.0';
+
     findSpy.mockImplementation(() => {
       throw new Error(errMsg);
     });
     await run();
-    expect(cnSpy).toHaveBeenCalledWith('::error::' + errMsg + os.EOL);
+    expect(cnSpy).toHaveBeenCalledWith('::error::' + errMsg + osm.EOL);
   });
 
   it('downloads a version not in the cache', async () => {
-    platSpy.mockImplementation(() => 'linux');
-    archSpy.mockImplementation(() => 'x64');
+    os.platform = 'linux';
+    os.arch = 'x64';
 
-    inSpy.mockImplementation(() => '1.13.1');
+    inputs['go-version'] = '1.13.1';
+
     findSpy.mockImplementation(() => '');
     dlSpy.mockImplementation(() => '/some/temp/path');
     let toolPath = path.normalize('/cache/go/1.13.0/x64');
@@ -144,28 +190,30 @@ describe('setup-go', () => {
 
     expect(dlSpy).toHaveBeenCalled();
     expect(exSpy).toHaveBeenCalled();
-    expect(cnSpy).toHaveBeenCalledWith(`::add-path::${expPath}${os.EOL}`);
+    expect(cnSpy).toHaveBeenCalledWith(`::add-path::${expPath}${osm.EOL}`);
   });
 
   it('does not find a version that does not exist', async () => {
-    platSpy.mockImplementation(() => 'linux');
-    archSpy.mockImplementation(() => 'x64');
+    os.platform = 'linux';
+    os.arch = 'x64';
 
-    inSpy.mockImplementation(() => '9.99.9');
+    inputs['go-version'] = '9.99.9';
+
     findSpy.mockImplementation(() => '');
     await run();
 
     expect(cnSpy).toHaveBeenCalledWith(
-      `::error::Could not find a version that satisfied version spec: 9.99.9${os.EOL}`
+      `::error::Could not find a version that satisfied version spec: 9.99.9${osm.EOL}`
     );
   });
 
   it('reports a failed download', async () => {
     let errMsg = 'unhandled download message';
-    platSpy.mockImplementation(() => 'linux');
-    archSpy.mockImplementation(() => 'x64');
+    os.platform = 'linux';
+    os.arch = 'x64';
 
-    inSpy.mockImplementation(() => '1.13.1');
+    inputs['go-version'] = '1.13.1';
+
     findSpy.mockImplementation(() => '');
     dlSpy.mockImplementation(() => {
       throw new Error(errMsg);
@@ -173,22 +221,23 @@ describe('setup-go', () => {
     await run();
 
     expect(cnSpy).toHaveBeenCalledWith(
-      `::error::Failed to download version 1.13.1: Error: ${errMsg}${os.EOL}`
+      `::error::Failed to download version 1.13.1: Error: ${errMsg}${osm.EOL}`
     );
   });
 
   it('reports empty query results', async () => {
     let errMsg = 'unhandled download message';
-    platSpy.mockImplementation(() => 'linux');
-    archSpy.mockImplementation(() => 'x64');
+    os.platform = 'linux';
+    os.arch = 'x64';
 
-    inSpy.mockImplementation(() => '1.13.1');
+    inputs['go-version'] = '1.13.1';
+
     findSpy.mockImplementation(() => '');
     getSpy.mockImplementation(() => null);
     await run();
 
     expect(cnSpy).toHaveBeenCalledWith(
-      `::error::Failed to download version 1.13.1: Error: golang download url did not return results${os.EOL}`
+      `::error::Failed to download version 1.13.1: Error: golang download url did not return results${osm.EOL}`
     );
   });
 
@@ -202,8 +251,8 @@ describe('setup-go', () => {
   });
 
   it('finds stable match for exact version', async () => {
-    platSpy.mockImplementation(() => 'win32');
-    archSpy.mockImplementation(() => 'x64');
+    os.platform = 'win32';
+    os.arch = 'x64';
 
     // get request is already mocked
     // spec: 1.13.7 => 1.13.7 (exact)

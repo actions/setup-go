@@ -1289,7 +1289,7 @@ function run() {
             let versionSpec = core.getInput('go-version');
             // stable will be true unless false is the exact input
             // since getting unstable versions should be explicit
-            let stable = Boolean(core.getInput('stable') || 'true');
+            let stable = (core.getInput('stable') || 'true').toUpperCase() === 'TRUE';
             console.log(`Setup go ${stable ? 'stable' : ''} version spec ${versionSpec}`);
             if (versionSpec) {
                 let installDir = tc.find('go', versionSpec);
@@ -4633,7 +4633,8 @@ function findMatch(versionSpec, stable) {
                 version = version + '.0';
             }
             core_1.debug(`check ${version} satisfies ${versionSpec}`);
-            if (semver.satisfies(version, versionSpec) && candidate.stable == stable) {
+            if (semver.satisfies(version, versionSpec) &&
+                (!stable || candidate.stable === stable)) {
                 goFile = candidate.files.find(file => {
                     core_1.debug(`${file.arch}===${archFilter} && ${file.os}===${platFilter}`);
                     return file.arch === archFilter && file.os === platFilter;
