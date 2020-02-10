@@ -23,7 +23,10 @@ jobs:
     - name: setup-go ${{ matrix.version }}
       uses: ./
       with:
-        go-version: ${{ matrix.version}}
+        go-version: ${{ matrix.version }}
 
-    - name: go version
-      run: go version
+    - name: match ${{ matrix.version }} 
+      run: go version 
+
+    - name: validate version 
+      run: go version | grep "go${{ matrix.version }}"
