@@ -1290,14 +1290,18 @@ function run() {
             // stable will be true unless false is the exact input
             // since getting unstable versions should be explicit
             let stable = Boolean(core.getInput('stable') || 'true');
+            console.log(`Setup go ${stable ? 'stable' : ''} version spec ${versionSpec}`);
             if (versionSpec) {
                 let installDir = tc.find('go', versionSpec);
                 if (!installDir) {
+                    console.log(`A version satisfying ${versionSpec} not found locally, attempting to download ...`);
                     installDir = yield installer.downloadGo(versionSpec, stable);
+                    console.log('installed');
                 }
                 if (installDir) {
                     core.exportVariable('GOROOT', installDir);
                     core.addPath(path.join(installDir, 'bin'));
+                    console.log('added to the path');
                 }
                 else {
                     throw new Error(`Could not find a version that satisfied version spec: ${versionSpec}`);
@@ -4586,9 +4590,11 @@ function downloadGo(versionSpec, stable) {
                 // download
                 core_1.debug(`match ${match.version}`);
                 let downloadUrl = `https://storage.googleapis.com/golang/${match.files[0].filename}`;
+                console.log(`Downloading from ${downloadUrl}`);
                 let downloadPath = yield tc.downloadTool(downloadUrl);
                 core_1.debug(`downloaded to ${downloadPath}`);
                 // extract
+                console.log('Extracting ...');
                 let extPath = sys.getPlatform() == 'windows'
                     ? yield tc.extractZip(downloadPath)
                     : yield tc.extractTar(downloadPath);

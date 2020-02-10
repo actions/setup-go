@@ -15,16 +15,25 @@ export async function run() {
     // since getting unstable versions should be explicit
     let stable = Boolean(core.getInput('stable') || 'true');
 
+    console.log(
+      `Setup go ${stable ? 'stable' : ''} version spec ${versionSpec}`
+    );
+
     if (versionSpec) {
       let installDir: string | undefined = tc.find('go', versionSpec);
 
       if (!installDir) {
+        console.log(
+          `A version satisfying ${versionSpec} not found locally, attempting to download ...`
+        );
         installDir = await installer.downloadGo(versionSpec, stable);
+        console.log('installed');
       }
 
       if (installDir) {
         core.exportVariable('GOROOT', installDir);
         core.addPath(path.join(installDir, 'bin'));
+        console.log('added to the path');
       } else {
         throw new Error(
           `Could not find a version that satisfied version spec: ${versionSpec}`

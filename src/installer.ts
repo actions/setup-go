@@ -18,10 +18,13 @@ export async function downloadGo(
       // download
       debug(`match ${match.version}`);
       let downloadUrl: string = `https://storage.googleapis.com/golang/${match.files[0].filename}`;
+      console.log(`Downloading from ${downloadUrl}`);
+
       let downloadPath: string = await tc.downloadTool(downloadUrl);
       debug(`downloaded to ${downloadPath}`);
 
       // extract
+      console.log('Extracting ...');
       let extPath: string =
         sys.getPlatform() == 'windows'
           ? await tc.extractZip(downloadPath)
