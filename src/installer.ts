@@ -13,9 +13,6 @@ export async function downloadGo(
 
   try {
     let match: IGoVersion | undefined = await findMatch(versionSpec, stable);
-    if (match) {
-      console.log('match', match.version);
-    }
 
     if (match) {
       // download
@@ -74,7 +71,6 @@ export async function findMatch(
   let goFile: IGoVersionFile | undefined;
   for (let i = 0; i < candidates.length; i++) {
     let candidate: IGoVersion = candidates[i];
-    console.log(JSON.stringify(candidate, null, 2));
     let version = candidate.version.replace('go', '');
 
     // 1.13.0 is advertised as 1.13 preventing being able to match exactly 1.13.0

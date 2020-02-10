@@ -4583,9 +4583,6 @@ function downloadGo(versionSpec, stable) {
         try {
             let match = yield findMatch(versionSpec, stable);
             if (match) {
-                console.log('match', match.version);
-            }
-            if (match) {
                 // download
                 core_1.debug(`match ${match.version}`);
                 let downloadUrl = `https://storage.googleapis.com/golang/${match.files[0].filename}`;
@@ -4622,7 +4619,6 @@ function findMatch(versionSpec, stable) {
         let goFile;
         for (let i = 0; i < candidates.length; i++) {
             let candidate = candidates[i];
-            console.log(JSON.stringify(candidate, null, 2));
             let version = candidate.version.replace('go', '');
             // 1.13.0 is advertised as 1.13 preventing being able to match exactly 1.13.0
             // since a semver of 1.13 would match latest 1.13
