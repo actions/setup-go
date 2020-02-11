@@ -1,13 +1,12 @@
 name: 'Setup Go environment'
-description: 'Setup a Go environment and add it to the PATH, additionally providing proxy support'
+description: 'Setup a Go environment and add it to the PATH'
 author: 'GitHub'
 inputs: 
   go-version:
-    description: 'The Go version to download (if necessary) and use. Example: 1.9.3'
-    default: '1.10'
-# Deprecated option, do not use. Will not be supported after October 1, 2019
-  version:
-    description: 'Deprecated. Use go-version instead. Will not be supported after October 1, 2019'
+    description: 'The Go version to download (if necessary) and use. Supports semver spec and ranges.'
+  stable:
+    description: 'Whether to download only stable versions'
+    default: 'true'
 runs:
   using: 'node12'
-  main: 'lib/setup-go.js'
+  main: 'dist/index.js'
