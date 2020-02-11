@@ -74,7 +74,7 @@ export async function findMatch(
   let goFile: IGoVersionFile | undefined;
   for (let i = 0; i < candidates.length; i++) {
     let candidate: IGoVersion = candidates[i];
-    let version = candidate.version.replace('go', '');
+    let version = makeSemver(candidate.version);
 
     // 1.13.0 is advertised as 1.13 preventing being able to match exactly 1.13.0
     // since a semver of 1.13 would match latest 1.13
@@ -114,4 +114,26 @@ export async function getVersions(dlUrl: string): Promise<IGoVersion[] | null> {
   // this returns versions descending so latest is first
   let http: httpm.HttpClient = new httpm.HttpClient('setup-go');
   return (await http.getJson<IGoVersion[]>(dlUrl)).result;
+}
+
+//
+// Convert the go version syntax into semver for semver matching
+// 1.13.1 => 1.13.1
+// 1.13 => 1.13.0
+// 1.10beta1 => 1.10.0-beta1, 1.10rc1 => 1.10.0-rc1
+// 1.8.5beta1 => 1.8.5-beta1, 1.8.5rc1 => 1.8.5-rc1
+export function makeSemver(version: string): string {
+  version = version.replace('go', '');
+  version = version.replace('beta', '-beta').replace('rc', '-rc');
+  let parts = version.split('-');
+
+  let verPart: string = parts[0];
+  let prereleasePart = parts.length > 1 ? `-${parts[1]}` : '';
+
+  let verParts: string[] = verPart.split('.');
+  if (verParts.length == 2) {
+    verPart += '.0';
+  }
+
+  return `${verPart}${prereleasePart}`;
 }

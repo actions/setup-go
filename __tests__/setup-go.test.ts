@@ -67,6 +67,29 @@ describe('setup-go', () => {
 
   afterAll(async () => {}, 100000);
 
+  it('can query versions', async () => {
+    let versions: im.IGoVersion[] | null = await im.getVersions(
+      'https://non.existant.com/path'
+    );
+    expect(versions).toBeDefined();
+    let l: number = versions ? versions.length : 0;
+    expect(l).toBe(91);
+  });
+
+  it('finds stable match for exact version', async () => {
+    os.platform = 'win32';
+    os.arch = 'x64';
+
+    // get request is already mocked
+    // spec: 1.13.7 => 1.13.7 (exact)
+    let match: im.IGoVersion | undefined = await im.findMatch('1.13.7', true);
+    expect(match).toBeDefined();
+    let version: string = match ? match.version : '';
+    expect(version).toBe('go1.13.7');
+    let fileName = match ? match.files[0].filename : '';
+    expect(fileName).toBe('go1.13.7.windows-amd64.zip');
+  });
+
   it('finds stable match for exact dot zero version', async () => {
     os.platform = 'darwin';
     os.arch = 'x64';
@@ -117,6 +140,22 @@ describe('setup-go', () => {
     expect(version).toBe('go1.13.7');
     let fileName = match ? match.files[0].filename : '';
     expect(fileName).toBe('go1.13.7.windows-386.zip');
+  });
+
+  it('finds unstable pre-release version', async () => {
+    os.platform = 'linux';
+    os.arch = 'x64';
+
+    // spec: 1.14, stable=false => go1.14rc1
+    let match: im.IGoVersion | undefined = await im.findMatch(
+      '1.14.0-rc1',
+      false
+    );
+    expect(match).toBeDefined();
+    let version: string = match ? match.version : '';
+    expect(version).toBe('go1.14rc1');
+    let fileName = match ? match.files[0].filename : '';
+    expect(fileName).toBe('go1.14rc1.linux-amd64.tar.gz');
   });
 
   it('evaluates to stable with input as true', async () => {
@@ -241,26 +280,20 @@ describe('setup-go', () => {
     );
   });
 
-  it('can query versions', async () => {
-    let versions: im.IGoVersion[] | null = await im.getVersions(
-      'https://non.existant.com/path'
-    );
-    expect(versions).toBeDefined();
-    let l: number = versions ? versions.length : 0;
-    expect(l).toBe(91);
+  // 1.13.1 => 1.13.1
+  // 1.13 => 1.13.0
+  // 1.10beta1 => 1.10.0-beta1, 1.10rc1 => 1.10.0-rc1
+  // 1.8.5beta1 => 1.8.5-beta1, 1.8.5rc1 => 1.8.5-rc1
+  it('converts prerelease versions', async () => {
+    expect(im.makeSemver('1.10beta1')).toBe('1.10.0-beta1');
+    expect(im.makeSemver('1.10rc1')).toBe('1.10.0-rc1');
   });
 
-  it('finds stable match for exact version', async () => {
-    os.platform = 'win32';
-    os.arch = 'x64';
+  it('converts dot zero versions', async () => {
+    expect(im.makeSemver('1.13')).toBe('1.13.0');
+  });
 
-    // get request is already mocked
-    // spec: 1.13.7 => 1.13.7 (exact)
-    let match: im.IGoVersion | undefined = await im.findMatch('1.13.7', true);
-    expect(match).toBeDefined();
-    let version: string = match ? match.version : '';
-    expect(version).toBe('go1.13.7');
-    let fileName = match ? match.files[0].filename : '';
-    expect(fileName).toBe('go1.13.7.windows-amd64.zip');
+  it('does not convert exact versions', async () => {
+    expect(im.makeSemver('1.13.1')).toBe('1.13.1');
   });
 });
