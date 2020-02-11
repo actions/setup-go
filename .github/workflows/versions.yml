@@ -1,0 +1,44 @@
+name: go-versions
+on:
+    push:
+      branches:
+        - master
+      paths-ignore:
+        - '**.md'
+    pull_request:
+      paths-ignore:
+        - '**.md'
+jobs:
+  run:
+    name: Go
+    runs-on: ${{ matrix.operating-system }}
+    strategy:
+      matrix:
+        operating-system: [ubuntu-latest, windows-latest, macos-latest]
+    steps:
+    - name: Checkout
+      uses: actions/checkout@v2
+
+    - name: setup-go ^1.13.6
+      uses: ./
+      with:
+        go-version: ^1.13.6
+
+    - name: validate version 
+      run: go version | grep "go1.13."
+
+    - name: setup-go 1.13
+      uses: ./
+      with:
+        go-version: 1.13
+
+    - name: validate version 
+      run: go version | grep "go1.13."      
+
+    - name: setup-go 1.12.9
+      uses: ./
+      with:
+        go-version: 1.12.9
+
+    - name: validate version 
+      run: go version | grep "go1.12.9"
