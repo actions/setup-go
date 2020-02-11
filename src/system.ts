@@ -1,4 +1,5 @@
-let os = require('os');
+import * as os from 'os';
+import * as path from 'path';
 
 export function getPlatform(): string {
   // darwin and linux match already
@@ -34,4 +35,18 @@ export function getArch(): string {
   }
 
   return arch;
+}
+
+// Get GOPATH as user value or as defined by https://golang.org/doc/code.html#GOPATH
+export function getGoPath(): string {
+  const home: string = process.env['HOME'] || '';
+  const goPath: string = process.env['GOPATH'] || '';
+
+  if (goPath) {
+    return goPath;
+  } else if (home) {
+    return path.join(home, 'go');
+  }
+
+  return '';
 }

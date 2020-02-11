@@ -1279,6 +1279,7 @@ const core = __importStar(__webpack_require__(470));
 const tc = __importStar(__webpack_require__(533));
 const installer = __importStar(__webpack_require__(749));
 const path = __importStar(__webpack_require__(622));
+const system = __importStar(__webpack_require__(737));
 function run() {
     return __awaiter(this, void 0, void 0, function* () {
         try {
@@ -1302,6 +1303,16 @@ function run() {
                     core.exportVariable('GOROOT', installDir);
                     core.addPath(path.join(installDir, 'bin'));
                     console.log('Added go to the path');
+                    // set GOPATH and GOBIN as user value
+                    const goPath = system.getGoPath();
+                    if (goPath) {
+                        core.exportVariable('GOPATH', goPath);
+                        core.addPath(path.join(goPath, 'bin'));
+                    }
+                    const goBin = process.env['GOBIN'] || '';
+                    if (goBin) {
+                        core.exportVariable('GOBIN', goBin);
+                    }
                 }
                 else {
                     throw new Error(`Could not find a version that satisfied version spec: ${versionSpec}`);
@@ -4510,8 +4521,16 @@ module.exports = bytesToUuid;
 
 "use strict";
 
+var __importStar = (this && this.__importStar) || function (mod) {
+    if (mod && mod.__esModule) return mod;
+    var result = {};
+    if (mod != null) for (var k in mod) if (Object.hasOwnProperty.call(mod, k)) result[k] = mod[k];
+    result["default"] = mod;
+    return result;
+};
 Object.defineProperty(exports, "__esModule", { value: true });
-let os = __webpack_require__(87);
+const os = __importStar(__webpack_require__(87));
+const path = __importStar(__webpack_require__(622));
 function getPlatform() {
     // darwin and linux match already
     // freebsd not supported yet but future proofed.
@@ -4543,6 +4562,19 @@ function getArch() {
     return arch;
 }
 exports.getArch = getArch;
+// Get GOPATH as user value or as defined by https://golang.org/doc/code.html#GOPATH
+function getGoPath() {
+    const home = process.env['HOME'] || '';
+    const goPath = process.env['GOPATH'] || '';
+    if (goPath) {
+        return goPath;
+    }
+    else if (home) {
+        return path.join(home, 'go');
+    }
+    return '';
+}
+exports.getGoPath = getGoPath;
 
 
 /***/ }),
