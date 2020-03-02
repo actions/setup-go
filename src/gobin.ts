@@ -8,6 +8,6 @@ export async function getGOBIN(installDir: string): Promise<string> {
   const goExecutable = path.join(installDir, 'bin', 'go');
 
   const result = await execFile(goExecutable, ['env', 'GOPATH']);
-  const gopath = result.stdout;
+  const gopath = result.stdout.replace(/\s+$/, '');
   return path.join(gopath, 'bin');
 }

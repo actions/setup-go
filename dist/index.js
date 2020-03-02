@@ -3280,7 +3280,7 @@ function getGOBIN(installDir) {
     return __awaiter(this, void 0, void 0, function* () {
         const goExecutable = path.join(installDir, 'bin', 'go');
         const result = yield execFile(goExecutable, ['env', 'GOPATH']);
-        const gopath = result.stdout;
+        const gopath = result.stdout.replace(/\s+$/, '');
         return path.join(gopath, 'bin');
     });
 }

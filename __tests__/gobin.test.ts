@@ -20,4 +20,12 @@ describe('gobin', () => {
     const gobinPath = await gobin.getGOBIN('...');
     expect(gobinPath).toBe(path.join(gopath, 'bin'));
   });
+
+  it('should trim ${GOPATH} before using it', async () => {
+    let trimmed = gopath;
+    gopath = `${gopath}\r\n`;
+
+    const gobinPath = await gobin.getGOBIN('...');
+    expect(gobinPath).toBe(path.join(trimmed, 'bin'));
+  });
 });
