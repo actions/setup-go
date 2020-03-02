@@ -1,13 +1,10 @@
 import * as tc from '@actions/tool-cache';
 import * as core from '@actions/core';
-import fs = require('fs');
 import osm = require('os');
 import path = require('path');
 import {run} from '../src/main';
-import * as httpm from '@actions/http-client';
 import * as im from '../src/installer';
-import * as sys from '../src/system';
-import {ITypedResponse} from '@actions/http-client/interfaces';
+import * as gobin from '../src/gobin';
 
 let goJsonData = require('./data/golang-dl.json');
 
@@ -25,6 +22,7 @@ describe('setup-go', () => {
   let dlSpy: jest.SpyInstance;
   let exSpy: jest.SpyInstance;
   let cacheSpy: jest.SpyInstance;
+  let getGOBINSpy: jest.SpyInstance;
 
   beforeEach(() => {
     // @actions/core
@@ -46,15 +44,18 @@ describe('setup-go', () => {
     cacheSpy = jest.spyOn(tc, 'cacheDir');
     getSpy = jest.spyOn(im, 'getVersions');
 
+    // gobin
+    getGOBINSpy = jest.spyOn(gobin, 'getGOBIN');
+
     // writes
     cnSpy = jest.spyOn(process.stdout, 'write');
     logSpy = jest.spyOn(console, 'log');
     getSpy.mockImplementation(() => <im.IGoVersion[]>goJsonData);
-    cnSpy.mockImplementation(line => {
+    cnSpy.mockImplementation(_line => {
       // uncomment to debug
       // process.stderr.write('write:' + line + '\n');
     });
-    logSpy.mockImplementation(line => {
+    logSpy.mockImplementation(_line => {
       // uncomment to debug
       // process.stderr.write('log:' + line + '\n');
     });
@@ -181,16 +182,6 @@ describe('setup-go', () => {
     expect(logSpy).toHaveBeenCalledWith(`Setup go stable version spec 1.13.0`);
   });
 
-  it('finds a version of go already in the cache', async () => {
-    inputs['go-version'] = '1.13.0';
-
-    let toolPath = path.normalize('/cache/go/1.13.0/x64');
-    findSpy.mockImplementation(() => toolPath);
-    await run();
-
-    let expPath = path.join(toolPath, 'bin');
-  });
-
   it('finds a version in the cache and adds it to the path', async () => {
     inputs['go-version'] = '1.13.0';
     let toolPath = path.normalize('/cache/go/1.13.0/x64');
@@ -199,6 +190,24 @@ describe('setup-go', () => {
 
     let expPath = path.join(toolPath, 'bin');
     expect(cnSpy).toHaveBeenCalledWith(`::add-path::${expPath}${osm.EOL}`);
+  });
+
+  it('finds a version in the cache, sets GOBIN and adds it to the path', async () => {
+    inputs['go-version'] = '1.13.0';
+    let goroot = '/cache/go/1.13.0/x64';
+    let gorootBin = path.join(goroot, 'bin');
+    findSpy.mockImplementation(() => goroot);
+
+    let gobinPath = '/home/user/go/bin';
+    getGOBINSpy.mockImplementation(() => gobinPath);
+
+    await run();
+    expect(cnSpy.mock.calls).toEqual([
+      [`::set-env name=GOROOT::${goroot}${osm.EOL}`],
+      [`::add-path::${gorootBin}${osm.EOL}`],
+      [`::set-env name=GOBIN::${gobinPath}${osm.EOL}`],
+      [`::add-path::${gobinPath}${osm.EOL}`]
+    ]);
   });
 
   it('handles unhandled error and reports error', async () => {
@@ -265,7 +274,6 @@ describe('setup-go', () => {
   });
 
   it('reports empty query results', async () => {
-    let errMsg = 'unhandled download message';
     os.platform = 'linux';
     os.arch = 'x64';
 

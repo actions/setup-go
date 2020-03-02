@@ -2,6 +2,7 @@ import * as core from '@actions/core';
 import * as tc from '@actions/tool-cache';
 import * as installer from './installer';
 import * as path from 'path';
+import * as gobin from './gobin';
 
 export async function run() {
   try {
@@ -34,6 +35,10 @@ export async function run() {
         core.exportVariable('GOROOT', installDir);
         core.addPath(path.join(installDir, 'bin'));
         console.log('Added go to the path');
+
+        const gobinDir = await gobin.getGOBIN(installDir);
+        core.exportVariable('GOBIN', gobinDir);
+        core.addPath(gobinDir);
       } else {
         throw new Error(
           `Could not find a version that satisfied version spec: ${versionSpec}`
