@@ -3275,11 +3275,11 @@ Object.defineProperty(exports, "__esModule", { value: true });
 const childProcess = __importStar(__webpack_require__(129));
 const path = __importStar(__webpack_require__(622));
 const util_1 = __webpack_require__(669);
-const exec = util_1.promisify(childProcess.exec);
+const execFile = util_1.promisify(childProcess.execFile);
 function getGOBIN(installDir) {
     return __awaiter(this, void 0, void 0, function* () {
         const goExecutable = path.join(installDir, 'bin', 'go');
-        const result = yield exec(`${goExecutable} env GOPATH`);
+        const result = yield execFile(goExecutable, ['env', 'GOPATH']);
         const gopath = result.stdout;
         return path.join(gopath, 'bin');
     });

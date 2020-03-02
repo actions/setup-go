@@ -6,12 +6,12 @@ jest.mock('child_process');
 describe('gobin', () => {
   const childProcess = require('child_process');
 
-  let execSpy: jest.SpyInstance;
+  let execFileSpy: jest.SpyInstance;
   let gopath = path.join('home', 'user', 'go');
 
   beforeEach(() => {
-    execSpy = jest.spyOn(childProcess, 'exec');
-    execSpy.mockImplementation((_command, callback) => {
+    execFileSpy = jest.spyOn(childProcess, 'execFile');
+    execFileSpy.mockImplementation((_file, _args, callback) => {
       callback('', {stdout: gopath, stderr: ''});
     });
   });
