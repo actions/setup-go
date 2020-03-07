@@ -33,7 +33,7 @@ jobs:
         go-version: 1.14
 
     - name: validate version
-      run: go version | grep "go1.13."
+      run: go version | grep "go1.14."
 
     - name: setup-go 1.14.0
       uses: ./
