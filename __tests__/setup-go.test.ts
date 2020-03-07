@@ -81,8 +81,8 @@ describe('setup-go', () => {
     os.arch = 'x64';
 
     // get request is already mocked
-    // spec: 1.13.7 => 1.13.7 (exact)
-    let match: im.IGoVersion | undefined = await im.findMatch('1.13.7', true);
+    // spec: 1.13.8 => 1.13.8 (exact)
+    let match: im.IGoVersion | undefined = await im.findMatch('1.13.8', true);
     expect(match).toBeDefined();
     let version: string = match ? match.version : '';
     expect(version).toBe('go1.13.8');
@@ -146,16 +146,16 @@ describe('setup-go', () => {
     os.platform = 'linux';
     os.arch = 'x64';
 
-    // spec: 1.14, stable=false => go1.14rc1
+    // spec: 1.14.1, stable=false => go1.14.1rc1
     let match: im.IGoVersion | undefined = await im.findMatch(
-      '1.14.0-rc1',
+      '1.14.1-rc1',
       false
     );
     expect(match).toBeDefined();
     let version: string = match ? match.version : '';
-    expect(version).toBe('go1.14rc1');
+    expect(version).toBe('go1.14.1rc1');
     let fileName = match ? match.files[0].filename : '';
-    expect(fileName).toBe('go1.14rc1.linux-amd64.tar.gz');
+    expect(fileName).toBe('go1.14.1rc1.linux-amd64.tar.gz');
   });
 
   it('evaluates to stable with input as true', async () => {
