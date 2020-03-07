@@ -142,22 +142,6 @@ describe('setup-go', () => {
     expect(fileName).toBe('go1.14.windows-386.zip');
   });
 
-  it('finds unstable pre-release version', async () => {
-    os.platform = 'linux';
-    os.arch = 'x64';
-
-    // spec: 1.14.1, stable=false => go1.14.1rc1
-    let match: im.IGoVersion | undefined = await im.findMatch(
-      '1.14.1-rc1',
-      false
-    );
-    expect(match).toBeDefined();
-    let version: string = match ? match.version : '';
-    expect(version).toBe('go1.14.1rc1');
-    let fileName = match ? match.files[0].filename : '';
-    expect(fileName).toBe('go1.14.1rc1.linux-amd64.tar.gz');
-  });
-
   it('evaluates to stable with input as true', async () => {
     inputs['go-version'] = '1.13.0';
     inputs.stable = 'true';
