@@ -73,7 +73,7 @@ describe('setup-go', () => {
     );
     expect(versions).toBeDefined();
     let l: number = versions ? versions.length : 0;
-    expect(l).toBe(91);
+    expect(l).toBe(93);
   });
 
   it('finds stable match for exact version', async () => {
@@ -85,9 +85,9 @@ describe('setup-go', () => {
     let match: im.IGoVersion | undefined = await im.findMatch('1.13.7', true);
     expect(match).toBeDefined();
     let version: string = match ? match.version : '';
-    expect(version).toBe('go1.13.7');
+    expect(version).toBe('go1.13.8');
     let fileName = match ? match.files[0].filename : '';
-    expect(fileName).toBe('go1.13.7.windows-amd64.zip');
+    expect(fileName).toBe('go1.13.8.windows-amd64.zip');
   });
 
   it('finds stable match for exact dot zero version', async () => {
@@ -107,39 +107,39 @@ describe('setup-go', () => {
     os.platform = 'linux';
     os.arch = 'x64';
 
-    // spec: 1.13 => 1.13.7 (latest)
+    // spec: 1.13 => 1.13.8 (latest)
     let match: im.IGoVersion | undefined = await im.findMatch('1.13', true);
     expect(match).toBeDefined();
     let version: string = match ? match.version : '';
-    expect(version).toBe('go1.13.7');
+    expect(version).toBe('go1.13.8');
     let fileName = match ? match.files[0].filename : '';
-    expect(fileName).toBe('go1.13.7.linux-amd64.tar.gz');
+    expect(fileName).toBe('go1.13.8.linux-amd64.tar.gz');
   });
 
   it('finds latest patch version for caret version spec', async () => {
     os.platform = 'linux';
     os.arch = 'x64';
 
-    // spec: ^1.13.6 => 1.13.7
+    // spec: ^1.13.6 => 1.14
     let match: im.IGoVersion | undefined = await im.findMatch('^1.13.6', true);
     expect(match).toBeDefined();
     let version: string = match ? match.version : '';
-    expect(version).toBe('go1.13.7');
+    expect(version).toBe('go1.14');
     let fileName = match ? match.files[0].filename : '';
-    expect(fileName).toBe('go1.13.7.linux-amd64.tar.gz');
+    expect(fileName).toBe('go1.14.linux-amd64.tar.gz');
   });
 
   it('finds latest version for major version spec', async () => {
     os.platform = 'win32';
     os.arch = 'x32';
 
-    // spec: 1 => 1.13.7 (latest)
+    // spec: 1 => 1.14 (latest)
     let match: im.IGoVersion | undefined = await im.findMatch('1', true);
     expect(match).toBeDefined();
     let version: string = match ? match.version : '';
-    expect(version).toBe('go1.13.7');
+    expect(version).toBe('go1.14');
     let fileName = match ? match.files[0].filename : '';
-    expect(fileName).toBe('go1.13.7.windows-386.zip');
+    expect(fileName).toBe('go1.14.windows-386.zip');
   });
 
   it('finds unstable pre-release version', async () => {
