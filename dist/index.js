@@ -4601,7 +4601,7 @@ function downloadGo(versionSpec, stable) {
                 core_1.debug(`extracted to ${extPath}`);
                 // extracts with a root folder that matches the fileName downloaded
                 const toolRoot = path.join(extPath, 'go');
-                toolPath = yield tc.cacheDir(toolRoot, 'go', match.version);
+                toolPath = yield tc.cacheDir(toolRoot, 'go', makeSemver(match.version));
             }
         }
         catch (error) {
