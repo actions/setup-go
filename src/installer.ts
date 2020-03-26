@@ -33,7 +33,7 @@ export async function downloadGo(
 
       // extracts with a root folder that matches the fileName downloaded
       const toolRoot = path.join(extPath, 'go');
-      toolPath = await tc.cacheDir(toolRoot, 'go', versionSpec);
+      toolPath = await tc.cacheDir(toolRoot, 'go', match.version);
     }
   } catch (error) {
     throw new Error(`Failed to download version ${versionSpec}: ${error}`);
