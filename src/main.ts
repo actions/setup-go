@@ -62,10 +62,14 @@ export async function run() {
 function addBinToPath(): boolean {
   let added = false;
   let buf = cp.execSync('go env GOPATH');
+
   if (buf) {
     let d = buf.toString().trim();
+    core.debug(`go env GOPATH: ${d}`);
     let bp = path.join(d, 'bin');
+  
     if (fs.existsSync(bp)) {
+      core.debug(`${bp} exists`);
       core.addPath(bp);
       added = true;
     }
