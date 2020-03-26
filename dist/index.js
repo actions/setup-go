@@ -1294,8 +1294,6 @@ function run() {
             // since getting unstable versions should be explicit
             let stable = (core.getInput('stable') || 'true').toUpperCase() === 'TRUE';
             console.log(`Setup go ${stable ? 'stable' : ''} version spec ${versionSpec}`);
-            // if there's a globally install go and bin path, prefer that
-            let addedBin = addBinToPath();
             if (versionSpec) {
                 let installDir = tc.find('go', versionSpec);
                 if (!installDir) {
@@ -1307,11 +1305,8 @@ function run() {
                     core.exportVariable('GOROOT', installDir);
                     core.addPath(path.join(installDir, 'bin'));
                     console.log('Added go to the path');
-                    // if the global installed bin wasn't added,
-                    // we can add the bin just installed
-                    if (!addedBin) {
-                        addBinToPath();
-                    }
+                    let added = addBinToPath();
+                    core.debug(`add bin ${added}`);
                 }
                 else {
                     throw new Error(`Could not find a version that satisfied version spec: ${versionSpec}`);
