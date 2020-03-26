@@ -1276,6 +1276,7 @@ var __importStar = (this && this.__importStar) || function (mod) {
 };
 Object.defineProperty(exports, "__esModule", { value: true });
 const core = __importStar(__webpack_require__(470));
+const io = __importStar(__webpack_require__(1));
 const tc = __importStar(__webpack_require__(533));
 const installer = __importStar(__webpack_require__(749));
 const path = __importStar(__webpack_require__(622));
@@ -1327,19 +1328,29 @@ function run() {
 }
 exports.run = run;
 function addBinToPath() {
-    let added = false;
-    let buf = cp.execSync('go env GOPATH');
-    if (buf) {
-        let d = buf.toString().trim();
-        core.debug(`go env GOPATH: ${d}`);
-        let bp = path.join(d, 'bin');
-        if (fs.existsSync(bp)) {
-            core.debug(`${bp} exists`);
-            core.addPath(bp);
-            added = true;
+    return __awaiter(this, void 0, void 0, function* () {
+        let added = false;
+        let g = yield io.which('go');
+        if (!g) {
+            core.debug('go not in the path');
+            return added;
         }
-    }
-    return added;
+        let buf = cp.execSync('go env GOPATH');
+        if (buf) {
+            let gp = buf.toString().trim();
+            core.debug(`go env GOPATH: ${gp}`);
+            if (fs.existsSync(gp)) {
+                let bp = path.join(gp, 'bin');
+                if (!fs.existsSync(bp)) {
+                    core.debug(`creating ${bp}`);
+                    io.mkdirP(bp);
+                }
+                core.addPath(bp);
+                added = true;
+            }
+        }
+        return added;
+    });
 }
 
 
