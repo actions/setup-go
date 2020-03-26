@@ -1279,6 +1279,8 @@ const core = __importStar(__webpack_require__(470));
 const tc = __importStar(__webpack_require__(533));
 const installer = __importStar(__webpack_require__(749));
 const path = __importStar(__webpack_require__(622));
+const cp = __importStar(__webpack_require__(129));
+const fs = __importStar(__webpack_require__(747));
 function run() {
     return __awaiter(this, void 0, void 0, function* () {
         try {
@@ -1291,6 +1293,8 @@ function run() {
             // since getting unstable versions should be explicit
             let stable = (core.getInput('stable') || 'true').toUpperCase() === 'TRUE';
             console.log(`Setup go ${stable ? 'stable' : ''} version spec ${versionSpec}`);
+            // if there's a globally install go and bin path, prefer that
+            let addedBin = addBinToPath();
             if (versionSpec) {
                 let installDir = tc.find('go', versionSpec);
                 if (!installDir) {
@@ -1302,6 +1306,11 @@ function run() {
                     core.exportVariable('GOROOT', installDir);
                     core.addPath(path.join(installDir, 'bin'));
                     console.log('Added go to the path');
+                    // if the global installed bin wasn't added,
+                    // we can add the bin just installed
+                    if (!addBinToPath) {
+                        addBinToPath();
+                    }
                 }
                 else {
                     throw new Error(`Could not find a version that satisfied version spec: ${versionSpec}`);
@@ -1317,6 +1326,19 @@ function run() {
     });
 }
 exports.run = run;
+function addBinToPath() {
+    let added = false;
+    let buf = cp.execSync('go env GOPATH');
+    if (buf) {
+        let d = buf.toString().trim();
+        let bp = path.join(d, 'bin');
+        if (fs.existsSync(bp)) {
+            core.addPath(bp);
+            added = true;
+        }
+    }
+    return added;
+}
 
 
 /***/ }),
@@ -4576,14 +4598,11 @@ var __importStar = (this && this.__importStar) || function (mod) {
 };
 Object.defineProperty(exports, "__esModule", { value: true });
 const tc = __importStar(__webpack_require__(533));
-const cm = __importStar(__webpack_require__(470));
 const path = __importStar(__webpack_require__(622));
 const semver = __importStar(__webpack_require__(280));
 const httpm = __importStar(__webpack_require__(539));
 const sys = __importStar(__webpack_require__(737));
 const core_1 = __webpack_require__(470);
-const cp = __importStar(__webpack_require__(129));
-const fs = __importStar(__webpack_require__(747));
 function downloadGo(versionSpec, stable) {
     return __awaiter(this, void 0, void 0, function* () {
         let toolPath;
@@ -4605,7 +4624,6 @@ function downloadGo(versionSpec, stable) {
                 // extracts with a root folder that matches the fileName downloaded
                 const toolRoot = path.join(extPath, 'go');
                 toolPath = yield tc.cacheDir(toolRoot, 'go', makeSemver(match.version));
-                addBinToPath();
             }
         }
         catch (error) {
@@ -4615,19 +4633,6 @@ function downloadGo(versionSpec, stable) {
     });
 }
 exports.downloadGo = downloadGo;
-function addBinToPath() {
-    return __awaiter(this, void 0, void 0, function* () {
-        let buf = cp.execSync('go env GOPATH');
-        if (buf) {
-            let d = buf.toString().trim();
-            let bp = path.join(d, 'bin');
-            if (fs.existsSync(bp)) {
-                cm.addPath(bp);
-            }
-        }
-    });
-}
-exports.addBinToPath = addBinToPath;
 function findMatch(versionSpec, stable) {
     return __awaiter(this, void 0, void 0, function* () {
         let archFilter = sys.getArch();

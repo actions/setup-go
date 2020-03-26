@@ -1,12 +1,9 @@
 import * as tc from '@actions/tool-cache';
-import * as cm from '@actions/core';
 import * as path from 'path';
 import * as semver from 'semver';
 import * as httpm from '@actions/http-client';
 import * as sys from './system';
 import {debug} from '@actions/core';
-import * as cp from 'child_process';
-import * as fs from 'fs';
 
 export async function downloadGo(
   versionSpec: string,
@@ -37,8 +34,6 @@ export async function downloadGo(
       // extracts with a root folder that matches the fileName downloaded
       const toolRoot = path.join(extPath, 'go');
       toolPath = await tc.cacheDir(toolRoot, 'go', makeSemver(match.version));
-
-      addBinToPath();
     }
   } catch (error) {
     throw new Error(`Failed to download version ${versionSpec}: ${error}`);
@@ -58,17 +53,6 @@ export interface IGoVersion {
   version: string;
   stable: boolean;
   files: IGoVersionFile[];
-}
-
-export async function addBinToPath() {
-  let buf = cp.execSync('go env GOPATH');
-  if (buf) {
-    let d = buf.toString().trim();
-    let bp = path.join(d, 'bin');
-    if (fs.existsSync(bp)) {
-      cm.addPath(bp);
-    }
-  }
 }
 
 export async function findMatch(

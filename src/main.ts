@@ -2,6 +2,8 @@ import * as core from '@actions/core';
 import * as tc from '@actions/tool-cache';
 import * as installer from './installer';
 import * as path from 'path';
+import * as cp from 'child_process';
+import * as fs from 'fs';
 
 export async function run() {
   try {
@@ -19,6 +21,8 @@ export async function run() {
       `Setup go ${stable ? 'stable' : ''} version spec ${versionSpec}`
     );
 
+    // if there's a globally install go and bin path, prefer that
+    let addedBin = addBinToPath();
     if (versionSpec) {
       let installDir: string | undefined = tc.find('go', versionSpec);
 
@@ -34,6 +38,12 @@ export async function run() {
         core.exportVariable('GOROOT', installDir);
         core.addPath(path.join(installDir, 'bin'));
         console.log('Added go to the path');
+
+        // if the global installed bin wasn't added,
+        // we can add the bin just installed
+        if (!addBinToPath) {
+          addBinToPath();
+        }
       } else {
         throw new Error(
           `Could not find a version that satisfied version spec: ${versionSpec}`
@@ -47,4 +57,18 @@ export async function run() {
   } catch (error) {
     core.setFailed(error.message);
   }
+}
+
+function addBinToPath(): boolean {
+  let added = false;
+  let buf = cp.execSync('go env GOPATH');
+  if (buf) {
+    let d = buf.toString().trim();
+    let bp = path.join(d, 'bin');
+    if (fs.existsSync(bp)) {
+      core.addPath(bp);
+      added = true;
+    }
+  }
+  return added;
 }
