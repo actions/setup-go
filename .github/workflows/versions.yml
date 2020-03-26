@@ -43,8 +43,9 @@ jobs:
     - name: validate version 
       run: go version | grep "go1.12.9"
 
-    - name: show cache
+    - name: dump env
       shell: bash
       run: |
+        echo $PATH
         echo go versions in tool cache: 
         echo $(ls $RUNNER_TOOL_CACHE/go)       

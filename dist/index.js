@@ -4576,11 +4576,14 @@ var __importStar = (this && this.__importStar) || function (mod) {
 };
 Object.defineProperty(exports, "__esModule", { value: true });
 const tc = __importStar(__webpack_require__(533));
+const cm = __importStar(__webpack_require__(470));
 const path = __importStar(__webpack_require__(622));
 const semver = __importStar(__webpack_require__(280));
 const httpm = __importStar(__webpack_require__(539));
 const sys = __importStar(__webpack_require__(737));
 const core_1 = __webpack_require__(470);
+const cp = __importStar(__webpack_require__(129));
+const fs = __importStar(__webpack_require__(747));
 function downloadGo(versionSpec, stable) {
     return __awaiter(this, void 0, void 0, function* () {
         let toolPath;
@@ -4602,6 +4605,7 @@ function downloadGo(versionSpec, stable) {
                 // extracts with a root folder that matches the fileName downloaded
                 const toolRoot = path.join(extPath, 'go');
                 toolPath = yield tc.cacheDir(toolRoot, 'go', makeSemver(match.version));
+                addBinToPath();
             }
         }
         catch (error) {
@@ -4611,6 +4615,19 @@ function downloadGo(versionSpec, stable) {
     });
 }
 exports.downloadGo = downloadGo;
+function addBinToPath() {
+    return __awaiter(this, void 0, void 0, function* () {
+        let buf = cp.execSync('go env GOPATH');
+        if (buf) {
+            let d = buf.toString().trim();
+            let bp = path.join(d, 'bin');
+            if (fs.existsSync(bp)) {
+                cm.addPath(bp);
+            }
+        }
+    });
+}
+exports.addBinToPath = addBinToPath;
 function findMatch(versionSpec, stable) {
     return __awaiter(this, void 0, void 0, function* () {
         let archFilter = sys.getArch();
