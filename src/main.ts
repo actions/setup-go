@@ -63,6 +63,7 @@ export async function run() {
 async function addBinToPath(): Promise<boolean> {
   let added = false;
   let g = await io.which('go');
+  core.debug(`which go :${g};`);
   if (!g) {
     core.debug('go not in the path');
     return added;
@@ -71,7 +72,7 @@ async function addBinToPath(): Promise<boolean> {
   let buf = cp.execSync('go env GOPATH');
   if (buf) {
     let gp = buf.toString().trim();
-    core.debug(`go env GOPATH: ${gp}`);
+    core.debug(`go env GOPATH :${gp}:`);
     if (fs.existsSync(gp)) {
       let bp = path.join(gp, 'bin');
       if (!fs.existsSync(bp)) {
@@ -81,6 +82,9 @@ async function addBinToPath(): Promise<boolean> {
 
       core.addPath(bp);
       added = true;
+    }
+    else {
+      core.debug('go env GOPATH does not exist');
     }
   }
   return added;
