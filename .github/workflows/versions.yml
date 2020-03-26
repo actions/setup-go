@@ -44,6 +44,7 @@ jobs:
       run: go version | grep "go1.12.9"
 
     - name: show cache
+      shell: bash
       run: |
         echo go versions in tool cache: 
         echo $(ls $RUNNER_TOOL_CACHE/go)       
