@@ -82,8 +82,7 @@ async function addBinToPath(): Promise<boolean> {
 
       core.addPath(bp);
       added = true;
-    }
-    else {
+    } else {
       core.debug('go env GOPATH does not exist');
     }
   }
