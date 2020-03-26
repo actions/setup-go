@@ -41,7 +41,7 @@ export async function run() {
 
         // if the global installed bin wasn't added,
         // we can add the bin just installed
-        if (!addBinToPath) {
+        if (!addedBin) {
           addBinToPath();
         }
       } else {
