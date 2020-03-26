@@ -34,5 +34,5 @@ jobs:
       run: npm test
 
     - name: audit packages
-      run: npm audit --audit-level=moderate
+      run: npm audit --audit-level=high
       if: matrix.operating-system == 'ubuntu-latest'

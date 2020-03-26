@@ -1,7 +1,10 @@
 import * as core from '@actions/core';
+import * as io from '@actions/io';
 import * as tc from '@actions/tool-cache';
 import * as installer from './installer';
 import * as path from 'path';
+import * as cp from 'child_process';
+import * as fs from 'fs';
 
 export async function run() {
   try {
@@ -34,6 +37,9 @@ export async function run() {
         core.exportVariable('GOROOT', installDir);
         core.addPath(path.join(installDir, 'bin'));
         console.log('Added go to the path');
+
+        let added = addBinToPath();
+        core.debug(`add bin ${added}`);
       } else {
         throw new Error(
           `Could not find a version that satisfied version spec: ${versionSpec}`
@@ -47,4 +53,35 @@ export async function run() {
   } catch (error) {
     core.setFailed(error.message);
   }
+}
+
+async function addBinToPath(): Promise<boolean> {
+  let added = false;
+  let g = await io.which('go');
+  core.debug(`which go :${g}:`);
+  if (!g) {
+    core.debug('go not in the path');
+    return added;
+  }
+
+  let buf = cp.execSync('go env GOPATH');
+  if (buf) {
+    let gp = buf.toString().trim();
+    core.debug(`go env GOPATH :${gp}:`);
+    if (!fs.existsSync(gp)) {
+      // some of the hosted images have go install but not profile dir
+      core.debug(`creating ${gp}`);
+      io.mkdirP(gp);
+    }
+
+    let bp = path.join(gp, 'bin');
+    if (!fs.existsSync(bp)) {
+      core.debug(`creating ${bp}`);
+      io.mkdirP(bp);
+    }
+
+    core.addPath(bp);
+    added = true;
+  }
+  return added;
 }
