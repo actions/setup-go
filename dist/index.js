@@ -1308,7 +1308,7 @@ function run() {
                     console.log('Added go to the path');
                     // if the global installed bin wasn't added,
                     // we can add the bin just installed
-                    if (!addBinToPath) {
+                    if (!addedBin) {
                         addBinToPath();
                     }
                 }
@@ -1331,8 +1331,10 @@ function addBinToPath() {
     let buf = cp.execSync('go env GOPATH');
     if (buf) {
         let d = buf.toString().trim();
+        core.debug(`go env GOPATH: ${d}`);
         let bp = path.join(d, 'bin');
         if (fs.existsSync(bp)) {
+            core.debug(`${bp} exists`);
             core.addPath(bp);
             added = true;
         }

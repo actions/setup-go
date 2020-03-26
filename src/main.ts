@@ -67,7 +67,7 @@ function addBinToPath(): boolean {
     let d = buf.toString().trim();
     core.debug(`go env GOPATH: ${d}`);
     let bp = path.join(d, 'bin');
-  
+
     if (fs.existsSync(bp)) {
       core.debug(`${bp} exists`);
       core.addPath(bp);
