@@ -9,6 +9,9 @@ import * as main from '../src/main';
 import * as im from '../src/installer';
 
 let goJsonData = require('./data/golang-dl.json');
+let matchers = require('../matchers.json');
+let matcherPattern = matchers.problemMatcher[0].pattern[0];
+let matcherRegExp = new RegExp(matcherPattern.regexp);
 
 describe('setup-go', () => {
   let inputs = {} as any;
@@ -321,6 +324,72 @@ describe('setup-go', () => {
     let added = await main.addBinToPath();
     expect(added).toBeTruthy;
   });
+
+  interface Annotation {
+    file: string,
+    line: number,
+    column: number,
+    message: string
+  }
+
+  //
+  // problem matcher regex pattern tests
+
+  function testMatch(line: string): Annotation {
+    let annotation = <Annotation>{};
+
+    let match = matcherRegExp.exec(line);
+    if (match) {
+      annotation.line = parseInt(match[matcherPattern.line], 10);
+      annotation.column = parseInt(match[matcherPattern.column], 10);
+      annotation.file = match[matcherPattern.file].trim();
+      annotation.message = match[matcherPattern.message].trim();
+    }
+
+    return annotation;
+  }  
+
+  it('matches on rooted unix path', async () => {
+    let line = '/assert.go:4:1: missing return at end of function';
+    let annotation = testMatch(line);
+    expect(annotation).toBeDefined();
+    expect(annotation.line).toBe(4);
+    expect(annotation.column).toBe(1);
+    expect(annotation.file).toBe('/assert.go');
+    expect(annotation.message).toBe('missing return at end of function');
+  });
+
+  it('matches on relative unix path', async () => {
+    let line = './a/path/assert.go:6:1: missing return at end of function';
+    let annotation = testMatch(line);
+    expect(annotation).toBeDefined();
+    expect(annotation.line).toBe(6);
+    expect(annotation.column).toBe(1);
+    expect(annotation.file).toBe('./a/path/assert.go');
+    expect(annotation.message).toBe('missing return at end of function');
+  });  
+
+  it('matches on rooted unix path', async () => {
+    let line = '/assert.go:4:1: missing return at end of function';
+    let annotation = testMatch(line);
+    expect(annotation).toBeDefined();
+    expect(annotation.line).toBe(4);
+    expect(annotation.column).toBe(1);
+    expect(annotation.file).toBe('/assert.go');
+    expect(annotation.message).toBe('missing return at end of function');
+  });  
+
+  it('matches on rooted unix path with whitespace', async () => {
+    let line = '   /assert.go:5:2: missing return at end of function   ';
+    let annotation = testMatch(line);
+    expect(annotation).toBeDefined();
+    expect(annotation.line).toBe(5);
+    expect(annotation.column).toBe(2);
+    expect(annotation.file).toBe('/assert.go');
+    expect(annotation.message).toBe('missing return at end of function');
+  });  
+
+
 
   // 1.13.1 => 1.13.1
   // 1.13 => 1.13.0
