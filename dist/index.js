@@ -1274,14 +1274,17 @@ var __importStar = (this && this.__importStar) || function (mod) {
     result["default"] = mod;
     return result;
 };
+var __importDefault = (this && this.__importDefault) || function (mod) {
+    return (mod && mod.__esModule) ? mod : { "default": mod };
+};
 Object.defineProperty(exports, "__esModule", { value: true });
 const core = __importStar(__webpack_require__(470));
 const io = __importStar(__webpack_require__(1));
 const tc = __importStar(__webpack_require__(533));
 const installer = __importStar(__webpack_require__(749));
-const path = __importStar(__webpack_require__(622));
-const cp = __importStar(__webpack_require__(129));
-const fs = __importStar(__webpack_require__(747));
+const path_1 = __importDefault(__webpack_require__(622));
+const child_process_1 = __importDefault(__webpack_require__(129));
+const fs_1 = __importDefault(__webpack_require__(747));
 function run() {
     return __awaiter(this, void 0, void 0, function* () {
         try {
@@ -1303,7 +1306,7 @@ function run() {
                 }
                 if (installDir) {
                     core.exportVariable('GOROOT', installDir);
-                    core.addPath(path.join(installDir, 'bin'));
+                    core.addPath(path_1.default.join(installDir, 'bin'));
                     console.log('Added go to the path');
                     let added = addBinToPath();
                     core.debug(`add bin ${added}`);
@@ -1313,7 +1316,7 @@ function run() {
                 }
             }
             // add problem matchers
-            const matchersPath = path.join(__dirname, '..', 'matchers.json');
+            const matchersPath = path_1.default.join(__dirname, '..', 'matchers.json');
             console.log(`##[add-matcher]${matchersPath}`);
         }
         catch (error) {
@@ -1326,23 +1329,23 @@ function addBinToPath() {
     return __awaiter(this, void 0, void 0, function* () {
         let added = false;
         let g = yield io.which('go');
-        core.debug(`which go :${g}:`);
+        _debug(`which go :${g}:`);
         if (!g) {
-            core.debug('go not in the path');
+            _debug('go not in the path');
             return added;
         }
-        let buf = cp.execSync('go env GOPATH');
+        let buf = child_process_1.default.execSync('go env GOPATH');
         if (buf) {
             let gp = buf.toString().trim();
-            core.debug(`go env GOPATH :${gp}:`);
-            if (!fs.existsSync(gp)) {
+            _debug(`go env GOPATH :${gp}:`);
+            if (!fs_1.default.existsSync(gp)) {
                 // some of the hosted images have go install but not profile dir
-                core.debug(`creating ${gp}`);
+                _debug(`creating ${gp}`);
                 io.mkdirP(gp);
             }
-            let bp = path.join(gp, 'bin');
-            if (!fs.existsSync(bp)) {
-                core.debug(`creating ${bp}`);
+            let bp = path_1.default.join(gp, 'bin');
+            if (!fs_1.default.existsSync(bp)) {
+                _debug(`creating ${bp}`);
                 io.mkdirP(bp);
             }
             core.addPath(bp);
@@ -1351,6 +1354,11 @@ function addBinToPath() {
         return added;
     });
 }
+exports.addBinToPath = addBinToPath;
+function _debug(message) {
+    core.debug(message);
+}
+exports._debug = _debug;
 
 
 /***/ }),

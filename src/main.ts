@@ -2,9 +2,9 @@ import * as core from '@actions/core';
 import * as io from '@actions/io';
 import * as tc from '@actions/tool-cache';
 import * as installer from './installer';
-import * as path from 'path';
-import * as cp from 'child_process';
-import * as fs from 'fs';
+import path from 'path';
+import cp from 'child_process';
+import fs from 'fs';
 
 export async function run() {
   try {
@@ -55,28 +55,28 @@ export async function run() {
   }
 }
 
-async function addBinToPath(): Promise<boolean> {
+export async function addBinToPath(): Promise<boolean> {
   let added = false;
   let g = await io.which('go');
-  core.debug(`which go :${g}:`);
+  _debug(`which go :${g}:`);
   if (!g) {
-    core.debug('go not in the path');
+    _debug('go not in the path');
     return added;
   }
 
   let buf = cp.execSync('go env GOPATH');
   if (buf) {
     let gp = buf.toString().trim();
-    core.debug(`go env GOPATH :${gp}:`);
+    _debug(`go env GOPATH :${gp}:`);
     if (!fs.existsSync(gp)) {
       // some of the hosted images have go install but not profile dir
-      core.debug(`creating ${gp}`);
+      _debug(`creating ${gp}`);
       io.mkdirP(gp);
     }
 
     let bp = path.join(gp, 'bin');
     if (!fs.existsSync(bp)) {
-      core.debug(`creating ${bp}`);
+      _debug(`creating ${bp}`);
       io.mkdirP(bp);
     }
 
@@ -84,4 +84,8 @@ async function addBinToPath(): Promise<boolean> {
     added = true;
   }
   return added;
+}
+
+export function _debug(message: string) {
+  core.debug(message);
 }

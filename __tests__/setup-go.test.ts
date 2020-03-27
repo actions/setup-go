@@ -1,13 +1,12 @@
-import * as tc from '@actions/tool-cache';
 import * as core from '@actions/core';
-import fs = require('fs');
+import * as io from '@actions/io';
+import * as tc from '@actions/tool-cache';
+import fs from 'fs';
+import cp from 'child_process';
 import osm = require('os');
-import path = require('path');
-import {run} from '../src/main';
-import * as httpm from '@actions/http-client';
+import path from 'path';
+import * as main from '../src/main';
 import * as im from '../src/installer';
-import * as sys from '../src/system';
-import {ITypedResponse} from '@actions/http-client/interfaces';
 
 let goJsonData = require('./data/golang-dl.json');
 
@@ -25,6 +24,11 @@ describe('setup-go', () => {
   let dlSpy: jest.SpyInstance;
   let exSpy: jest.SpyInstance;
   let cacheSpy: jest.SpyInstance;
+  let dbgSpy: jest.SpyInstance;
+  let whichSpy: jest.SpyInstance;
+  let existsSpy: jest.SpyInstance;
+  let mkdirpSpy: jest.SpyInstance;
+  let execSpy: jest.SpyInstance;
 
   beforeEach(() => {
     // @actions/core
@@ -32,12 +36,13 @@ describe('setup-go', () => {
     inSpy = jest.spyOn(core, 'getInput');
     inSpy.mockImplementation(name => inputs[name]);
 
-    // node 'os'
+    // node
     os = {};
     platSpy = jest.spyOn(osm, 'platform');
     platSpy.mockImplementation(() => os['platform']);
     archSpy = jest.spyOn(osm, 'arch');
     archSpy.mockImplementation(() => os['arch']);
+    execSpy = jest.spyOn(cp, 'execSync');
 
     // @actions/tool-cache
     findSpy = jest.spyOn(tc, 'find');
@@ -46,9 +51,15 @@ describe('setup-go', () => {
     cacheSpy = jest.spyOn(tc, 'cacheDir');
     getSpy = jest.spyOn(im, 'getVersions');
 
+    // io
+    whichSpy = jest.spyOn(io, 'which');
+    existsSpy = jest.spyOn(fs, 'existsSync');
+    mkdirpSpy = jest.spyOn(io, 'mkdirP');
+
     // writes
     cnSpy = jest.spyOn(process.stdout, 'write');
     logSpy = jest.spyOn(console, 'log');
+    dbgSpy = jest.spyOn(main, '_debug');
     getSpy.mockImplementation(() => <im.IGoVersion[]>goJsonData);
     cnSpy.mockImplementation(line => {
       // uncomment to debug
@@ -58,11 +69,16 @@ describe('setup-go', () => {
       // uncomment to debug
       // process.stderr.write('log:' + line + '\n');
     });
+    dbgSpy.mockImplementation(msg => {
+      // uncomment to see debug output
+      // process.stderr.write(msg + '\n');
+    });
   });
 
   afterEach(() => {
     jest.resetAllMocks();
     jest.clearAllMocks();
+    //jest.restoreAllMocks();
   });
 
   afterAll(async () => {}, 100000);
@@ -164,7 +180,7 @@ describe('setup-go', () => {
 
     let toolPath = path.normalize('/cache/go/1.13.0/x64');
     findSpy.mockImplementation(() => toolPath);
-    await run();
+    await main.run();
 
     expect(logSpy).toHaveBeenCalledWith(`Setup go stable version spec 1.13.0`);
   });
@@ -176,7 +192,7 @@ describe('setup-go', () => {
 
     let toolPath = path.normalize('/cache/go/1.13.0/x64');
     findSpy.mockImplementation(() => toolPath);
-    await run();
+    await main.run();
 
     expect(logSpy).toHaveBeenCalledWith(`Setup go stable version spec 1.13.0`);
   });
@@ -186,7 +202,7 @@ describe('setup-go', () => {
 
     let toolPath = path.normalize('/cache/go/1.13.0/x64');
     findSpy.mockImplementation(() => toolPath);
-    await run();
+    await main.run();
 
     let expPath = path.join(toolPath, 'bin');
   });
@@ -195,7 +211,7 @@ describe('setup-go', () => {
     inputs['go-version'] = '1.13.0';
     let toolPath = path.normalize('/cache/go/1.13.0/x64');
     findSpy.mockImplementation(() => toolPath);
-    await run();
+    await main.run();
 
     let expPath = path.join(toolPath, 'bin');
     expect(cnSpy).toHaveBeenCalledWith(`::add-path::${expPath}${osm.EOL}`);
@@ -208,7 +224,7 @@ describe('setup-go', () => {
     findSpy.mockImplementation(() => {
       throw new Error(errMsg);
     });
-    await run();
+    await main.run();
     expect(cnSpy).toHaveBeenCalledWith('::error::' + errMsg + osm.EOL);
   });
 
@@ -223,7 +239,7 @@ describe('setup-go', () => {
     let toolPath = path.normalize('/cache/go/1.13.0/x64');
     exSpy.mockImplementation(() => '/some/other/temp/path');
     cacheSpy.mockImplementation(() => toolPath);
-    await run();
+    await main.run();
 
     let expPath = path.join(toolPath, 'bin');
 
@@ -239,7 +255,7 @@ describe('setup-go', () => {
     inputs['go-version'] = '9.99.9';
 
     findSpy.mockImplementation(() => '');
-    await run();
+    await main.run();
 
     expect(cnSpy).toHaveBeenCalledWith(
       `::error::Could not find a version that satisfied version spec: 9.99.9${osm.EOL}`
@@ -257,7 +273,7 @@ describe('setup-go', () => {
     dlSpy.mockImplementation(() => {
       throw new Error(errMsg);
     });
-    await run();
+    await main.run();
 
     expect(cnSpy).toHaveBeenCalledWith(
       `::error::Failed to download version 1.13.1: Error: ${errMsg}${osm.EOL}`
@@ -273,11 +289,37 @@ describe('setup-go', () => {
 
     findSpy.mockImplementation(() => '');
     getSpy.mockImplementation(() => null);
-    await run();
+    await main.run();
 
     expect(cnSpy).toHaveBeenCalledWith(
       `::error::Failed to download version 1.13.1: Error: golang download url did not return results${osm.EOL}`
     );
+  });
+
+  it('does not add BIN if go is not in path', async () => {
+    whichSpy.mockImplementation(async () => {
+      return '';
+    });
+    let added = await main.addBinToPath();
+    expect(added).toBeFalsy();
+  });
+
+  it('adds bin if dir not exists', async () => {
+    whichSpy.mockImplementation(async () => {
+      return '/usr/local/go/bin/go';
+    });
+
+    execSpy.mockImplementation(() => {
+      return '/Users/testuser/go';
+    });
+
+    mkdirpSpy.mockImplementation(async () => {});
+    existsSpy.mockImplementation(path => {
+      return false;
+    });
+
+    let added = await main.addBinToPath();
+    expect(added).toBeTruthy;
   });
 
   // 1.13.1 => 1.13.1
