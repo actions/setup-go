@@ -326,10 +326,10 @@ describe('setup-go', () => {
   });
 
   interface Annotation {
-    file: string,
-    line: number,
-    column: number,
-    message: string
+    file: string;
+    line: number;
+    column: number;
+    message: string;
   }
 
   //
@@ -347,7 +347,7 @@ describe('setup-go', () => {
     }
 
     return annotation;
-  }  
+  }
 
   it('matches on rooted unix path', async () => {
     let line = '/assert.go:4:1: missing return at end of function';
@@ -367,7 +367,7 @@ describe('setup-go', () => {
     expect(annotation.column).toBe(1);
     expect(annotation.file).toBe('./a/path/assert.go');
     expect(annotation.message).toBe('missing return at end of function');
-  });  
+  });
 
   it('matches on rooted unix path', async () => {
     let line = '/assert.go:4:1: missing return at end of function';
@@ -377,7 +377,7 @@ describe('setup-go', () => {
     expect(annotation.column).toBe(1);
     expect(annotation.file).toBe('/assert.go');
     expect(annotation.message).toBe('missing return at end of function');
-  });  
+  });
 
   it('matches on rooted unix path with whitespace', async () => {
     let line = '   /assert.go:5:2: missing return at end of function   ';
@@ -387,9 +387,7 @@ describe('setup-go', () => {
     expect(annotation.column).toBe(2);
     expect(annotation.file).toBe('/assert.go');
     expect(annotation.message).toBe('missing return at end of function');
-  });  
-
-
+  });
 
   // 1.13.1 => 1.13.1
   // 1.13 => 1.13.0
