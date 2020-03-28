@@ -349,25 +349,25 @@ describe('setup-go', () => {
     return annotation;
   }
 
-  it('matches on rooted unix path', async () => {
-    let line = '/assert.go:4:1: missing return at end of function';
-    let annotation = testMatch(line);
-    expect(annotation).toBeDefined();
-    expect(annotation.line).toBe(4);
-    expect(annotation.column).toBe(1);
-    expect(annotation.file).toBe('/assert.go');
-    expect(annotation.message).toBe('missing return at end of function');
-  });
-
   it('matches on relative unix path', async () => {
-    let line = './a/path/assert.go:6:1: missing return at end of function';
+    let line = './main.go:13:2: undefined: fmt.Printl';
     let annotation = testMatch(line);
     expect(annotation).toBeDefined();
-    expect(annotation.line).toBe(6);
-    expect(annotation.column).toBe(1);
-    expect(annotation.file).toBe('./a/path/assert.go');
-    expect(annotation.message).toBe('missing return at end of function');
+    expect(annotation.line).toBe(13);
+    expect(annotation.column).toBe(2);
+    expect(annotation.file).toBe('./main.go');
+    expect(annotation.message).toBe('undefined: fmt.Printl');
   });
+
+  it('matches on unix path up the tree', async () => {
+    let line = '../main.go:13:2: undefined: fmt.Printl';
+    let annotation = testMatch(line);
+    expect(annotation).toBeDefined();
+    expect(annotation.line).toBe(13);
+    expect(annotation.column).toBe(2);
+    expect(annotation.file).toBe('../main.go');
+    expect(annotation.message).toBe('undefined: fmt.Printl');
+  });    
 
   it('matches on rooted unix path', async () => {
     let line = '/assert.go:4:1: missing return at end of function';
@@ -379,15 +379,35 @@ describe('setup-go', () => {
     expect(annotation.message).toBe('missing return at end of function');
   });
 
-  it('matches on rooted unix path with whitespace', async () => {
-    let line = '   /assert.go:5:2: missing return at end of function   ';
+  it('matches on unix path with whitespace', async () => {
+    let line = '   ./assert.go:5:2: missing return at end of function   ';
     let annotation = testMatch(line);
     expect(annotation).toBeDefined();
     expect(annotation.line).toBe(5);
     expect(annotation.column).toBe(2);
-    expect(annotation.file).toBe('/assert.go');
+    expect(annotation.file).toBe('./assert.go');
     expect(annotation.message).toBe('missing return at end of function');
   });
+
+  it('matches on relative windows path', async () => {
+    let line = '.\\main.go:13:2: undefined: fmt.Printl';
+    let annotation = testMatch(line);
+    expect(annotation).toBeDefined();
+    expect(annotation.line).toBe(13);
+    expect(annotation.column).toBe(2);
+    expect(annotation.file).toBe('.\\main.go');
+    expect(annotation.message).toBe('undefined: fmt.Printl');
+  });
+
+  it('matches on windows path up the tree', async () => {
+    let line = '..\\main.go:13:2: undefined: fmt.Printl';
+    let annotation = testMatch(line);
+    expect(annotation).toBeDefined();
+    expect(annotation.line).toBe(13);
+    expect(annotation.column).toBe(2);
+    expect(annotation.file).toBe('..\\main.go');
+    expect(annotation.message).toBe('undefined: fmt.Printl');
+  });  
 
   // 1.13.1 => 1.13.1
   // 1.13 => 1.13.0
