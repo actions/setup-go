@@ -367,7 +367,7 @@ describe('setup-go', () => {
     expect(annotation.column).toBe(2);
     expect(annotation.file).toBe('../main.go');
     expect(annotation.message).toBe('undefined: fmt.Printl');
-  });    
+  });
 
   it('matches on rooted unix path', async () => {
     let line = '/assert.go:4:1: missing return at end of function';
@@ -407,7 +407,7 @@ describe('setup-go', () => {
     expect(annotation.column).toBe(2);
     expect(annotation.file).toBe('..\\main.go');
     expect(annotation.message).toBe('undefined: fmt.Printl');
-  });  
+  });
 
   // 1.13.1 => 1.13.1
   // 1.13 => 1.13.0
