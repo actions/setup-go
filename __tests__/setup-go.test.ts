@@ -379,8 +379,18 @@ describe('setup-go', () => {
     expect(annotation.message).toBe('missing return at end of function');
   });
 
-  it('matches on unix path with whitespace', async () => {
+  it('matches on unix path with spaces', async () => {
     let line = '   ./assert.go:5:2: missing return at end of function   ';
+    let annotation = testMatch(line);
+    expect(annotation).toBeDefined();
+    expect(annotation.line).toBe(5);
+    expect(annotation.column).toBe(2);
+    expect(annotation.file).toBe('./assert.go');
+    expect(annotation.message).toBe('missing return at end of function');
+  });
+
+  it('matches on unix path with tabs', async () => {
+    let line = '\t./assert.go:5:2: missing return at end of function   ';
     let annotation = testMatch(line);
     expect(annotation).toBeDefined();
     expect(annotation.line).toBe(5);
@@ -407,16 +417,6 @@ describe('setup-go', () => {
     expect(annotation.column).toBe(2);
     expect(annotation.file).toBe('..\\main.go');
     expect(annotation.message).toBe('undefined: fmt.Printl');
-  });
-
-  it('only matches leading dots on unix path', async () => {
-    let line = 'x./assert.go:5:2: missing return at end of function';
-    let annotation = testMatch(line);
-    expect(annotation).toBeDefined();
-    expect(annotation.line).toBe(5);
-    expect(annotation.column).toBe(2);
-    expect(annotation.file).toBe('./assert.go');
-    expect(annotation.message).toBe('missing return at end of function');
   });
 
   // 1.13.1 => 1.13.1
