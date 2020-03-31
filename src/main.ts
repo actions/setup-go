@@ -50,6 +50,12 @@ export async function run() {
     // add problem matchers
     const matchersPath = path.join(__dirname, '..', 'matchers.json');
     console.log(`##[add-matcher]${matchersPath}`);
+
+    // output the version actually being used
+    let goPath = await io.which('go');
+    let goVersion = cp.execSync(`${goPath} version`);
+
+    console.log('Using go version ');
   } catch (error) {
     core.setFailed(error.message);
   }

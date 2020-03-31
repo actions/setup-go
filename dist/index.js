@@ -1318,6 +1318,10 @@ function run() {
             // add problem matchers
             const matchersPath = path_1.default.join(__dirname, '..', 'matchers.json');
             console.log(`##[add-matcher]${matchersPath}`);
+            // output the version actually being used
+            let goPath = yield io.which('go');
+            let goVersion = child_process_1.default.execSync(`${goPath} version`);
+            console.log('Using go version ');
         }
         catch (error) {
             core.setFailed(error.message);
