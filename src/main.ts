@@ -55,7 +55,7 @@ export async function run() {
     let goPath = await io.which('go');
     let goVersion = cp.execSync(`${goPath} version`);
 
-    console.log('Using go version ');
+    console.log(goVersion);
   } catch (error) {
     core.setFailed(error.message);
   }
