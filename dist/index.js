@@ -1321,7 +1321,7 @@ function run() {
             // output the version actually being used
             let goPath = yield io.which('go');
             let goVersion = child_process_1.default.execSync(`${goPath} version`);
-            console.log('Using go version ');
+            console.log(goVersion);
         }
         catch (error) {
             core.setFailed(error.message);
