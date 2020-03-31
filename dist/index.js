@@ -1320,7 +1320,7 @@ function run() {
             console.log(`##[add-matcher]${matchersPath}`);
             // output the version actually being used
             let goPath = yield io.which('go');
-            let goVersion = child_process_1.default.execSync(`${goPath} version`);
+            let goVersion = (child_process_1.default.execSync(`${goPath} version`) || '').toString();
             console.log(goVersion);
         }
         catch (error) {

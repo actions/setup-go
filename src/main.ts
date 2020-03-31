@@ -53,7 +53,7 @@ export async function run() {
 
     // output the version actually being used
     let goPath = await io.which('go');
-    let goVersion = cp.execSync(`${goPath} version`);
+    let goVersion = (cp.execSync(`${goPath} version`) || '').toString();
 
     console.log(goVersion);
   } catch (error) {
