@@ -1322,6 +1322,10 @@ function run() {
             let goPath = yield io.which('go');
             let goVersion = (child_process_1.default.execSync(`${goPath} version`) || '').toString();
             console.log(goVersion);
+            core.startGroup('go env');
+            let goEnv = (child_process_1.default.execSync(`${goPath} env`) || '').toString();
+            console.log(goEnv);
+            core.endGroup();
         }
         catch (error) {
             core.setFailed(error.message);
