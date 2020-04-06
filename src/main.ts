@@ -54,8 +54,12 @@ export async function run() {
     // output the version actually being used
     let goPath = await io.which('go');
     let goVersion = (cp.execSync(`${goPath} version`) || '').toString();
-
     console.log(goVersion);
+
+    core.startGroup('go env');
+    let goEnv = (cp.execSync(`${goPath} env`) || '').toString();
+    console.log(goEnv);
+    core.endGroup();
   } catch (error) {
     core.setFailed(error.message);
   }
