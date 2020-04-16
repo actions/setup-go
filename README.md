@@ -23,7 +23,7 @@ Matching by semver spec:
 ```yaml
 steps:
 - uses: actions/checkout@v2
-- uses: actions/setup-go@v2-beta
+- uses: actions/setup-go@v2
   with:
     go-version: '^1.13.1' # The Go version to download (if necessary) and use.
 - run: go version
@@ -33,7 +33,7 @@ Matching an unstable pre-release:
 ```yaml
 steps:
 - uses: actions/checkout@v2
-- uses: actions/setup-go@v2-beta
+- uses: actions/setup-go@v2
   with:
     stable: 'false'
     go-version: '1.14.0-rc1' # The Go version to download (if necessary) and use.
