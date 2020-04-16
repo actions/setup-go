@@ -11,9 +11,10 @@ This action sets up a go environment for use in actions by:
 - optionally downloading and caching a version of Go by version and adding to PATH
 - registering problem matchers for error output
 
-# V2 Beta
+# V2
 
-The V2 beta offers:
+The V2 offers:
+- Adds GOBIN to the PATH
 - Proxy Support
 - stable input 
 - Bug Fixes (including issues around version matching and semver)
