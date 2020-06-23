@@ -10,6 +10,7 @@ import * as im from '../src/installer';
 
 let goJsonData = require('./data/golang-dl.json');
 let matchers = require('../matchers.json');
+let goTestManifest = require('./data/versions-manifest.json');
 let matcherPattern = matchers.problemMatcher[0].pattern[0];
 let matcherRegExp = new RegExp(matcherPattern.regexp);
 
@@ -32,6 +33,8 @@ describe('setup-go', () => {
   let existsSpy: jest.SpyInstance;
   let mkdirpSpy: jest.SpyInstance;
   let execSpy: jest.SpyInstance;
+  let getManifestSpy: jest.SpyInstance;
+  let getInfoManifestSpy: jest.SpyInstance;
 
   beforeEach(() => {
     // @actions/core
@@ -52,17 +55,26 @@ describe('setup-go', () => {
     dlSpy = jest.spyOn(tc, 'downloadTool');
     exSpy = jest.spyOn(tc, 'extractTar');
     cacheSpy = jest.spyOn(tc, 'cacheDir');
-    getSpy = jest.spyOn(im, 'getVersions');
+    getSpy = jest.spyOn(im, 'getVersionsDist');
+    getManifestSpy = jest.spyOn(tc, 'getManifestFromRepo');
+    getInfoManifestSpy = jest.spyOn(im, 'getInfoFromManifest');
 
     // io
     whichSpy = jest.spyOn(io, 'which');
     existsSpy = jest.spyOn(fs, 'existsSync');
     mkdirpSpy = jest.spyOn(io, 'mkdirP');
 
+    // gets
+    getManifestSpy.mockImplementation(() => <tc.IToolRelease[]>goTestManifest);
+
+    // getInfoManifestSpy.mockImplementation(
+    //   () => <im.IGoVersionInfo | null>
+    // )
+
     // writes
     cnSpy = jest.spyOn(process.stdout, 'write');
     logSpy = jest.spyOn(console, 'log');
-    dbgSpy = jest.spyOn(main, '_debug');
+    dbgSpy = jest.spyOn(core, 'debug');
     getSpy.mockImplementation(() => <im.IGoVersion[]>goJsonData);
     cnSpy.mockImplementation(line => {
       // uncomment to debug
@@ -87,7 +99,7 @@ describe('setup-go', () => {
   afterAll(async () => {}, 100000);
 
   it('can query versions', async () => {
-    let versions: im.IGoVersion[] | null = await im.getVersions(
+    let versions: im.IGoVersion[] | null = await im.getVersionsDist(
       'https://non.existant.com/path'
     );
     expect(versions).toBeDefined();
@@ -95,18 +107,56 @@ describe('setup-go', () => {
     expect(l).toBe(91);
   });
 
-  it('finds stable match for exact version', async () => {
+  it('can mock manifest versions', async () => {
+    let versions: tc.IToolRelease[] | null = await tc.getManifestFromRepo(
+      'actions',
+      'go-versions',
+      'mocktoken'
+    );
+    expect(versions).toBeDefined();
+    expect(versions.length).toBe(3);
+  });
+
+  it('can find 1.12.17 from manifest on osx', async () => {
+    os.platform = 'darwin';
+    os.arch = 'x64';
+    let versions: tc.IToolRelease[] | null = await tc.getManifestFromRepo(
+      'actions',
+      'go-versions',
+      'mocktoken'
+    );
+    expect(versions).toBeDefined();
+    let match = await tc.findFromManifest('1.12.17', true, versions);
+    expect(match).toBeDefined();
+    expect(match!.version).toBe('1.12.17');
+  });
+
+  it('can find 12 from manifest on linux', async () => {
+    os.platform = 'linux';
+    os.arch = 'x64';
+    let versions: tc.IToolRelease[] | null = await tc.getManifestFromRepo(
+      'actions',
+      'go-versions',
+      'mocktoken'
+    );
+    expect(versions).toBeDefined();
+    let match = await tc.findFromManifest('1.12.17', true, versions);
+    expect(match).toBeDefined();
+    expect(match!.version).toBe('1.12.17');
+  });
+
+  it('can find 10 from manifest on windows', async () => {
     os.platform = 'win32';
     os.arch = 'x64';
-
-    // get request is already mocked
-    // spec: 1.13.7 => 1.13.7 (exact)
-    let match: im.IGoVersion | undefined = await im.findMatch('1.13.7', true);
+    let versions: tc.IToolRelease[] | null = await tc.getManifestFromRepo(
+      'actions',
+      'go-versions',
+      'mocktoken'
+    );
+    expect(versions).toBeDefined();
+    let match = await tc.findFromManifest('1.12', true, versions);
     expect(match).toBeDefined();
-    let version: string = match ? match.version : '';
-    expect(version).toBe('go1.13.7');
-    let fileName = match ? match.files[0].filename : '';
-    expect(fileName).toBe('go1.13.7.windows-amd64.zip');
+    expect(match!.version).toBe('1.12.17');
   });
 
   it('finds stable match for exact dot zero version', async () => {
@@ -120,61 +170,6 @@ describe('setup-go', () => {
     expect(version).toBe('go1.13');
     let fileName = match ? match.files[0].filename : '';
     expect(fileName).toBe('go1.13.darwin-amd64.tar.gz');
-  });
-
-  it('finds latest patch version for minor version spec', async () => {
-    os.platform = 'linux';
-    os.arch = 'x64';
-
-    // spec: 1.13 => 1.13.7 (latest)
-    let match: im.IGoVersion | undefined = await im.findMatch('1.13', true);
-    expect(match).toBeDefined();
-    let version: string = match ? match.version : '';
-    expect(version).toBe('go1.13.7');
-    let fileName = match ? match.files[0].filename : '';
-    expect(fileName).toBe('go1.13.7.linux-amd64.tar.gz');
-  });
-
-  it('finds latest patch version for caret version spec', async () => {
-    os.platform = 'linux';
-    os.arch = 'x64';
-
-    // spec: ^1.13.6 => 1.13.7
-    let match: im.IGoVersion | undefined = await im.findMatch('^1.13.6', true);
-    expect(match).toBeDefined();
-    let version: string = match ? match.version : '';
-    expect(version).toBe('go1.13.7');
-    let fileName = match ? match.files[0].filename : '';
-    expect(fileName).toBe('go1.13.7.linux-amd64.tar.gz');
-  });
-
-  it('finds latest version for major version spec', async () => {
-    os.platform = 'win32';
-    os.arch = 'x32';
-
-    // spec: 1 => 1.13.7 (latest)
-    let match: im.IGoVersion | undefined = await im.findMatch('1', true);
-    expect(match).toBeDefined();
-    let version: string = match ? match.version : '';
-    expect(version).toBe('go1.13.7');
-    let fileName = match ? match.files[0].filename : '';
-    expect(fileName).toBe('go1.13.7.windows-386.zip');
-  });
-
-  it('finds unstable pre-release version', async () => {
-    os.platform = 'linux';
-    os.arch = 'x64';
-
-    // spec: 1.14, stable=false => go1.14rc1
-    let match: im.IGoVersion | undefined = await im.findMatch(
-      '1.14.0-rc1',
-      false
-    );
-    expect(match).toBeDefined();
-    let version: string = match ? match.version : '';
-    expect(version).toBe('go1.14rc1');
-    let fileName = match ? match.files[0].filename : '';
-    expect(fileName).toBe('go1.14rc1.linux-amd64.tar.gz');
   });
 
   it('evaluates to stable with input as true', async () => {
@@ -261,7 +256,7 @@ describe('setup-go', () => {
     await main.run();
 
     expect(cnSpy).toHaveBeenCalledWith(
-      `::error::Could not find a version that satisfied version spec: 9.99.9${osm.EOL}`
+      `::error::Unable to find Go version '9.99.9' for platform linux and architecture x64.${osm.EOL}`
     );
   });
 
@@ -280,22 +275,6 @@ describe('setup-go', () => {
 
     expect(cnSpy).toHaveBeenCalledWith(
       `::error::Failed to download version 1.13.1: Error: ${errMsg}${osm.EOL}`
-    );
-  });
-
-  it('reports empty query results', async () => {
-    let errMsg = 'unhandled download message';
-    os.platform = 'linux';
-    os.arch = 'x64';
-
-    inputs['go-version'] = '1.13.1';
-
-    findSpy.mockImplementation(() => '');
-    getSpy.mockImplementation(() => null);
-    await main.run();
-
-    expect(cnSpy).toHaveBeenCalledWith(
-      `::error::Failed to download version 1.13.1: Error: golang download url did not return results${osm.EOL}`
     );
   });
 
