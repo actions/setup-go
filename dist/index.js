@@ -4899,7 +4899,7 @@ module.exports = require("fs");
 /***/ }),
 
 /***/ 749:
-/***/ (function(__unusedmodule, exports, __webpack_require__) {
+/***/ (function(module, exports, __webpack_require__) {
 
 "use strict";
 
@@ -4990,6 +4990,7 @@ function getGo(versionSpec, stable, auth) {
                 throw new Error(`Unable to find Go version '${versionSpec}' for platform ${osPlat} and architecture ${osArch}.`);
             }
             try {
+                console.log("Install from dist");
                 downloadPath = yield installGoVersion(info, undefined);
             }
             catch (err) {
@@ -5067,7 +5068,7 @@ function findMatch(versionSpec, stable) {
         let result;
         let match;
         const dlUrl = 'https://golang.org/dl/?mode=json&include=all';
-        let candidates = yield getVersionsDist(dlUrl);
+        let candidates = yield module.exports.getVersionsDist(dlUrl);
         if (!candidates) {
             throw new Error(`golang download url did not return results`);
         }

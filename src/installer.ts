@@ -87,6 +87,7 @@ export async function getGo(
     }
 
     try {
+      console.log('Install from dist');
       downloadPath = await installGoVersion(info, undefined);
     } catch (err) {
       throw new Error(`Failed to download version ${versionSpec}: ${err}`);
@@ -178,7 +179,9 @@ export async function findMatch(
   let match: IGoVersion | undefined;
 
   const dlUrl: string = 'https://golang.org/dl/?mode=json&include=all';
-  let candidates: IGoVersion[] | null = await getVersionsDist(dlUrl);
+  let candidates: IGoVersion[] | null = await module.exports.getVersionsDist(
+    dlUrl
+  );
   if (!candidates) {
     throw new Error(`golang download url did not return results`);
   }
