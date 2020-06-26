@@ -18,9 +18,7 @@ export async function run() {
     // since getting unstable versions should be explicit
     let stable = (core.getInput('stable') || 'true').toUpperCase() === 'TRUE';
 
-    console.log(
-      `Setup go ${stable ? 'stable' : ''} version spec ${versionSpec}`
-    );
+    core.info(`Setup go ${stable ? 'stable' : ''} version spec ${versionSpec}`);
 
     if (versionSpec) {
       let token = core.getInput('token');
@@ -30,25 +28,24 @@ export async function run() {
 
       core.exportVariable('GOROOT', installDir);
       core.addPath(path.join(installDir, 'bin'));
-      console.log('Added go to the path');
+      core.info('Added go to the path');
 
       let added = addBinToPath();
-      core.debug(`add bin ${added}`);
-      console.log('Done');
+      core.info(`Successfully setup go version ${versionSpec}`);
     }
 
     // add problem matchers
     const matchersPath = path.join(__dirname, '..', 'matchers.json');
-    console.log(`##[add-matcher]${matchersPath}`);
+    core.info(`##[add-matcher]${matchersPath}`);
 
     // output the version actually being used
     let goPath = await io.which('go');
     let goVersion = (cp.execSync(`${goPath} version`) || '').toString();
-    console.log(goVersion);
+    core.info(goVersion);
 
     core.startGroup('go env');
     let goEnv = (cp.execSync(`${goPath} env`) || '').toString();
-    console.log(goEnv);
+    core.info(goEnv);
     core.endGroup();
   } catch (error) {
     core.setFailed(error.message);

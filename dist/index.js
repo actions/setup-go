@@ -1436,28 +1436,27 @@ function run() {
             // stable will be true unless false is the exact input
             // since getting unstable versions should be explicit
             let stable = (core.getInput('stable') || 'true').toUpperCase() === 'TRUE';
-            console.log(`Setup go ${stable ? 'stable' : ''} version spec ${versionSpec}`);
+            core.info(`Setup go ${stable ? 'stable' : ''} version spec ${versionSpec}`);
             if (versionSpec) {
                 let token = core.getInput('token');
                 let auth = !token || isGhes() ? undefined : `token ${token}`;
                 const installDir = yield installer.getGo(versionSpec, stable, auth);
                 core.exportVariable('GOROOT', installDir);
                 core.addPath(path_1.default.join(installDir, 'bin'));
-                console.log('Added go to the path');
+                core.info('Added go to the path');
                 let added = addBinToPath();
-                core.debug(`add bin ${added}`);
-                console.log('Done');
+                core.info(`Successfully setup go version ${versionSpec}`);
             }
             // add problem matchers
             const matchersPath = path_1.default.join(__dirname, '..', 'matchers.json');
-            console.log(`##[add-matcher]${matchersPath}`);
+            core.info(`##[add-matcher]${matchersPath}`);
             // output the version actually being used
             let goPath = yield io.which('go');
             let goVersion = (child_process_1.default.execSync(`${goPath} version`) || '').toString();
-            console.log(goVersion);
+            core.info(goVersion);
             core.startGroup('go env');
             let goEnv = (child_process_1.default.execSync(`${goPath} env`) || '').toString();
-            console.log(goEnv);
+            core.info(goEnv);
             core.endGroup();
         }
         catch (error) {
@@ -4952,10 +4951,10 @@ function getGo(versionSpec, stable, auth) {
         toolPath = tc.find('go', versionSpec);
         // If not found in cache, download
         if (toolPath) {
-            console.log(`Found in cache @ ${toolPath}`);
+            core.info(`Found in cache @ ${toolPath}`);
             return toolPath;
         }
-        console.log(`Attempting to download ${versionSpec}...`);
+        core.info(`Attempting to download ${versionSpec}...`);
         let downloadPath = '';
         let info = null;
         //
@@ -4967,19 +4966,19 @@ function getGo(versionSpec, stable, auth) {
                 downloadPath = yield installGoVersion(info, auth);
             }
             else {
-                console.log('Not found in manifest.  Falling back to download directly from Go');
+                core.info('Not found in manifest.  Falling back to download directly from Go');
             }
         }
         catch (err) {
             if (err instanceof tc.HTTPError &&
                 (err.httpStatusCode === 403 || err.httpStatusCode === 429)) {
-                console.log(`Received HTTP status code ${err.httpStatusCode}.  This usually indicates the rate limit has been exceeded`);
+                core.info(`Received HTTP status code ${err.httpStatusCode}.  This usually indicates the rate limit has been exceeded`);
             }
             else {
-                console.log(err.message);
+                core.info(err.message);
             }
             core.debug(err.stack);
-            console.log('Falling back to download directly from Go');
+            core.info('Falling back to download directly from Go');
         }
         //
         // Download from storage.googleapis.com
@@ -4990,7 +4989,7 @@ function getGo(versionSpec, stable, auth) {
                 throw new Error(`Unable to find Go version '${versionSpec}' for platform ${osPlat} and architecture ${osArch}.`);
             }
             try {
-                console.log("Install from dist");
+                core.info('Install from dist');
                 downloadPath = yield installGoVersion(info, undefined);
             }
             catch (err) {
@@ -5003,15 +5002,18 @@ function getGo(versionSpec, stable, auth) {
 exports.getGo = getGo;
 function installGoVersion(info, auth) {
     return __awaiter(this, void 0, void 0, function* () {
-        console.log(`Acquiring ${info.resolvedVersion} from ${info.downloadUrl}`);
+        core.info(`Acquiring ${info.resolvedVersion} from ${info.downloadUrl}`);
         const downloadPath = yield tc.downloadTool(info.downloadUrl, undefined, auth);
-        console.log('Extracting Go...');
+        core.info('Extracting Go...');
         let extPath = yield extractGoArchive(downloadPath);
+        core.info(`Successfully extracted go to ${extPath}`);
         if (info.type === 'dist') {
             extPath = path.join(extPath, 'go');
         }
-        console.log('Adding to the cache ...');
-        return yield tc.cacheDir(extPath, 'go', makeSemver(info.resolvedVersion));
+        core.info('Adding to the cache ...');
+        const cachedDir = yield tc.cacheDir(extPath, 'go', makeSemver(info.resolvedVersion));
+        core.info(`Successfully cached go to ${cachedDir}`);
+        return cachedDir;
     });
 }
 function extractGoArchive(archivePath) {
@@ -5032,7 +5034,7 @@ function getInfoFromManifest(versionSpec, stable, auth) {
     return __awaiter(this, void 0, void 0, function* () {
         let info = null;
         const releases = yield tc.getManifestFromRepo('actions', 'go-versions', auth);
-        console.log(`matching ${versionSpec}...`);
+        core.info(`matching ${versionSpec}...`);
         const rel = yield tc.findFromManifest(versionSpec, stable, releases);
         if (rel && rel.files.length > 0) {
             info = {};

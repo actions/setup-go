@@ -41,10 +41,10 @@ export async function getGo(
   toolPath = tc.find('go', versionSpec);
   // If not found in cache, download
   if (toolPath) {
-    console.log(`Found in cache @ ${toolPath}`);
+    core.info(`Found in cache @ ${toolPath}`);
     return toolPath;
   }
-  console.log(`Attempting to download ${versionSpec}...`);
+  core.info(`Attempting to download ${versionSpec}...`);
   let downloadPath = '';
   let info: IGoVersionInfo | null = null;
 
@@ -56,7 +56,7 @@ export async function getGo(
     if (info) {
       downloadPath = await installGoVersion(info, auth);
     } else {
-      console.log(
+      core.info(
         'Not found in manifest.  Falling back to download directly from Go'
       );
     }
@@ -65,14 +65,14 @@ export async function getGo(
       err instanceof tc.HTTPError &&
       (err.httpStatusCode === 403 || err.httpStatusCode === 429)
     ) {
-      console.log(
+      core.info(
         `Received HTTP status code ${err.httpStatusCode}.  This usually indicates the rate limit has been exceeded`
       );
     } else {
-      console.log(err.message);
+      core.info(err.message);
     }
     core.debug(err.stack);
-    console.log('Falling back to download directly from Go');
+    core.info('Falling back to download directly from Go');
   }
 
   //
@@ -87,7 +87,7 @@ export async function getGo(
     }
 
     try {
-      console.log('Install from dist');
+      core.info('Install from dist');
       downloadPath = await installGoVersion(info, undefined);
     } catch (err) {
       throw new Error(`Failed to download version ${versionSpec}: ${err}`);
@@ -101,17 +101,24 @@ async function installGoVersion(
   info: IGoVersionInfo,
   auth: string | undefined
 ): Promise<string> {
-  console.log(`Acquiring ${info.resolvedVersion} from ${info.downloadUrl}`);
+  core.info(`Acquiring ${info.resolvedVersion} from ${info.downloadUrl}`);
   const downloadPath = await tc.downloadTool(info.downloadUrl, undefined, auth);
 
-  console.log('Extracting Go...');
+  core.info('Extracting Go...');
   let extPath = await extractGoArchive(downloadPath);
+  core.info(`Successfully extracted go to ${extPath}`);
   if (info.type === 'dist') {
     extPath = path.join(extPath, 'go');
   }
 
-  console.log('Adding to the cache ...');
-  return await tc.cacheDir(extPath, 'go', makeSemver(info.resolvedVersion));
+  core.info('Adding to the cache ...');
+  const cachedDir = await tc.cacheDir(
+    extPath,
+    'go',
+    makeSemver(info.resolvedVersion)
+  );
+  core.info(`Successfully cached go to ${cachedDir}`);
+  return cachedDir;
 }
 
 export async function extractGoArchive(archivePath: string): Promise<string> {
@@ -134,7 +141,7 @@ export async function getInfoFromManifest(
 ): Promise<IGoVersionInfo | null> {
   let info: IGoVersionInfo | null = null;
   const releases = await tc.getManifestFromRepo('actions', 'go-versions', auth);
-  console.log(`matching ${versionSpec}...`);
+  core.info(`matching ${versionSpec}...`);
   const rel = await tc.findFromManifest(versionSpec, stable, releases);
 
   if (rel && rel.files.length > 0) {
