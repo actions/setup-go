@@ -1,10 +1,10 @@
 import * as core from '@actions/core';
 import * as io from '@actions/io';
-import * as tc from '@actions/tool-cache';
 import * as installer from './installer';
 import path from 'path';
 import cp from 'child_process';
 import fs from 'fs';
+import {URL} from 'url';
 
 export async function run() {
   try {
@@ -18,47 +18,35 @@ export async function run() {
     // since getting unstable versions should be explicit
     let stable = (core.getInput('stable') || 'true').toUpperCase() === 'TRUE';
 
-    console.log(
-      `Setup go ${stable ? 'stable' : ''} version spec ${versionSpec}`
-    );
+    core.info(`Setup go ${stable ? 'stable' : ''} version spec ${versionSpec}`);
 
     if (versionSpec) {
-      let installDir: string | undefined = tc.find('go', versionSpec);
+      let token = core.getInput('token');
+      let auth = !token || isGhes() ? undefined : `token ${token}`;
 
-      if (!installDir) {
-        console.log(
-          `A version satisfying ${versionSpec} not found locally, attempting to download ...`
-        );
-        installDir = await installer.downloadGo(versionSpec, stable);
-        console.log('Installed');
-      }
+      const installDir = await installer.getGo(versionSpec, stable, auth);
 
-      if (installDir) {
-        core.exportVariable('GOROOT', installDir);
-        core.addPath(path.join(installDir, 'bin'));
-        console.log('Added go to the path');
+      core.exportVariable('GOROOT', installDir);
+      core.addPath(path.join(installDir, 'bin'));
+      core.info('Added go to the path');
 
-        let added = addBinToPath();
-        core.debug(`add bin ${added}`);
-      } else {
-        throw new Error(
-          `Could not find a version that satisfied version spec: ${versionSpec}`
-        );
-      }
+      let added = await addBinToPath();
+      core.debug(`add bin ${added}`);
+      core.info(`Successfully setup go version ${versionSpec}`);
     }
 
     // add problem matchers
     const matchersPath = path.join(__dirname, '..', 'matchers.json');
-    console.log(`##[add-matcher]${matchersPath}`);
+    core.info(`##[add-matcher]${matchersPath}`);
 
     // output the version actually being used
     let goPath = await io.which('go');
     let goVersion = (cp.execSync(`${goPath} version`) || '').toString();
-    console.log(goVersion);
+    core.info(goVersion);
 
     core.startGroup('go env');
     let goEnv = (cp.execSync(`${goPath} env`) || '').toString();
-    console.log(goEnv);
+    core.info(goEnv);
     core.endGroup();
   } catch (error) {
     core.setFailed(error.message);
@@ -68,25 +56,25 @@ export async function run() {
 export async function addBinToPath(): Promise<boolean> {
   let added = false;
   let g = await io.which('go');
-  _debug(`which go :${g}:`);
+  core.debug(`which go :${g}:`);
   if (!g) {
-    _debug('go not in the path');
+    core.debug('go not in the path');
     return added;
   }
 
   let buf = cp.execSync('go env GOPATH');
   if (buf) {
     let gp = buf.toString().trim();
-    _debug(`go env GOPATH :${gp}:`);
+    core.debug(`go env GOPATH :${gp}:`);
     if (!fs.existsSync(gp)) {
       // some of the hosted images have go install but not profile dir
-      _debug(`creating ${gp}`);
+      core.debug(`creating ${gp}`);
       io.mkdirP(gp);
     }
 
     let bp = path.join(gp, 'bin');
     if (!fs.existsSync(bp)) {
-      _debug(`creating ${bp}`);
+      core.debug(`creating ${bp}`);
       io.mkdirP(bp);
     }
 
@@ -96,6 +84,9 @@ export async function addBinToPath(): Promise<boolean> {
   return added;
 }
 
-export function _debug(message: string) {
-  core.debug(message);
+function isGhes(): boolean {
+  const ghUrl = new URL(
+    process.env['GITHUB_SERVER_URL'] || 'https://github.com'
+  );
+  return ghUrl.hostname.toUpperCase() !== 'GITHUB.COM';
 }
