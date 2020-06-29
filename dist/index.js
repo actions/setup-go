@@ -1444,7 +1444,8 @@ function run() {
                 core.exportVariable('GOROOT', installDir);
                 core.addPath(path_1.default.join(installDir, 'bin'));
                 core.info('Added go to the path');
-                let added = addBinToPath();
+                let added = yield addBinToPath();
+                core.debug(`add bin ${added}`);
                 core.info(`Successfully setup go version ${versionSpec}`);
             }
             // add problem matchers

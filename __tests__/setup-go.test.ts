@@ -3,7 +3,7 @@ import * as io from '@actions/io';
 import * as tc from '@actions/tool-cache';
 import fs from 'fs';
 import cp from 'child_process';
-import osm = require('os');
+import osm from 'os';
 import path from 'path';
 import * as main from '../src/main';
 import * as im from '../src/installer';
