@@ -31,6 +31,7 @@ describe('setup-go', () => {
   let dbgSpy: jest.SpyInstance;
   let whichSpy: jest.SpyInstance;
   let existsSpy: jest.SpyInstance;
+  let readFileSpy: jest.SpyInstance;
   let mkdirpSpy: jest.SpyInstance;
   let execSpy: jest.SpyInstance;
   let getManifestSpy: jest.SpyInstance;
@@ -60,6 +61,7 @@ describe('setup-go', () => {
     // io
     whichSpy = jest.spyOn(io, 'which');
     existsSpy = jest.spyOn(fs, 'existsSync');
+    readFileSpy = jest.spyOn(fs, 'readFileSync');
     mkdirpSpy = jest.spyOn(io, 'mkdirP');
 
     // gets
@@ -555,5 +557,44 @@ describe('setup-go', () => {
 
   it('does not convert exact versions', async () => {
     expect(im.makeSemver('1.13.1')).toBe('1.13.1');
+  });
+
+  describe('go-version-from-file', () => {
+    it('reads version from file', async () => {
+      inputs['go-version-from-file'] = '.go-version';
+      readFileSpy.mockImplementation(() => Buffer.from('1.13.0\n'));
+
+      await main.run();
+
+      expect(logSpy).toHaveBeenCalledWith(
+        'Setup go stable version spec 1.13.0'
+      );
+    });
+
+    it('is overwritten by go-version', async () => {
+      inputs['go-version'] = '1.13.1';
+
+      inputs['go-version-from-file'] = '.go-version';
+      readFileSpy.mockImplementation(() => Buffer.from('1.13.0\n'));
+
+      await main.run();
+
+      expect(logSpy).toHaveBeenCalledWith(
+        'Setup go stable version spec 1.13.1'
+      );
+    });
+
+    it('reports a read failure', async () => {
+      const versionFilePath = '.go-version';
+      inputs['go-version-from-file'] = versionFilePath;
+      const errMsg = `ENOENT: no such file or directory, open '${versionFilePath}'`;
+      readFileSpy.mockImplementation(() => {
+        throw new Error(errMsg);
+      });
+
+      await main.run();
+
+      expect(cnSpy).toHaveBeenCalledWith(`::error::${errMsg}${osm.EOL}`);
+    });
   });
 });
