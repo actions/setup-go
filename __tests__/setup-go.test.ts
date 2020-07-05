@@ -562,7 +562,7 @@ describe('setup-go', () => {
   describe('go-version-from-file', () => {
     it('reads version from file', async () => {
       inputs['go-version-from-file'] = '.go-version';
-      readFileSpy.mockImplementation(() => Buffer.from('1.13.0\n'));
+      readFileSpy.mockImplementation(() => Buffer.from(`1.13.0${osm.EOL}`));
 
       await main.run();
 
@@ -575,7 +575,7 @@ describe('setup-go', () => {
       inputs['go-version'] = '1.13.1';
 
       inputs['go-version-from-file'] = '.go-version';
-      readFileSpy.mockImplementation(() => Buffer.from('1.13.0\n'));
+      readFileSpy.mockImplementation(() => Buffer.from(`1.13.0${osm.EOL}`));
 
       await main.run();
 
