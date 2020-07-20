@@ -140,7 +140,12 @@ export async function getInfoFromManifest(
   auth: string | undefined
 ): Promise<IGoVersionInfo | null> {
   let info: IGoVersionInfo | null = null;
-  const releases = await tc.getManifestFromRepo('actions', 'go-versions', auth);
+  const releases = await tc.getManifestFromRepo(
+    'actions',
+    'go-versions',
+    auth,
+    'main'
+  );
   core.info(`matching ${versionSpec}...`);
   const rel = await tc.findFromManifest(versionSpec, stable, releases);
 

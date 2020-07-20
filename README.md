@@ -19,6 +19,8 @@ The V2 offers:
 - stable input 
 - Bug Fixes (including issues around version matching and semver)
 
+It will first check the local cache for a version match. If version is not found locally, It will pull it from `main` branch of [go-versions](https://github.com/actions/go-versions/blob/main/versions-manifest.json) repository and on miss or failure, it will fall back to the previous behavior of download directly from [go dist](https://storage.googleapis.com/golang).
+
 Matching by semver spec:
 ```yaml
 steps:
