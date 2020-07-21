@@ -4,6 +4,8 @@ author: 'GitHub'
 inputs: 
   go-version:
     description: 'The Go version to download (if necessary) and use. Supports semver spec and ranges.'
+  go-version-from-file:
+    description: Path to the file with the Go version.  go-version overwrites this.
   stable:
     description: 'Whether to download only stable versions'
     default: 'true'

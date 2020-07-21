@@ -12,7 +12,14 @@ export async function run() {
     // versionSpec is optional.  If supplied, install / use from the tool cache
     // If not supplied then problem matchers will still be setup.  Useful for self-hosted.
     //
-    let versionSpec = core.getInput('go-version');
+    const versionFilePath = core.getInput('go-version-from-file');
+    const versionSpecFromFile =
+      versionFilePath &&
+      fs
+        .readFileSync(versionFilePath)
+        .toString()
+        .trim();
+    let versionSpec = core.getInput('go-version') || versionSpecFromFile;
 
     // stable will be true unless false is the exact input
     // since getting unstable versions should be explicit
