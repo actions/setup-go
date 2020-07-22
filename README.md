@@ -63,7 +63,7 @@ jobs:
     runs-on: ubuntu-16.04
     strategy:
       matrix:
-        go: [ '1.13', '1.12' ]
+        go: [ '1.14', '1.13' ]
     name: Go ${{ matrix.go }} sample
     steps:
       - uses: actions/checkout@v2
