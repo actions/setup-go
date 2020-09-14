@@ -5,6 +5,7 @@ import * as semver from 'semver';
 import * as httpm from '@actions/http-client';
 import * as sys from './system';
 import os from 'os';
+import {version} from 'process';
 
 type InstallationType = 'dist' | 'manifest';
 
@@ -30,11 +31,29 @@ export interface IGoVersionInfo {
 
 export async function getGo(
   versionSpec: string,
+  versionSpecResolver: string | undefined,
   stable: boolean,
   auth: string | undefined
-) {
-  let osPlat: string = os.platform();
-  let osArch: string = os.arch();
+): Promise<string> {
+  let versionInfo: IGoVersionInfo | null = null;
+
+  if (versionSpecResolver) {
+    core.info(
+      `Resolving versionSpec '${versionSpec}' from '${versionSpecResolver}'`
+    );
+    switch (versionSpecResolver) {
+      case 'manifest':
+        versionInfo = await getInfoFromManifest(versionSpec, stable, auth);
+        break;
+      case 'dist':
+        versionInfo = await getInfoFromDist(versionSpec, stable);
+        break;
+    }
+  }
+
+  if (versionInfo && versionInfo.resolvedVersion.length > 0) {
+    versionSpec = versionInfo.resolvedVersion;
+  }
 
   // check cache
   let toolPath: string;
@@ -52,7 +71,8 @@ export async function getGo(
   // Try download from internal distribution (popular versions only)
   //
   try {
-    info = await getInfoFromManifest(versionSpec, stable, auth);
+    info =
+      versionInfo ?? (await getInfoFromManifest(versionSpec, stable, auth));
     if (info) {
       downloadPath = await installGoVersion(info, auth);
     } else {
@@ -79,8 +99,10 @@ export async function getGo(
   // Download from storage.googleapis.com
   //
   if (!downloadPath) {
-    info = await getInfoFromDist(versionSpec, stable);
+    info = versionInfo ?? (await getInfoFromDist(versionSpec, stable));
     if (!info) {
+      let osPlat: string = os.platform();
+      let osArch: string = os.arch();
       throw new Error(
         `Unable to find Go version '${versionSpec}' for platform ${osPlat} and architecture ${osArch}.`
       );
