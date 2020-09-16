@@ -5175,7 +5175,7 @@ function getInfoFromDist(versionSpec, stable) {
         return {
             type: 'dist',
             downloadUrl: downloadUrl,
-            resolvedVersion: version.version,
+            resolvedVersion: makeSemver(version.version),
             fileName: version.files[0].filename
         };
     });

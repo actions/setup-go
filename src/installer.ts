@@ -219,7 +219,7 @@ async function getInfoFromDist(
   return <IGoVersionInfo>{
     type: 'dist',
     downloadUrl: downloadUrl,
-    resolvedVersion: version.version,
+    resolvedVersion: makeSemver(version.version),
     fileName: version.files[0].filename
   };
 }
