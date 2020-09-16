@@ -53,6 +53,10 @@ export async function getGo(
 
   if (versionInfo && versionInfo.resolvedVersion.length > 0) {
     versionSpec = versionInfo.resolvedVersion;
+
+    // Freeze these to protect (un)intentional overwrites.
+    Object.freeze(versionInfo);
+    Object.freeze(versionSpec);
   }
 
   // check cache
@@ -71,8 +75,18 @@ export async function getGo(
   // Try download from internal distribution (popular versions only)
   //
   try {
-    info =
-      versionInfo ?? (await getInfoFromManifest(versionSpec, stable, auth));
+    if (versionInfo?.type == 'manifest') {
+      info = versionInfo;
+    } else {
+      // The version search in the cache was a miss. We either have no previous
+      // explicit version resolution attempt or it came from 'dist' version registry
+      // and have an `downloadUrl` pointing to an external resource.
+      //
+      // Check the @actions/go-versions manifest with current `versionSpec`; either
+      // an explicit one or a semver range.
+      info = await getInfoFromManifest(versionSpec, stable, auth);
+    }
+
     if (info) {
       downloadPath = await installGoVersion(info, auth);
     } else {
@@ -99,7 +113,15 @@ export async function getGo(
   // Download from storage.googleapis.com
   //
   if (!downloadPath) {
-    info = versionInfo ?? (await getInfoFromDist(versionSpec, stable));
+    if (versionInfo?.type == 'dist') {
+      info = versionInfo;
+    } else {
+      // Version search didn't match anything available in the cache or @actions/go-versions.
+      // We either have no previous explicit version resolution attempt or downloading from
+      // @actions/go-versions manifest specified URL somehow failed.
+      info = await getInfoFromDist(versionSpec, stable);
+    }
+
     if (!info) {
       let osPlat: string = os.platform();
       let osArch: string = os.arch();

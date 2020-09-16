@@ -5038,6 +5038,9 @@ function getGo(versionSpec, versionSpecResolver, stable, auth) {
         }
         if (versionInfo && versionInfo.resolvedVersion.length > 0) {
             versionSpec = versionInfo.resolvedVersion;
+            // Freeze these to protect (un)intentional overwrites.
+            Object.freeze(versionInfo);
+            Object.freeze(versionSpec);
         }
         // check cache
         let toolPath;
@@ -5054,7 +5057,18 @@ function getGo(versionSpec, versionSpecResolver, stable, auth) {
         // Try download from internal distribution (popular versions only)
         //
         try {
-            info = versionInfo !== null && versionInfo !== void 0 ? versionInfo : (yield getInfoFromManifest(versionSpec, stable, auth));
+            if ((versionInfo === null || versionInfo === void 0 ? void 0 : versionInfo.type) == 'manifest') {
+                info = versionInfo;
+            }
+            else {
+                // The version search in the cache was a miss. We either have no previous
+                // explicit version resolution attempt or it came from 'dist' version registry
+                // and have an `downloadUrl` pointing to an external resource.
+                //
+                // Check the @actions/go-versions manifest with current `versionSpec`; either
+                // an explicit one or a semver range.
+                info = yield getInfoFromManifest(versionSpec, stable, auth);
+            }
             if (info) {
                 downloadPath = yield installGoVersion(info, auth);
             }
@@ -5077,7 +5091,15 @@ function getGo(versionSpec, versionSpecResolver, stable, auth) {
         // Download from storage.googleapis.com
         //
         if (!downloadPath) {
-            info = versionInfo !== null && versionInfo !== void 0 ? versionInfo : (yield getInfoFromDist(versionSpec, stable));
+            if ((versionInfo === null || versionInfo === void 0 ? void 0 : versionInfo.type) == 'dist') {
+                info = versionInfo;
+            }
+            else {
+                // Version search didn't match anything available in the cache or @actions/go-versions.
+                // We either have no previous explicit version resolution attempt or downloading from
+                // @actions/go-versions manifest specified URL somehow failed.
+                info = yield getInfoFromDist(versionSpec, stable);
+            }
             if (!info) {
                 let osPlat = os_1.default.platform();
                 let osArch = os_1.default.arch();
