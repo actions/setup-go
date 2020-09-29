@@ -37,6 +37,7 @@ describe('setup-go', () => {
 
   beforeEach(() => {
     // @actions/core
+    process.env['GITHUB_PATH'] = ''; // Stub out ENV file functionality so we can verify it writes to standard out
     inputs = {};
     inSpy = jest.spyOn(core, 'getInput');
     inSpy.mockImplementation(name => inputs[name]);
