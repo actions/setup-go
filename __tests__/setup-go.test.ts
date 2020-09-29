@@ -34,10 +34,10 @@ describe('setup-go', () => {
   let mkdirpSpy: jest.SpyInstance;
   let execSpy: jest.SpyInstance;
   let getManifestSpy: jest.SpyInstance;
-  
+
   beforeAll(() => {
     process.env['GITHUB_PATH'] = ''; // Stub out ENV file functionality so we can verify it writes to standard out
-    console.log("::stop-commands::stoptoken"); // Disable executing of runner commands when running tests in actions
+    console.log('::stop-commands::stoptoken'); // Disable executing of runner commands when running tests in actions
   });
 
   beforeEach(() => {
@@ -96,7 +96,7 @@ describe('setup-go', () => {
   });
 
   afterAll(async () => {
-    console.log("::stoptoken::"); // Re-enable executing of runner commands when running tests in actions
+    console.log('::stoptoken::'); // Re-enable executing of runner commands when running tests in actions
   }, 100000);
 
   it('can find 1.9.7 from manifest on osx', async () => {
