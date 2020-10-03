@@ -60,10 +60,10 @@ Matrix Testing:
 ```yaml
 jobs:
   build:
-    runs-on: ubuntu-16.04
+    runs-on: ubuntu-20.04
     strategy:
       matrix:
-        go: [ '1.14', '1.13' ]
+        go: [ '1.15', '1.14' ]
     name: Go ${{ matrix.go }} sample
     steps:
       - uses: actions/checkout@v2
