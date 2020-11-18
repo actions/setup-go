@@ -2100,6 +2100,12 @@ function run() {
             let goPath = yield io.which('go');
             let goVersion = (child_process_1.default.execSync(`${goPath} version`) || '').toString();
             core.info(goVersion);
+            // get the installed version as an Action output
+            // based on go/src/cmd/go/internal/version/version.go:
+            // fmt.Printf("go version %s %s/%s\n", runtime.Version(), runtime.GOOS, runtime.GOARCH)
+            // expecting go<version> for runtime.Version()
+            let goVersionOutput = [...goVersion.split(' ')[2]].slice(2).join('');
+            core.setOutput('go-version', goVersionOutput);
             core.startGroup('go env');
             let goEnv = (child_process_1.default.execSync(`${goPath} env`) || '').toString();
             core.info(goEnv);
