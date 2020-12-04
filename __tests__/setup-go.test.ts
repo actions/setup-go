@@ -441,7 +441,7 @@ describe('setup-go', () => {
       return '/Users/testuser/go';
     });
 
-    mkdirpSpy.mockImplementation(async () => { });
+    mkdirpSpy.mockImplementation(async () => {});
     existsSpy.mockImplementation(path => {
       return false;
     });
@@ -452,7 +452,7 @@ describe('setup-go', () => {
     expect(logSpy).toHaveBeenCalledWith(`Added go to the path`);
     expect(logSpy).toHaveBeenCalledWith(`Added GOBIN to the path`);
 
-    let expPath = "/Users/testuser/go/bin";
+    let expPath = '/Users/testuser/go/bin';
     expect(cnSpy).toHaveBeenCalledWith(`::add-path::${expPath}${osm.EOL}`);
   });
 
@@ -468,17 +468,19 @@ describe('setup-go', () => {
       return '/Users/testuser/go';
     });
 
-    mkdirpSpy.mockImplementation(async () => { });
+    mkdirpSpy.mockImplementation(async () => {});
     existsSpy.mockImplementation(path => {
       return false;
     });
 
     await main.run();
 
-    expect(logSpy).toHaveBeenCalledWith(`Setup go stable version spec undefined`);
+    expect(logSpy).toHaveBeenCalledWith(
+      `Setup go stable version spec undefined`
+    );
     expect(logSpy).toHaveBeenCalledWith(`Added GOBIN to the path`);
 
-    let expPath = "/Users/testuser/go/bin";
+    let expPath = '/Users/testuser/go/bin';
     expect(cnSpy).toHaveBeenCalledWith(`::add-path::${expPath}${osm.EOL}`);
   });
 
