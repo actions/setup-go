@@ -1511,6 +1511,9 @@ function run() {
             // add gobin to path
             let added = yield addBinToPath();
             core.debug(`add bin ${added}`);
+            if (added) {
+                core.info('Added GOBIN to the path');
+            }
             // add problem matchers
             const matchersPath = path_1.default.join(__dirname, '..', 'matchers.json');
             core.info(`##[add-matcher]${matchersPath}`);

@@ -427,6 +427,61 @@ describe('setup-go', () => {
     );
   });
 
+  it('adds GOBIN to PATH when go-version specified', async () => {
+    inputs['go-version'] = '1.13.0';
+
+    let toolPath = path.normalize('/cache/go/1.13.0/x64');
+    findSpy.mockImplementation(() => toolPath);
+
+    whichSpy.mockImplementation(async () => {
+      return '/usr/local/go/bin/go';
+    });
+
+    execSpy.mockImplementation(() => {
+      return '/Users/testuser/go';
+    });
+
+    mkdirpSpy.mockImplementation(async () => { });
+    existsSpy.mockImplementation(path => {
+      return false;
+    });
+
+    await main.run();
+
+    expect(logSpy).toHaveBeenCalledWith(`Setup go stable version spec 1.13.0`);
+    expect(logSpy).toHaveBeenCalledWith(`Added go to the path`);
+    expect(logSpy).toHaveBeenCalledWith(`Added GOBIN to the path`);
+
+    let expPath = "/Users/testuser/go/bin";
+    expect(cnSpy).toHaveBeenCalledWith(`::add-path::${expPath}${osm.EOL}`);
+  });
+
+  it('adds GOBIN to PATH when go-version not specified', async () => {
+    let toolPath = path.normalize('/cache/go/1.13.0/x64');
+    findSpy.mockImplementation(() => toolPath);
+
+    whichSpy.mockImplementation(async () => {
+      return '/usr/local/go/bin/go';
+    });
+
+    execSpy.mockImplementation(() => {
+      return '/Users/testuser/go';
+    });
+
+    mkdirpSpy.mockImplementation(async () => { });
+    existsSpy.mockImplementation(path => {
+      return false;
+    });
+
+    await main.run();
+
+    expect(logSpy).toHaveBeenCalledWith(`Setup go stable version spec undefined`);
+    expect(logSpy).toHaveBeenCalledWith(`Added GOBIN to the path`);
+
+    let expPath = "/Users/testuser/go/bin";
+    expect(cnSpy).toHaveBeenCalledWith(`::add-path::${expPath}${osm.EOL}`);
+  });
+
   it('does not add BIN if go is not in path', async () => {
     whichSpy.mockImplementation(async () => {
       return '';
