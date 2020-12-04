@@ -452,7 +452,7 @@ describe('setup-go', () => {
     expect(logSpy).toHaveBeenCalledWith(`Added go to the path`);
     expect(logSpy).toHaveBeenCalledWith(`Added GOBIN to the path`);
 
-    let expPath = '/Users/testuser/go/bin';
+    let expPath = path.normalize('/Users/testuser/go/bin');
     expect(cnSpy).toHaveBeenCalledWith(`::add-path::${expPath}${osm.EOL}`);
   });
 
@@ -480,7 +480,7 @@ describe('setup-go', () => {
     );
     expect(logSpy).toHaveBeenCalledWith(`Added GOBIN to the path`);
 
-    let expPath = '/Users/testuser/go/bin';
+    let expPath = path.normalize('/Users/testuser/go/bin');
     expect(cnSpy).toHaveBeenCalledWith(`::add-path::${expPath}${osm.EOL}`);
   });
 
