@@ -30,9 +30,14 @@ export async function run() {
       core.addPath(path.join(installDir, 'bin'));
       core.info('Added go to the path');
 
-      let added = await addBinToPath();
-      core.debug(`add bin ${added}`);
       core.info(`Successfully setup go version ${versionSpec}`);
+    }
+
+    // add gobin to path
+    let added = await addBinToPath();
+    core.debug(`add bin ${added}`);
+    if (added) {
+      core.info('Added GOBIN to the path');
     }
 
     // add problem matchers
