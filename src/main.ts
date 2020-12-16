@@ -24,7 +24,27 @@ export async function run() {
       let token = core.getInput('token');
       let auth = !token || isGhes() ? undefined : `token ${token}`;
 
-      const installDir = await installer.getGo(versionSpec, stable, auth);
+      // Tool cache can be stale in GitHub and self-hosted runners. If supplied
+      // `go-version` is a semver range--instead of an explicit version--it will
+      // be tried through the version inventory in cache, first. Even though
+      // the GitHub local copy or origin distribution may have newer versions
+      // matching the passed range, as long as the cache can satisfy the range,
+      // the latest version from cache will be used.
+      //
+      // Allow passing a prefered version inventory for resolving versionSpec.
+      // - "manifest": GitHub hosted (@actions/go-versions)
+      // - "dist": Origin (https://golang.org/dl/?mode=json&include=all)
+      let resolver = core.getInput('version-resolver');
+      if (resolver && resolver != 'manifest' && resolver != 'dist') {
+        throw new Error(`Unknown version-resolver: '${resolver}'`);
+      }
+
+      const installDir = await installer.getGo(
+        versionSpec,
+        resolver,
+        stable,
+        auth
+      );
 
       core.exportVariable('GOROOT', installDir);
       core.addPath(path.join(installDir, 'bin'));

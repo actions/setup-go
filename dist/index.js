@@ -1502,7 +1502,21 @@ function run() {
             if (versionSpec) {
                 let token = core.getInput('token');
                 let auth = !token || isGhes() ? undefined : `token ${token}`;
-                const installDir = yield installer.getGo(versionSpec, stable, auth);
+                // Tool cache can be stale in GitHub and self-hosted runners. If supplied
+                // `go-version` is a semver range--instead of an explicit version--it will
+                // be tried through the version inventory in cache, first. Even though
+                // the GitHub local copy or origin distribution may have newer versions
+                // matching the passed range, as long as the cache can satisfy the range,
+                // the latest version from cache will be used.
+                //
+                // Allow passing a prefered version inventory for resolving versionSpec.
+                // - "manifest": GitHub hosted (@actions/go-versions)
+                // - "dist": Origin (https://golang.org/dl/?mode=json&include=all)
+                let resolver = core.getInput('version-resolver');
+                if (resolver && resolver != 'manifest' && resolver != 'dist') {
+                    throw new Error(`Unknown version-resolver: '${resolver}'`);
+                }
+                const installDir = yield installer.getGo(versionSpec, resolver, stable, auth);
                 core.exportVariable('GOROOT', installDir);
                 core.addPath(path_1.default.join(installDir, 'bin'));
                 core.info('Added go to the path');
@@ -5008,10 +5022,26 @@ const semver = __importStar(__webpack_require__(280));
 const httpm = __importStar(__webpack_require__(539));
 const sys = __importStar(__webpack_require__(737));
 const os_1 = __importDefault(__webpack_require__(87));
-function getGo(versionSpec, stable, auth) {
+function getGo(versionSpec, versionSpecResolver, stable, auth) {
     return __awaiter(this, void 0, void 0, function* () {
-        let osPlat = os_1.default.platform();
-        let osArch = os_1.default.arch();
+        let versionInfo = null;
+        if (versionSpecResolver) {
+            core.info(`Resolving versionSpec '${versionSpec}' from '${versionSpecResolver}'`);
+            switch (versionSpecResolver) {
+                case 'manifest':
+                    versionInfo = yield getInfoFromManifest(versionSpec, stable, auth);
+                    break;
+                case 'dist':
+                    versionInfo = yield getInfoFromDist(versionSpec, stable);
+                    break;
+            }
+        }
+        if (versionInfo && versionInfo.resolvedVersion.length > 0) {
+            versionSpec = versionInfo.resolvedVersion;
+            // Freeze these to protect (un)intentional overwrites.
+            Object.freeze(versionInfo);
+            Object.freeze(versionSpec);
+        }
         // check cache
         let toolPath;
         toolPath = tc.find('go', versionSpec);
@@ -5027,7 +5057,18 @@ function getGo(versionSpec, stable, auth) {
         // Try download from internal distribution (popular versions only)
         //
         try {
-            info = yield getInfoFromManifest(versionSpec, stable, auth);
+            if ((versionInfo === null || versionInfo === void 0 ? void 0 : versionInfo.type) == 'manifest') {
+                info = versionInfo;
+            }
+            else {
+                // The version search in the cache was a miss. We either have no previous
+                // explicit version resolution attempt or it came from 'dist' version registry
+                // and have an `downloadUrl` pointing to an external resource.
+                //
+                // Check the @actions/go-versions manifest with current `versionSpec`; either
+                // an explicit one or a semver range.
+                info = yield getInfoFromManifest(versionSpec, stable, auth);
+            }
             if (info) {
                 downloadPath = yield installGoVersion(info, auth);
             }
@@ -5050,8 +5091,18 @@ function getGo(versionSpec, stable, auth) {
         // Download from storage.googleapis.com
         //
         if (!downloadPath) {
-            info = yield getInfoFromDist(versionSpec, stable);
+            if ((versionInfo === null || versionInfo === void 0 ? void 0 : versionInfo.type) == 'dist') {
+                info = versionInfo;
+            }
+            else {
+                // Version search didn't match anything available in the cache or @actions/go-versions.
+                // We either have no previous explicit version resolution attempt or downloading from
+                // @actions/go-versions manifest specified URL somehow failed.
+                info = yield getInfoFromDist(versionSpec, stable);
+            }
             if (!info) {
+                let osPlat = os_1.default.platform();
+                let osArch = os_1.default.arch();
                 throw new Error(`Unable to find Go version '${versionSpec}' for platform ${osPlat} and architecture ${osArch}.`);
             }
             try {
@@ -5124,7 +5175,7 @@ function getInfoFromDist(versionSpec, stable) {
         return {
             type: 'dist',
             downloadUrl: downloadUrl,
-            resolvedVersion: version.version,
+            resolvedVersion: makeSemver(version.version),
             fileName: version.files[0].filename
         };
     });
