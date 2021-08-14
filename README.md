@@ -1,4 +1,4 @@
-# action90
+# setup-go
 
 <p align="left">
   <a href="https://github.com/actions/setup-go/actions"><img alt="GitHub Actions status" src="https://github.com/actions/setup-go/workflows/build-test/badge.svg"></a>
@@ -82,6 +82,6 @@ The scripts and documentation in this project are released under the [MIT Licens
 
 Contributions are welcome!  See [Contributor's Guide](docs/contributors.md)
 
-## 3b4dc6c
+## Code of Conduct
 
 :wave: Be nice.  See [our code of conduct](CONDUCT)
