@@ -5084,9 +5084,9 @@ function installGoVersion(info, auth) {
 }
 function extractGoArchive(archivePath) {
     return __awaiter(this, void 0, void 0, function* () {
-        const arch = os_1.default.arch();
+        const platform = os_1.default.platform();
         let extPath;
-        if (arch === 'win32') {
+        if (platform === 'win32') {
             extPath = yield tc.extractZip(archivePath);
         }
         else {
