@@ -1,0 +1,28 @@
+name: Licensed cache
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - package-lock.json
+  workflow_dispatch:
+
+jobs:
+  update_licenses_cache:
+    runs-on: ubuntu-latest
+    name: Update licenses cache
+    steps:
+      - uses: actions/checkout@v2
+        with:
+         fetch-depth: 0
+      - run: npm ci
+      - uses: jonabc/setup-licensed@v1
+        with:
+          version: '3.x'
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+      - uses: jonabc/licensed-ci@v1
+        with:
+          user_name: ${{ github.actor }}
+          user_email: ${{ github.actor }}@users.noreply.github.com
+          github_token: ${{ secrets.GITHUB_TOKEN }}

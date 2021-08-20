@@ -2,13 +2,11 @@ sources:
   npm: true
 
 allowed:
+  - 0bsd
   - apache-2.0
   - bsd-2-clause
   - bsd-3-clause
+  - cc0-1.0
   - isc
   - mit
-  - cc0-1.0
   - unlicense
-
-reviewed:
-  npm:
