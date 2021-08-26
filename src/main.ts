@@ -40,11 +40,12 @@ export async function run() {
     core.info(`##[add-matcher]${matchersPath}`);
 
     // output the version actually being used
-    let goVersion = (cp.execSync(`go version`) || '').toString();
+    let goPath = await io.which('go');
+    let goVersion = (cp.execSync(`${goPath} version`) || '').toString();
     core.info(goVersion);
 
     core.startGroup('go env');
-    let goEnv = (cp.execSync(`go env`) || '').toString();
+    let goEnv = (cp.execSync(`${goPath} env`) || '').toString();
     core.info(goEnv);
     core.endGroup();
   } catch (error) {
