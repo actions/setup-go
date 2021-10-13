@@ -30,12 +30,12 @@
     "semver": "^6.1.1"
   },
   "devDependencies": {
-    "@types/jest": "^24.0.13",
+    "@types/jest": "^27.0.2",
     "@types/node": "^12.0.4",
     "@types/semver": "^6.0.0",
     "@zeit/ncc": "^0.21.0",
-    "jest": "^27.1.0",
-    "jest-circus": "^24.7.1",
+    "jest": "^27.2.5",
+    "jest-circus": "^27.2.5",
     "nock": "^10.0.6",
     "prettier": "^1.17.1",
     "ts-jest": "^27.0.5",
