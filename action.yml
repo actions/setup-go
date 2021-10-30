@@ -4,6 +4,7 @@ author: 'GitHub'
 inputs: 
   go-version:
     description: 'The Go version to download (if necessary) and use. Supports semver spec and ranges.'
+    default: '1.17.2'
   stable:
     description: 'Whether to download only stable versions'
     default: 'true'
