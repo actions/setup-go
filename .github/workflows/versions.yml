@@ -63,12 +63,14 @@ jobs:
         os: [macos-latest, windows-latest, ubuntu-latest]
         go: [1.7, 1.8.6]
     steps:
-    - name: Checkout
-      uses: actions/checkout@v2
-    - name: setup-go ${{ matrix.go }}
-      uses: ./
-      with:
-        go-version: ${{ matrix.go }}
-    - name: verify go
-      run: __tests__/verify-go.sh ${{ matrix.go }}
-      shell: bash
+      - name: Checkout
+        uses: actions/checkout@v2
+
+      - name: setup-go ${{ matrix.go }}
+        uses: ./
+        with:
+          go-version: ${{ matrix.go }}
+
+      - name: verify go
+        run: __tests__/verify-go.sh ${{ matrix.go }}
+        shell: bash
