@@ -42,11 +42,11 @@ steps:
 - run: go version
 ```
 
-### Versioning
+### Supported version syntax
+The `go-version` input supports the following syntax:
 
-Major versions: `12`, `14`, `16`  
-More specific versions: `10.15`, `14.2.0`, `16.3.0`  
-Range versions: `^1.13.1`  
+Specific versions: `1.15`, `1.16.1`, `1.16.x`  
+SemVer's version range syntax: `^1.13.1`  
 For more information about semantic versioning please refer [semver](https://github.com/npm/node-semver) documentation   
 
 # Usage
@@ -80,6 +80,12 @@ jobs:
           go-version: ${{ matrix.go }}
       - run: go run hello.go
 ```
+
+#### Supported version syntax
+The `go-version` input supports the following syntax:
+
+major versions: `12`, `14`, `16`
+more specific versions: `10.15`, `14.2.0`, `16.3.0`
 
 # License
 
