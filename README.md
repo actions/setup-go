@@ -42,13 +42,6 @@ steps:
 - run: go version
 ```
 
-### Supported version syntax
-The `go-version` input supports the following syntax:
-
-Specific versions: `1.15`, `1.16.1`, `1.16.x`  
-SemVer's version range syntax: `^1.13.1`  
-For more information about semantic versioning please refer [semver](https://github.com/npm/node-semver) documentation   
-
 # Usage
 
 See [action.yml](action.yml)
@@ -81,11 +74,12 @@ jobs:
       - run: go run hello.go
 ```
 
-#### Supported version syntax
+### Supported version syntax
 The `go-version` input supports the following syntax:
 
-major versions: `12`, `14`, `16`
-more specific versions: `10.15`, `14.2.0`, `16.3.0`
+Specific versions: `1.15`, `1.16.1`, `1.16.x`  
+SemVer's version range syntax: `^1.13.1`  
+For more information about semantic versioning please refer [semver](https://github.com/npm/node-semver) documentation
 
 # License
 
