@@ -203,6 +203,8 @@ export async function findMatch(
     let candidate: IGoVersion = candidates[i];
     let version = makeSemver(candidate.version);
 
+    core.info(`Candidate version: ${candidate.version}; Semver version: ${version}` )
+
     // 1.13.0 is advertised as 1.13 preventing being able to match exactly 1.13.0
     // since a semver of 1.13 would match latest 1.13
     let parts: string[] = version.split('.');
