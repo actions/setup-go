@@ -77,7 +77,7 @@ jobs:
 ### Supported version syntax
 The `go-version` input supports the following syntax:
 
-Specific versions: `1.15`, `1.16.1`, `1.16.x`  
+Specific versions: `1.15`, `1.16.1`, `1.17.0-rc2`, `1.16.0-beta1`  
 SemVer's version range syntax: `^1.13.1`  
 For more information about semantic versioning please refer [semver](https://github.com/npm/node-semver) documentation
 
