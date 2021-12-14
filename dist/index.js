@@ -2080,7 +2080,6 @@ function run() {
                 let auth = !token || isGhes() ? undefined : `token ${token}`;
                 const checkLatest = core.getBooleanInput('check-latest');
                 const installDir = yield installer.getGo(versionSpec, checkLatest, auth);
-                core.exportVariable('GOROOT', installDir);
                 core.addPath(path_1.default.join(installDir, 'bin'));
                 core.info('Added go to the path');
                 let added = yield addBinToPath();

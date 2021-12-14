@@ -23,7 +23,6 @@ export async function run() {
       const checkLatest = core.getBooleanInput('check-latest');
       const installDir = await installer.getGo(versionSpec, checkLatest, auth);
 
-      core.exportVariable('GOROOT', installDir);
       core.addPath(path.join(installDir, 'bin'));
       core.info('Added go to the path');
 

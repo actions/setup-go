@@ -231,7 +231,7 @@ describe('setup-go', () => {
     expect(logSpy).toHaveBeenCalledWith(`Setup go version spec 1.13.0`);
   });
 
-  it('exports GOROOT', async () => {
+  it('does not export any varibles', async () => {
     inputs['go-version'] = '1.13.0';
     inSpy.mockImplementation(name => inputs[name]);
 
@@ -244,7 +244,7 @@ describe('setup-go', () => {
     });
 
     await main.run();
-    expect(vars).toBe({GOROOT: 'foo'});
+    expect(vars).toStrictEqual({});
   });
 
   it('finds a version of go already in the cache', async () => {
