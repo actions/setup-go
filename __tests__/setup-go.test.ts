@@ -49,6 +49,7 @@ describe('setup-go', () => {
     inSpy.mockImplementation(name => inputs[name]);
     getBooleanInputSpy = jest.spyOn(core, 'getBooleanInput');
     getBooleanInputSpy.mockImplementation(name => inputs[name]);
+    exSpy = jest.spyOn(core, 'exportVariable');
 
     // node
     os = {};
@@ -228,6 +229,22 @@ describe('setup-go', () => {
     await main.run();
 
     expect(logSpy).toHaveBeenCalledWith(`Setup go version spec 1.13.0`);
+  });
+
+  it('exports GOROOT', async () => {
+    inputs['go-version'] = '1.13.0';
+    inSpy.mockImplementation(name => inputs[name]);
+
+    let toolPath = path.normalize('/cache/go/1.13.0/x64');
+    findSpy.mockImplementation(() => toolPath);
+
+    let vars = {} as any;
+    exSpy.mockImplementation(async (name, val) => {
+      vars[name] = val;
+    });
+
+    await main.run();
+    expect(vars).toBe({GOROOT: 'foo'});
   });
 
   it('finds a version of go already in the cache', async () => {
