@@ -74,6 +74,15 @@ jobs:
       - run: go run hello.go
 ```
 
+# Keep in mind: latest, cached go compilers and semver notation.
+
+The `setup-go` action doesn't install the latest matched version if the cached version matches one from WF file.  
+**For example:**  
+Currently, there is three go compilers on [Ubuntu 20.04.3 LTS](https://github.com/actions/virtual-environments/blob/main/images/linux/Ubuntu2004-README.md) virtual environment: `1.15.15`, `1.16.12`, `1.17.5`.  
+When the `1.17.6` version will be out and there is `1.17.*` in `go-version` field, the cached `1.17.5` version will be used. Not the new one. Until the cached version will be updated to the latest `1.17.6`.   
+If you will specify fully `1.17.6`, the default installation process begins.
+
+
 # License
 
 The scripts and documentation in this project are released under the [MIT License](LICENSE)
