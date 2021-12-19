@@ -21,25 +21,25 @@ The V2 offers:
 
 It will first check the local cache for a version match. If version is not found locally, It will pull it from `main` branch of [go-versions](https://github.com/actions/go-versions/blob/main/versions-manifest.json) repository and on miss or failure, it will fall back to the previous behavior of download directly from [go dist](https://storage.googleapis.com/golang).
 
-Matching by semver spec:
+Matching by [semver spec](https://github.com/npm/node-semver):
 ```yaml
 steps:
-- uses: actions/checkout@v2
-- uses: actions/setup-go@v2
-  with:
-    go-version: '^1.13.1' # The Go version to download (if necessary) and use.
-- run: go version
+  - uses: actions/checkout@v2
+  - uses: actions/setup-go@v2
+    with:
+      go-version: '^1.13.1' # The Go version to download (if necessary) and use.
+  - run: go version
 ```
 
 Matching an unstable pre-release:
 ```yaml
 steps:
-- uses: actions/checkout@v2
-- uses: actions/setup-go@v2
-  with:
-    stable: 'false'
-    go-version: '1.14.0-rc1' # The Go version to download (if necessary) and use.
-- run: go version
+  - uses: actions/checkout@v2
+  - uses: actions/setup-go@v2
+    with:
+      stable: 'false'
+      go-version: '1.14.0-rc1' # The Go version to download (if necessary) and use.
+  - run: go version
 ```
 
 # Usage
@@ -49,11 +49,11 @@ See [action.yml](action.yml)
 Basic:
 ```yaml
 steps:
-- uses: actions/checkout@master
-- uses: actions/setup-go@v2
-  with:
-    go-version: '1.9.3' # The Go version to download (if necessary) and use.
-- run: go run hello.go
+  - uses: actions/checkout@master
+  - uses: actions/setup-go@v2
+    with:
+      go-version: '1.9.3' # The Go version to download (if necessary) and use.
+  - run: go run hello.go
 ```
 
 Matrix Testing:
@@ -74,14 +74,22 @@ jobs:
       - run: go run hello.go
 ```
 
+### Supported version syntax
+The `go-version` input supports the following syntax:
+
+Specific versions: `1.15`, `1.16.1`, `1.17.0-rc2`, `1.16.0-beta1`  
+SemVer's version range syntax: `^1.13.1`  
+For more information about semantic versioning please refer [semver](https://github.com/npm/node-semver) documentation
+
+
 # Keep in mind: latest, cached go compilers and semver notation.
 
-The `setup-go` action doesn't install the latest matched version if the cached version matches one from WF file.  
+The `setup-go` action doesn't install the latest matched version if the cached version matches one from WF file.
+
 **For example:**  
 Currently, there is three go compilers on [Ubuntu 20.04.3 LTS](https://github.com/actions/virtual-environments/blob/main/images/linux/Ubuntu2004-README.md) virtual environment: `1.15.15`, `1.16.12`, `1.17.5`.  
 When the `1.17.6` version will be out and there is `1.17.*` in `go-version` field, the cached `1.17.5` version will be used. Not the new one. Until the cached version will be updated to the latest `1.17.6`.   
 If you will specify fully `1.17.6`, the default installation process begins.
-
 
 # License
 
