@@ -34,10 +34,13 @@ export async function getGo(
   checkLatest: boolean,
   auth: string | undefined
 ) {
+  core.info("DEBUG: Inside getGo")
   let osPlat: string = os.platform();
   let osArch: string = os.arch();
   
   if (checkLatest) {
+    core.info(`DEBUG: Inside is checkLatest: ${checkLatest}`)
+
     core.info('Attempt to resolve the latest version from manifest...');
     const resolvedVersion = await resolveVersionFromManifest(
       versionSpec,
