@@ -1498,11 +1498,12 @@ function run() {
             // stable will be true unless false is the exact input
             // since getting unstable versions should be explicit
             let stable = (core.getInput('stable') || 'true').toUpperCase() === 'TRUE';
-            core.info(`Setup go ${stable ? 'stable' : ''} version spec ${versionSpec}`);
+            core.info(`Setup go${stable ? ' stable ' : ' '}version spec ${versionSpec}`);
             if (versionSpec) {
                 let token = core.getInput('token');
                 let auth = !token || isGhes() ? undefined : `token ${token}`;
-                const installDir = yield installer.getGo(versionSpec, stable, auth);
+                const checkLatest = (core.getInput('check-latest') || 'false').toUpperCase() === 'TRUE';
+                const installDir = yield installer.getGo(versionSpec, stable, checkLatest, auth);
                 core.exportVariable('GOROOT', installDir);
                 core.addPath(path_1.default.join(installDir, 'bin'));
                 core.info('Added go to the path');
@@ -5008,10 +5009,23 @@ const semver = __importStar(__webpack_require__(280));
 const httpm = __importStar(__webpack_require__(539));
 const sys = __importStar(__webpack_require__(737));
 const os_1 = __importDefault(__webpack_require__(87));
-function getGo(versionSpec, stable, auth) {
+function getGo(versionSpec, stable, checkLatest, auth) {
     return __awaiter(this, void 0, void 0, function* () {
+        core.info("DEBUG: Inside getGo");
         let osPlat = os_1.default.platform();
         let osArch = os_1.default.arch();
+        if (checkLatest) {
+            core.info(`DEBUG: Inside is checkLatest: ${checkLatest}`);
+            core.info('Attempt to resolve the latest version from manifest...');
+            const resolvedVersion = yield resolveVersionFromManifest(versionSpec, stable, auth);
+            if (resolvedVersion) {
+                versionSpec = resolvedVersion;
+                core.info(`Resolved as '${versionSpec}'`);
+            }
+            else {
+                core.info(`Failed to resolve version ${versionSpec} from manifest`);
+            }
+        }
         // check cache
         let toolPath;
         toolPath = tc.find('go', versionSpec);
@@ -5066,6 +5080,18 @@ function getGo(versionSpec, stable, auth) {
     });
 }
 exports.getGo = getGo;
+function resolveVersionFromManifest(versionSpec, stable, auth) {
+    return __awaiter(this, void 0, void 0, function* () {
+        try {
+            const info = yield getInfoFromManifest(versionSpec, stable, auth);
+            return info === null || info === void 0 ? void 0 : info.resolvedVersion;
+        }
+        catch (err) {
+            core.info('Unable to resolve version from manifest...');
+            core.debug(err.message);
+        }
+    });
+}
 function installGoVersion(info, auth) {
     return __awaiter(this, void 0, void 0, function* () {
         core.info(`Acquiring ${info.resolvedVersion} from ${info.downloadUrl}`);
