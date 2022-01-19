@@ -24,7 +24,9 @@ export async function run() {
       let token = core.getInput('token');
       let auth = !token || isGhes() ? undefined : `token ${token}`;
 
-      const installDir = await installer.getGo(versionSpec, stable, auth);
+      const checkLatest =
+        (core.getInput('check-latest') || 'false').toUpperCase() === 'TRUE';
+      const installDir = await installer.getGo(versionSpec, stable, checkLatest, auth);
 
       core.exportVariable('GOROOT', installDir);
       core.addPath(path.join(installDir, 'bin'));

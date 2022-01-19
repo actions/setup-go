@@ -52,9 +52,24 @@ steps:
   - uses: actions/checkout@master
   - uses: actions/setup-go@v2
     with:
-      go-version: '1.9.3' # The Go version to download (if necessary) and use.
+      go-version: '1.16.1' # The Go version to download (if necessary) and use.
   - run: go run hello.go
 ```
+
+
+Check latest version:  
+> In basic example, without `check-latest` flag, the action tries to resolve version from local cache firstly and download only if it is not found. Local cache on image is updated with a couple of weeks latency.  
+`check-latest` flag forces the action to check if the cached version is the latest one. It reduces latency significantly but it is much more likely to incur version downloading.
+```yaml
+steps:
+  - uses: actions/checkout@master
+  - uses: actions/setup-go@v2
+    with:
+      go-version: '1.14'
+      check-latest: true
+  - run: go run hello.go
+```
+
 
 Matrix Testing:
 ```yaml

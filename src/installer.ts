@@ -31,10 +31,26 @@ export interface IGoVersionInfo {
 export async function getGo(
   versionSpec: string,
   stable: boolean,
+  checkLatest: boolean,
   auth: string | undefined
 ) {
   let osPlat: string = os.platform();
   let osArch: string = os.arch();
+  
+  if (checkLatest) {
+    core.info('Attempt to resolve the latest version from manifest...');
+    const resolvedVersion = await resolveVersionFromManifest(
+      versionSpec,
+      stable,
+      auth
+    );
+    if (resolvedVersion) {
+      versionSpec = resolvedVersion;
+      core.info(`Resolved as '${versionSpec}'`);
+    } else {
+      core.info(`Failed to resolve version ${versionSpec} from manifest`);
+    }
+  }
 
   // check cache
   let toolPath: string;
@@ -95,6 +111,20 @@ export async function getGo(
   }
 
   return downloadPath;
+}
+
+async function resolveVersionFromManifest(
+  versionSpec: string,
+  stable: boolean,
+  auth: string | undefined
+): Promise<string | undefined> {
+  try {
+    const info = await getInfoFromManifest(versionSpec, stable, auth);
+    return info?.resolvedVersion;
+  } catch (err) {
+    core.info('Unable to resolve version from manifest...');
+    core.debug(err.message);
+  }
 }
 
 async function installGoVersion(

@@ -4,6 +4,9 @@ author: 'GitHub'
 inputs: 
   go-version:
     description: 'The Go version to download (if necessary) and use. Supports semver spec and ranges.'
+  check-latest:
+    description: 'Set this option if you want the action to check for the latest available version that satisfies the version spec'
+    default: false
   stable:
     description: 'Whether to download only stable versions'
     default: 'true'
