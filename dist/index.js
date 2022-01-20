@@ -5011,11 +5011,9 @@ const sys = __importStar(__webpack_require__(737));
 const os_1 = __importDefault(__webpack_require__(87));
 function getGo(versionSpec, stable, checkLatest, auth) {
     return __awaiter(this, void 0, void 0, function* () {
-        core.info("DEBUG: Inside getGo");
         let osPlat = os_1.default.platform();
         let osArch = os_1.default.arch();
         if (checkLatest) {
-            core.info(`DEBUG: Inside is checkLatest: ${checkLatest}`);
             core.info('Attempt to resolve the latest version from manifest...');
             const resolvedVersion = yield resolveVersionFromManifest(versionSpec, stable, auth);
             if (resolvedVersion) {
