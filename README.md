@@ -16,10 +16,11 @@ This action sets up a go environment for use in actions by:
 The V2 offers:
 - Adds GOBIN to the PATH
 - Proxy Support
-- stable input 
+- `stable` input 
+- Check latest version
 - Bug Fixes (including issues around version matching and semver)
 
-It will first check the local cache for a version match. If version is not found locally, It will pull it from `main` branch of [go-versions](https://github.com/actions/go-versions/blob/main/versions-manifest.json) repository and on miss or failure, it will fall back to the previous behavior of download directly from [go dist](https://storage.googleapis.com/golang).
+It will first check the local cache for a version match. If version is not found locally, It will pull it from `main` branch of [go-versions](https://github.com/actions/go-versions/blob/main/versions-manifest.json) repository and on miss or failure, it will fall back to the previous behavior of download directly from [go dist](https://storage.googleapis.com/golang). To change the default behaviour please use [check-latest input](#check-latest-version).
 
 Matching by [semver spec](https://github.com/npm/node-semver):
 ```yaml
@@ -46,17 +47,36 @@ steps:
 
 See [action.yml](action.yml)
 
-Basic:
+## Basic:
 ```yaml
 steps:
-  - uses: actions/checkout@master
+  - uses: actions/checkout@v2
   - uses: actions/setup-go@v2
     with:
-      go-version: '1.9.3' # The Go version to download (if necessary) and use.
+      go-version: '1.16.1' # The Go version to download (if necessary) and use.
   - run: go run hello.go
 ```
 
-Matrix Testing:
+
+## Check latest version:  
+
+The `check-latest` flag defaults to `false`. Use the default or set `check-latest` to `false` if you prefer stability and if you want to ensure a specific Go version is always used.
+
+If `check-latest` is set to `true`, the action first checks if the cached version is the latest one. If the locally cached version is not the most up-to-date, a Go version will then be downloaded. Set `check-latest` to `true` it you want the most up-to-date Go version to always be used.
+
+> Setting `check-latest` to `true` has performance implications as downloading Go versions is slower than using cached versions.
+
+```yaml
+steps:
+  - uses: actions/checkout@v2
+  - uses: actions/setup-go@v2
+    with:
+      go-version: '1.14'
+      check-latest: true
+  - run: go run hello.go
+```
+
+## Matrix Testing:  
 ```yaml
 jobs:
   build:

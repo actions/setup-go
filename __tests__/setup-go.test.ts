@@ -19,6 +19,7 @@ describe('setup-go', () => {
   let os = {} as any;
 
   let inSpy: jest.SpyInstance;
+  let getBooleanInputSpy: jest.SpyInstance;
   let findSpy: jest.SpyInstance;
   let cnSpy: jest.SpyInstance;
   let logSpy: jest.SpyInstance;
@@ -35,16 +36,19 @@ describe('setup-go', () => {
   let execSpy: jest.SpyInstance;
   let getManifestSpy: jest.SpyInstance;
 
-  beforeAll(() => {
-    process.env['GITHUB_PATH'] = ''; // Stub out ENV file functionality so we can verify it writes to standard out
-    console.log('::stop-commands::stoptoken'); // Disable executing of runner commands when running tests in actions
-  });
+  beforeAll(async () => {
+    process.env['GITHUB_ENV'] = ''; // Stub out Environment file functionality so we can verify it writes to standard out (toolkit is backwards compatible)
+  }, 100000);
 
   beforeEach(() => {
+    process.env['GITHUB_PATH'] = ''; // Stub out ENV file functionality so we can verify it writes to standard out
+
     // @actions/core
     inputs = {};
     inSpy = jest.spyOn(core, 'getInput');
     inSpy.mockImplementation(name => inputs[name]);
+    getBooleanInputSpy = jest.spyOn(core, 'getBooleanInput');
+    getBooleanInputSpy.mockImplementation(name => inputs[name]);
 
     // node
     os = {};
@@ -81,7 +85,7 @@ describe('setup-go', () => {
     });
     logSpy.mockImplementation(line => {
       // uncomment to debug
-      // process.stderr.write('log:' + line + '\n');
+      process.stderr.write('log:' + line + '\n');
     });
     dbgSpy.mockImplementation(msg => {
       // uncomment to see debug output
@@ -96,7 +100,7 @@ describe('setup-go', () => {
   });
 
   afterAll(async () => {
-    console.log('::stoptoken::'); // Re-enable executing of runner commands when running tests in actions
+    jest.restoreAllMocks();
   }, 100000);
 
   it('can find 1.9.7 from manifest on osx', async () => {
@@ -299,7 +303,6 @@ describe('setup-go', () => {
     os.platform = 'linux';
     os.arch = 'x64';
 
-    // a version which is in the manifest
     let versionSpec = '1.12.16';
 
     inputs['go-version'] = versionSpec;
@@ -337,7 +340,6 @@ describe('setup-go', () => {
     os.platform = 'linux';
     os.arch = 'x64';
 
-    // a version which is in the manifest
     let versionSpec = '1.12';
 
     inputs['go-version'] = versionSpec;
@@ -375,7 +377,6 @@ describe('setup-go', () => {
     os.platform = 'linux';
     os.arch = 'x64';
 
-    // a version which is not in the manifest but is in node dist
     let versionSpec = '1.12.14';
 
     inputs['go-version'] = versionSpec;
@@ -572,5 +573,167 @@ describe('setup-go', () => {
 
   it('does not convert exact versions', async () => {
     expect(im.makeSemver('1.13.1')).toBe('1.13.1');
+  });
+
+  describe('check-latest flag', () => {
+    it("use local version and don't check manifest if check-latest is not specified", async () => {
+      os.platform = 'linux';
+      os.arch = 'x64';
+
+      inputs['go-version'] = '1.16';
+      inputs['check-latest'] = false;
+
+      const toolPath = path.normalize('/cache/go/1.16.1/x64');
+      findSpy.mockReturnValue(toolPath);
+      await main.run();
+
+      expect(logSpy).toHaveBeenCalledWith(`Found in cache @ ${toolPath}`);
+      expect(logSpy).not.toHaveBeenCalledWith(
+        'Attempt to resolve the latest version from manifest...'
+      );
+    });
+
+    it('check latest version and resolve it from local cache', async () => {
+      os.platform = 'linux';
+      os.arch = 'x64';
+
+      inputs['go-version'] = '1.16';
+      inputs['check-latest'] = true;
+
+      const toolPath = path.normalize('/cache/go/1.16.1/x64');
+      findSpy.mockReturnValue(toolPath);
+      dlSpy.mockImplementation(async () => '/some/temp/path');
+      exSpy.mockImplementation(async () => '/some/other/temp/path');
+      cacheSpy.mockImplementation(async () => toolPath);
+
+      await main.run();
+
+      expect(logSpy).toHaveBeenCalledWith('Setup go stable version spec 1.16');
+      expect(logSpy).toHaveBeenCalledWith(`Found in cache @ ${toolPath}`);
+    });
+
+    it('check latest version and install it from manifest', async () => {
+      os.platform = 'linux';
+      os.arch = 'x64';
+
+      const versionSpec = '1.17';
+      const patchVersion = '1.17.6';
+      inputs['go-version'] = versionSpec;
+      inputs['stable'] = 'true';
+      inputs['check-latest'] = true;
+
+      findSpy.mockImplementation(() => '');
+      dlSpy.mockImplementation(async () => '/some/temp/path');
+      const toolPath = path.normalize('/cache/go/1.17.5/x64');
+      exSpy.mockImplementation(async () => '/some/other/temp/path');
+      cacheSpy.mockImplementation(async () => toolPath);
+      const expectedUrl =
+        'https://github.com/actions/go-versions/releases/download/1.17.6-1668090892/go-1.17.6-darwin-x64.tar.gz';
+
+      await main.run();
+
+      expect(logSpy).toHaveBeenCalledWith(
+        `Setup go stable version spec ${versionSpec}`
+      );
+      expect(logSpy).toHaveBeenCalledWith(
+        'Attempt to resolve the latest version from manifest...'
+      );
+      expect(logSpy).toHaveBeenCalledWith(`Resolved as '${patchVersion}'`);
+      expect(logSpy).toHaveBeenCalledWith(
+        `Attempting to download ${patchVersion}...`
+      );
+      expect(logSpy).toHaveBeenCalledWith('Extracting Go...');
+      expect(logSpy).toHaveBeenCalledWith('Adding to the cache ...');
+      expect(logSpy).toHaveBeenCalledWith('Added go to the path');
+      expect(logSpy).toHaveBeenCalledWith(
+        `Successfully setup go version ${versionSpec}`
+      );
+    });
+
+    it('fallback to dist if version is not found in manifest', async () => {
+      os.platform = 'linux';
+      os.arch = 'x64';
+
+      let versionSpec = '1.13';
+
+      inputs['go-version'] = versionSpec;
+      inputs['check-latest'] = true;
+      inputs['always-auth'] = false;
+      inputs['token'] = 'faketoken';
+
+      // ... but not in the local cache
+      findSpy.mockImplementation(() => '');
+
+      dlSpy.mockImplementation(async () => '/some/temp/path');
+      let toolPath = path.normalize('/cache/go/1.13.7/x64');
+      exSpy.mockImplementation(async () => '/some/other/temp/path');
+      cacheSpy.mockImplementation(async () => toolPath);
+
+      await main.run();
+
+      let expPath = path.join(toolPath, 'bin');
+
+      expect(dlSpy).toHaveBeenCalled();
+      expect(exSpy).toHaveBeenCalled();
+      expect(logSpy).toHaveBeenCalledWith(
+        'Attempt to resolve the latest version from manifest...'
+      );
+      expect(logSpy).toHaveBeenCalledWith(
+        `Failed to resolve version ${versionSpec} from manifest`
+      );
+      expect(logSpy).toHaveBeenCalledWith(
+        `Attempting to download ${versionSpec}...`
+      );
+      expect(cnSpy).toHaveBeenCalledWith(`::add-path::${expPath}${osm.EOL}`);
+    });
+
+    it('fallback to dist if manifest is not available', async () => {
+      os.platform = 'linux';
+      os.arch = 'x64';
+
+      let versionSpec = '1.13';
+
+      process.env['GITHUB_PATH'] = '';
+
+      inputs['go-version'] = versionSpec;
+      inputs['check-latest'] = true;
+      inputs['always-auth'] = false;
+      inputs['token'] = 'faketoken';
+
+      // ... but not in the local cache
+      findSpy.mockImplementation(() => '');
+      getManifestSpy.mockImplementation(() => {
+        throw new Error('Unable to download manifest');
+      });
+
+      dlSpy.mockImplementation(async () => '/some/temp/path');
+      let toolPath = path.normalize('/cache/go/1.13.7/x64');
+      exSpy.mockImplementation(async () => '/some/other/temp/path');
+      cacheSpy.mockImplementation(async () => toolPath);
+
+      await main.run();
+
+      let expPath = path.join(toolPath, 'bin');
+
+      expect(logSpy).toHaveBeenCalledWith(
+        `Failed to resolve version ${versionSpec} from manifest`
+      );
+      expect(dlSpy).toHaveBeenCalled();
+      expect(exSpy).toHaveBeenCalled();
+      expect(logSpy).toHaveBeenCalledWith(
+        'Attempt to resolve the latest version from manifest...'
+      );
+      expect(logSpy).toHaveBeenCalledWith(
+        'Unable to resolve version from manifest...'
+      );
+      expect(logSpy).toHaveBeenCalledWith(
+        `Failed to resolve version ${versionSpec} from manifest`
+      );
+      expect(logSpy).toHaveBeenCalledWith(
+        `Attempting to download ${versionSpec}...`
+      );
+
+      expect(cnSpy).toHaveBeenCalledWith(`::add-path::${expPath}${osm.EOL}`);
+    });
   });
 });
