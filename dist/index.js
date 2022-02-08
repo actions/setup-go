@@ -5966,7 +5966,7 @@ function resolveVersionFromManifest(versionSpec, stable, auth) {
             return info === null || info === void 0 ? void 0 : info.resolvedVersion;
         }
         catch (err) {
-            core.info('Unable to resolve version from manifest...');
+            core.info('Unable to resolve a version from the manifest...');
             core.debug(err.message);
         }
     });

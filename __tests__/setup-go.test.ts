@@ -724,7 +724,7 @@ describe('setup-go', () => {
         'Attempt to resolve the latest version from manifest...'
       );
       expect(logSpy).toHaveBeenCalledWith(
-        'Unable to resolve version from manifest...'
+        'Unable to resolve a version from the manifest...'
       );
       expect(logSpy).toHaveBeenCalledWith(
         `Failed to resolve version ${versionSpec} from manifest`

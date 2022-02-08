@@ -20,7 +20,7 @@ The V2 offers:
 - Check latest version
 - Bug Fixes (including issues around version matching and semver)
 
-The action will first check the local cache for a version match. If a version is not found locally, it will pull it from the `main` branch of the [go-versions](https://github.com/actions/go-versions/blob/main/versions-manifest.json) repository and on miss or failure, will fall back to the previous behavior of downloading directly from [go dist](https://storage.googleapis.com/golang). To change the default behaviour please use the [check-latest input](#check-latest-version).
+The action will first check the local cache for a version match. If a version is not found locally, it will pull it from the `main` branch of the [go-versions](https://github.com/actions/go-versions/blob/main/versions-manifest.json) repository. On miss or failure, it will fall back to downloading directly from [go dist](https://storage.googleapis.com/golang). To change the default behavior, please use the [check-latest input](#check-latest-version).
 
 Matching by [semver spec](https://github.com/npm/node-semver):
 ```yaml

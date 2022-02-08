@@ -122,7 +122,7 @@ async function resolveVersionFromManifest(
     const info = await getInfoFromManifest(versionSpec, stable, auth);
     return info?.resolvedVersion;
   } catch (err) {
-    core.info('Unable to resolve version from manifest...');
+    core.info('Unable to resolve a version from the manifest...');
     core.debug(err.message);
   }
 }
