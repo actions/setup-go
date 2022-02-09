@@ -33,6 +33,23 @@ jobs:
         run: __tests__/verify-go.sh ${{ matrix.go }}
         shell: bash
 
+  check-latest:
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+        go-version: [1.16, 1.17]
+    steps:
+      - uses: actions/checkout@v2
+      - name: Setup Go and check latest
+        uses: ./
+        with:
+          go-version: ${{ matrix.go-version }}
+          check-latest: true
+      - name: Verify Go
+        run: go version
+
   setup-versions-from-manifest:
     name: Setup ${{ matrix.go }} ${{ matrix.os }}
     runs-on: ${{ matrix.os }}
