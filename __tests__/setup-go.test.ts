@@ -589,7 +589,7 @@ describe('setup-go', () => {
 
       expect(logSpy).toHaveBeenCalledWith(`Found in cache @ ${toolPath}`);
       expect(logSpy).not.toHaveBeenCalledWith(
-        'Attempt to resolve the latest version from manifest...'
+        'Attempting to resolve the latest version from the manifest...'
       );
     });
 
@@ -636,7 +636,7 @@ describe('setup-go', () => {
         `Setup go stable version spec ${versionSpec}`
       );
       expect(logSpy).toHaveBeenCalledWith(
-        'Attempt to resolve the latest version from manifest...'
+        'Attempting to resolve the latest version from the manifest...'
       );
       expect(logSpy).toHaveBeenCalledWith(`Resolved as '${patchVersion}'`);
       expect(logSpy).toHaveBeenCalledWith(
@@ -676,7 +676,7 @@ describe('setup-go', () => {
       expect(dlSpy).toHaveBeenCalled();
       expect(exSpy).toHaveBeenCalled();
       expect(logSpy).toHaveBeenCalledWith(
-        'Attempt to resolve the latest version from manifest...'
+        'Attempting to resolve the latest version from the manifest...'
       );
       expect(logSpy).toHaveBeenCalledWith(
         `Failed to resolve version ${versionSpec} from manifest`
@@ -721,7 +721,7 @@ describe('setup-go', () => {
       expect(dlSpy).toHaveBeenCalled();
       expect(exSpy).toHaveBeenCalled();
       expect(logSpy).toHaveBeenCalledWith(
-        'Attempt to resolve the latest version from manifest...'
+        'Attempting to resolve the latest version from the manifest...'
       );
       expect(logSpy).toHaveBeenCalledWith(
         'Unable to resolve a version from the manifest...'

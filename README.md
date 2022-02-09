@@ -62,7 +62,7 @@ steps:
 
 The `check-latest` flag defaults to `false`. Use the default or set `check-latest` to `false` if you prefer stability and if you want to ensure a specific Go version is always used.
 
-If `check-latest` is set to `true`, the action first checks if the cached version is the latest one. If the locally cached version is not the most up-to-date, a Go version will then be downloaded. Set `check-latest` to `true` it you want the most up-to-date Go version to always be used.
+If `check-latest` is set to `true`, the action first checks if the cached version is the latest one. If the locally cached version is not the most up-to-date, a Go version will then be downloaded. Set `check-latest` to `true` if you want the most up-to-date Go version to always be used.
 
 > Setting `check-latest` to `true` has performance implications as downloading Go versions is slower than using cached versions.
 
@@ -76,7 +76,7 @@ steps:
   - run: go run hello.go
 ```
 
-## Matrix Testing:  
+## Matrix Testing:
 ```yaml
 jobs:
   build:

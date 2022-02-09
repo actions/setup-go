@@ -5895,7 +5895,7 @@ function getGo(versionSpec, stable, checkLatest, auth) {
         let osPlat = os_1.default.platform();
         let osArch = os_1.default.arch();
         if (checkLatest) {
-            core.info('Attempt to resolve the latest version from manifest...');
+            core.info('Attempting to resolve the latest version from the manifest...');
             const resolvedVersion = yield resolveVersionFromManifest(versionSpec, stable, auth);
             if (resolvedVersion) {
                 versionSpec = resolvedVersion;

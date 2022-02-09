@@ -38,7 +38,7 @@ export async function getGo(
   let osArch: string = os.arch();
 
   if (checkLatest) {
-    core.info('Attempt to resolve the latest version from manifest...');
+    core.info('Attempting to resolve the latest version from the manifest...');
     const resolvedVersion = await resolveVersionFromManifest(
       versionSpec,
       stable,
