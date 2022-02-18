@@ -147,7 +147,7 @@ describe('setup-go', () => {
     os.arch = 'x64';
 
     // spec: 1.13.0 => 1.13
-    let match: im.IGoVersion | undefined = await im.findMatch('1.13.0', true);
+    let match: im.IGoVersion | undefined = await im.findMatch('1.13.0');
     expect(match).toBeDefined();
     let version: string = match ? match.version : '';
     expect(version).toBe('go1.13');
@@ -160,7 +160,7 @@ describe('setup-go', () => {
     os.arch = 'x64';
 
     // spec: 1.13 => 1.13.7 (latest)
-    let match: im.IGoVersion | undefined = await im.findMatch('1.13', true);
+    let match: im.IGoVersion | undefined = await im.findMatch('1.13');
     expect(match).toBeDefined();
     let version: string = match ? match.version : '';
     expect(version).toBe('go1.13.7');
@@ -173,7 +173,7 @@ describe('setup-go', () => {
     os.arch = 'x64';
 
     // spec: ^1.13.6 => 1.13.7
-    let match: im.IGoVersion | undefined = await im.findMatch('^1.13.6', true);
+    let match: im.IGoVersion | undefined = await im.findMatch('^1.13.6');
     expect(match).toBeDefined();
     let version: string = match ? match.version : '';
     expect(version).toBe('go1.13.7');
@@ -186,7 +186,7 @@ describe('setup-go', () => {
     os.arch = 'x32';
 
     // spec: 1 => 1.13.7 (latest)
-    let match: im.IGoVersion | undefined = await im.findMatch('1', true);
+    let match: im.IGoVersion | undefined = await im.findMatch('1');
     expect(match).toBeDefined();
     let version: string = match ? match.version : '';
     expect(version).toBe('go1.13.7');
@@ -199,10 +199,7 @@ describe('setup-go', () => {
     os.arch = 'x64';
 
     // spec: 1.14, stable=false => go1.14rc1
-    let match: im.IGoVersion | undefined = await im.findMatch(
-      '1.14.0-rc1',
-      false
-    );
+    let match: im.IGoVersion | undefined = await im.findMatch('1.14.0-rc1');
     expect(match).toBeDefined();
     let version: string = match ? match.version : '';
     expect(version).toBe('go1.14rc1');
