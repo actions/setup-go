@@ -199,7 +199,7 @@ describe('setup-go', () => {
     os.arch = 'x64';
 
     // spec: 1.14, stable=false => go1.14rc1
-    let match: im.IGoVersion | undefined = await im.findMatch('1.14.0-rc1');
+    let match: im.IGoVersion | undefined = await im.findMatch('1.14.0-rc.1');
     expect(match).toBeDefined();
     let version: string = match ? match.version : '';
     expect(version).toBe('go1.14rc1');
@@ -560,8 +560,8 @@ describe('setup-go', () => {
   // 1.10beta1 => 1.10.0-beta1, 1.10rc1 => 1.10.0-rc1
   // 1.8.5beta1 => 1.8.5-beta1, 1.8.5rc1 => 1.8.5-rc1
   it('converts prerelease versions', async () => {
-    expect(im.makeSemver('1.10beta1')).toBe('1.10.0-beta1');
-    expect(im.makeSemver('1.10rc1')).toBe('1.10.0-rc1');
+    expect(im.makeSemver('1.10beta1')).toBe('1.10.0-beta.1');
+    expect(im.makeSemver('1.10rc1')).toBe('1.10.0-rc.1');
   });
 
   it('converts dot zero versions', async () => {
