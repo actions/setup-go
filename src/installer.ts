@@ -30,7 +30,6 @@ export interface IGoVersionInfo {
 
 export async function getGo(
   versionSpec: string,
-  stable: boolean,
   checkLatest: boolean,
   auth: string | undefined
 ) {
@@ -41,7 +40,7 @@ export async function getGo(
     core.info('Attempting to resolve the latest version from the manifest...');
     const resolvedVersion = await resolveVersionFromManifest(
       versionSpec,
-      stable,
+      true,
       auth
     );
     if (resolvedVersion) {
@@ -68,7 +67,7 @@ export async function getGo(
   // Try download from internal distribution (popular versions only)
   //
   try {
-    info = await getInfoFromManifest(versionSpec, stable, auth);
+    info = await getInfoFromManifest(versionSpec, true, auth);
     if (info) {
       downloadPath = await installGoVersion(info, auth);
     } else {
@@ -95,7 +94,7 @@ export async function getGo(
   // Download from storage.googleapis.com
   //
   if (!downloadPath) {
-    info = await getInfoFromDist(versionSpec, stable);
+    info = await getInfoFromDist(versionSpec);
     if (!info) {
       throw new Error(
         `Unable to find Go version '${versionSpec}' for platform ${osPlat} and architecture ${osArch}.`
@@ -191,11 +190,10 @@ export async function getInfoFromManifest(
 }
 
 async function getInfoFromDist(
-  versionSpec: string,
-  stable: boolean
+  versionSpec: string
 ): Promise<IGoVersionInfo | null> {
   let version: IGoVersion | undefined;
-  version = await findMatch(versionSpec, stable);
+  version = await findMatch(versionSpec);
   if (!version) {
     return null;
   }
@@ -211,8 +209,7 @@ async function getInfoFromDist(
 }
 
 export async function findMatch(
-  versionSpec: string,
-  stable: boolean
+  versionSpec: string
 ): Promise<IGoVersion | undefined> {
   let archFilter = sys.getArch();
   let platFilter = sys.getPlatform();
@@ -233,18 +230,8 @@ export async function findMatch(
     let candidate: IGoVersion = candidates[i];
     let version = makeSemver(candidate.version);
 
-    // 1.13.0 is advertised as 1.13 preventing being able to match exactly 1.13.0
-    // since a semver of 1.13 would match latest 1.13
-    let parts: string[] = version.split('.');
-    if (parts.length == 2) {
-      version = version + '.0';
-    }
-
     core.debug(`check ${version} satisfies ${versionSpec}`);
-    if (
-      semver.satisfies(version, versionSpec) &&
-      (!stable || candidate.stable === stable)
-    ) {
+    if (semver.satisfies(version, versionSpec)) {
       goFile = candidate.files.find(file => {
         core.debug(
           `${file.arch}===${archFilter} && ${file.os}===${platFilter}`
@@ -288,16 +275,13 @@ export async function getVersionsDist(
 // 1.8.5beta1 => 1.8.5-beta1, 1.8.5rc1 => 1.8.5-rc1
 export function makeSemver(version: string): string {
   version = version.replace('go', '');
-  version = version.replace('beta', '-beta').replace('rc', '-rc');
+  version = version.replace('beta', '-beta.').replace('rc', '-rc.');
   let parts = version.split('-');
 
-  let verPart: string = parts[0];
-  let prereleasePart = parts.length > 1 ? `-${parts[1]}` : '';
-
-  let verParts: string[] = verPart.split('.');
-  if (verParts.length == 2) {
-    verPart += '.0';
+  let semVersion = semver.coerce(version)!.version;
+  if (!parts[1]) {
+    return semVersion;
   }
-
-  return `${verPart}${prereleasePart}`;
+  semVersion = new semver.SemVer(`${semVersion}-${parts[1]}`).version;
+  return semVersion;
 }
