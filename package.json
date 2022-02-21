@@ -5,7 +5,7 @@
   "description": "setup go action",
   "main": "lib/setup-go.js",
   "scripts": {
-    "build": "tsc && ncc build",
+    "build": "ncc build -o dist/setup src/setup-go.ts && ncc build -o dist/cache-save src/cache-save.ts",
     "format": "prettier --write **/*.ts",
     "format-check": "prettier --check **/*.ts",
     "test": "jest --coverage",
