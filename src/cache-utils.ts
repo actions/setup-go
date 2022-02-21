@@ -7,8 +7,8 @@ export interface PackageManagerInfo {
 }
 
 export const defaultPackageManager: PackageManagerInfo = {
-    goSumFilePattern: 'go.sum',
-    getCacheFolderCommand: 'go env GOMODCACHE',
+  goSumFilePattern: 'go.sum',
+  getCacheFolderCommand: 'go env GOMODCACHE'
 };
 
 export const getCommandOutput = async (toolCommand: string) => {
@@ -29,17 +29,15 @@ export const getCommandOutput = async (toolCommand: string) => {
 };
 
 export const getPackageManagerInfo = async () => {
-  
   return defaultPackageManager;
-     
 };
 
 export const getCacheDirectoryPath = async (
-  packageManagerInfo: PackageManagerInfo,
+  packageManagerInfo: PackageManagerInfo
 ) => {
   const stdout = await getCommandOutput(
     packageManagerInfo.getCacheFolderCommand
-  ); 
+  );
 
   if (!stdout) {
     throw new Error(`Could not get cache folder path.`);

@@ -25,10 +25,8 @@ const cachePackages = async () => {
   const primaryKey = core.getState(State.CachePrimaryKey);
 
   const packageManagerInfo = await getPackageManagerInfo();
-  
-  const cachePath = await getCacheDirectoryPath(
-    packageManagerInfo,
-  );
+
+  const cachePath = await getCacheDirectoryPath(packageManagerInfo);
 
   if (!fs.existsSync(cachePath)) {
     throw new Error(

@@ -12,16 +12,14 @@ import {
 } from './cache-utils';
 
 export const restoreCache = async (
-  packageManager: string, 
-  cacheDependencyPath?: string 
+  packageManager: string,
+  cacheDependencyPath?: string
 ) => {
   const packageManagerInfo = await getPackageManagerInfo();
   const platform = process.env.RUNNER_OS;
 
-  const cachePath = await getCacheDirectoryPath(
-    packageManagerInfo
-  );
-  
+  const cachePath = await getCacheDirectoryPath(packageManagerInfo);
+
   const goSumFilePath = cacheDependencyPath
     ? cacheDependencyPath
     : findGoSumFile(packageManagerInfo);

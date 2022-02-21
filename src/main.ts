@@ -2,7 +2,7 @@ import * as core from '@actions/core';
 import * as io from '@actions/io';
 import * as installer from './installer';
 import path from 'path';
-import {restoreCache} from './cache-restore'; 
+import {restoreCache} from './cache-restore';
 import cp from 'child_process';
 import fs from 'fs';
 import {URL} from 'url';
@@ -14,7 +14,7 @@ export async function run() {
     // If not supplied then problem matchers will still be setup.  Useful for self-hosted.
     //
     let versionSpec = core.getInput('go-version');
-    
+
     // stable will be true unless false is the exact input
     // since getting unstable versions should be explicit
     let stable = (core.getInput('stable') || 'true').toUpperCase() === 'TRUE';
