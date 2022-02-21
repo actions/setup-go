@@ -14,9 +14,9 @@ inputs:
     description: Used to pull node distributions from go-versions.  Since there's a default, this is typically not supplied by the user.
     default: ${{ github.token }}
   cache:
-    description: 'Used to specify whether go-modules caching is needed. Set to true, if you'd like to enable caching.'
+    description: Used to specify whether go-modules caching is needed. Set to true, if you'd like to enable caching.
   cache-dependency-path:
-    description: 'Used to specify the path to a dependency file: go.sum.'
+    description: 'Used to specify the path to a dependency file: go.sum'
 runs:
   using: 'node12'
   main: 'dist/setup/index.js'
