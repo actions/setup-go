@@ -278,10 +278,23 @@ export function makeSemver(version: string): string {
   version = version.replace('beta', '-beta.').replace('rc', '-rc.');
   let parts = version.split('-');
 
-  let semVersion = semver.coerce(version)!.version;
+  let semVersion = semver.coerce(version)?.version;
+  if (!semVersion) {
+    throw new Error(
+      `The version: ${version} can't be changed to SemVer notation`
+    );
+  }
+
   if (!parts[1]) {
     return semVersion;
   }
-  semVersion = new semver.SemVer(`${semVersion}-${parts[1]}`).version;
-  return semVersion;
+
+  const fullVersion = semver.valid(`${semVersion}-${parts[1]}`);
+
+  if (!fullVersion) {
+    throw new Error(
+      `The version: ${version} can't be changed to SemVer notation`
+    );
+  }
+  return fullVersion;
 }

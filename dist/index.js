@@ -6089,15 +6089,22 @@ exports.getVersionsDist = getVersionsDist;
 // 1.10beta1 => 1.10.0-beta1, 1.10rc1 => 1.10.0-rc1
 // 1.8.5beta1 => 1.8.5-beta1, 1.8.5rc1 => 1.8.5-rc1
 function makeSemver(version) {
+    var _a;
     version = version.replace('go', '');
     version = version.replace('beta', '-beta.').replace('rc', '-rc.');
     let parts = version.split('-');
-    let semVersion = semver.coerce(version).version;
+    let semVersion = (_a = semver.coerce(version)) === null || _a === void 0 ? void 0 : _a.version;
+    if (!semVersion) {
+        throw new Error(`The version: ${version} can't be changed to SemVer notation`);
+    }
     if (!parts[1]) {
         return semVersion;
     }
-    semVersion = new semver.SemVer(`${semVersion}-${parts[1]}`).version;
-    return semVersion;
+    const fullVersion = semver.valid(`${semVersion}-${parts[1]}`);
+    if (!fullVersion) {
+        throw new Error(`The version: ${version} can't be changed to SemVer notation`);
+    }
+    return fullVersion;
 }
 exports.makeSemver = makeSemver;
 //# sourceMappingURL=installer.js.map
