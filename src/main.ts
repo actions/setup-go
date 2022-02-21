@@ -2,6 +2,7 @@ import * as core from '@actions/core';
 import * as io from '@actions/io';
 import * as installer from './installer';
 import path from 'path';
+import {restoreCache} from './cache-restore'; 
 import cp from 'child_process';
 import fs from 'fs';
 import {URL} from 'url';
@@ -13,10 +14,11 @@ export async function run() {
     // If not supplied then problem matchers will still be setup.  Useful for self-hosted.
     //
     let versionSpec = core.getInput('go-version');
-
+    
     // stable will be true unless false is the exact input
     // since getting unstable versions should be explicit
     let stable = (core.getInput('stable') || 'true').toUpperCase() === 'TRUE';
+    const cache = core.getInput('cache');
 
     core.info(`Setup go ${stable ? 'stable' : ''} version spec ${versionSpec}`);
 
@@ -39,6 +41,14 @@ export async function run() {
       let added = await addBinToPath();
       core.debug(`add bin ${added}`);
       core.info(`Successfully setup go version ${versionSpec}`);
+    }
+
+    if (cache) {
+      if (isGhes()) {
+        throw new Error('Caching is not supported on GHES');
+      }
+      const cacheDependencyPath = core.getInput('cache-dependency-path');
+      await restoreCache(cache, cacheDependencyPath);
     }
 
     // add problem matchers
