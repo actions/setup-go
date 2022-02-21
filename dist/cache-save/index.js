@@ -46368,6 +46368,9 @@ function run() {
 }
 exports.run = run;
 const cachePackages = () => __awaiter(void 0, void 0, void 0, function* () {
+    const cachingFlag = core.getInput('cache');
+    if (!cachingFlag)
+        return;
     const state = core.getState(constants_1.State.CacheMatchedKey);
     const primaryKey = core.getState(constants_1.State.CachePrimaryKey);
     const packageManagerInfo = yield cache_utils_1.getPackageManagerInfo();

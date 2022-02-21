@@ -21,6 +21,10 @@ export async function run() {
 }
 
 const cachePackages = async () => {
+
+  const cachingFlag = core.getInput('cache');
+  if (!cachingFlag) return;
+
   const state = core.getState(State.CacheMatchedKey);
   const primaryKey = core.getState(State.CachePrimaryKey);
 
