@@ -52,7 +52,7 @@ export async function run() {
     }
 
     // add problem matchers
-    const matchersPath = path.join(__dirname, '..', 'matchers.json');
+    const matchersPath = path.join(__dirname, '../..', 'matchers.json');
     core.info(`##[add-matcher]${matchersPath}`);
 
     // output the version actually being used
