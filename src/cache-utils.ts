@@ -1,20 +1,5 @@
 import * as exec from '@actions/exec';
-
-type SupportedPackageManagers = {
-  [prop: string]: PackageManagerInfo;
-};
-
-export interface PackageManagerInfo {
-  dependencyFilePattern: string;
-  getCacheFolderCommand: string;
-}
-
-export const supportedPackageManagers: SupportedPackageManagers = {
-  default: {
-    dependencyFilePattern: 'go.sum',
-    getCacheFolderCommand: 'go env GOMODCACHE'
-  }
-};
+import {supportedPackageManagers, PackageManagerInfo} from './package-managers';
 
 export const getCommandOutput = async (toolCommand: string) => {
   let {stdout, stderr, exitCode} = await exec.getExecOutput(

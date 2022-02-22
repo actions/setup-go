@@ -5,11 +5,8 @@ import path from 'path';
 import fs from 'fs';
 
 import {State, Outputs} from './constants';
-import {
-  getCacheDirectoryPath,
-  getPackageManagerInfo,
-  PackageManagerInfo
-} from './cache-utils';
+import {PackageManagerInfo} from './package-managers';
+import {getCacheDirectoryPath, getPackageManagerInfo} from './cache-utils';
 
 export const restoreCache = async (
   packageManager: string,

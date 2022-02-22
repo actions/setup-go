@@ -3927,14 +3927,9 @@ var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, ge
     });
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.getCacheDirectoryPath = exports.getPackageManagerInfo = exports.getCommandOutput = exports.supportedPackageManagers = void 0;
+exports.getCacheDirectoryPath = exports.getPackageManagerInfo = exports.getCommandOutput = void 0;
 const exec = __importStar(__webpack_require__(986));
-exports.supportedPackageManagers = {
-    default: {
-        dependencyFilePattern: 'go.sum',
-        getCacheFolderCommand: 'go env GOMODCACHE'
-    }
-};
+const package_managers_1 = __webpack_require__(813);
 exports.getCommandOutput = (toolCommand) => __awaiter(void 0, void 0, void 0, function* () {
     let { stdout, stderr, exitCode } = yield exec.getExecOutput(toolCommand, undefined, { ignoreReturnCode: true });
     if (exitCode) {
@@ -3946,10 +3941,10 @@ exports.getCommandOutput = (toolCommand) => __awaiter(void 0, void 0, void 0, fu
     return stdout.trim();
 });
 exports.getPackageManagerInfo = (packageManager) => __awaiter(void 0, void 0, void 0, function* () {
-    if (!exports.supportedPackageManagers[packageManager]) {
+    if (!package_managers_1.supportedPackageManagers[packageManager]) {
         throw new Error(`It's not possible to use ${packageManager}, please, check correctness of the package manager name spelling.`);
     }
-    return exports.supportedPackageManagers[packageManager];
+    return package_managers_1.supportedPackageManagers[packageManager];
 });
 exports.getCacheDirectoryPath = (packageManagerInfo) => __awaiter(void 0, void 0, void 0, function* () {
     const stdout = yield exports.getCommandOutput(packageManagerInfo.getCacheFolderCommand);
@@ -46484,7 +46479,22 @@ run();
 /* 810 */,
 /* 811 */,
 /* 812 */,
-/* 813 */,
+/* 813 */
+/***/ (function(__unusedmodule, exports) {
+
+"use strict";
+
+Object.defineProperty(exports, "__esModule", { value: true });
+exports.supportedPackageManagers = void 0;
+exports.supportedPackageManagers = {
+    default: {
+        dependencyFilePattern: 'go.sum',
+        getCacheFolderCommand: 'go env GOMODCACHE'
+    }
+};
+
+
+/***/ }),
 /* 814 */,
 /* 815 */
 /***/ (function(module) {
