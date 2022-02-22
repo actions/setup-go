@@ -40,7 +40,7 @@ export const restoreCache = async (
   core.setOutput('cache-hit', Boolean(cacheKey));
 
   if (!cacheKey) {
-    core.info(`${packageManager} cache is not found`);
+    core.info(`Cache is not found`);
     return;
   }
 

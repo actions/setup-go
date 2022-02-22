@@ -21,7 +21,6 @@ export async function run() {
 }
 
 const cachePackages = async () => {
-
   const cachingFlag = core.getInput('cache');
   if (!cachingFlag) return;
 
