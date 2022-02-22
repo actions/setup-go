@@ -14,5 +14,5 @@ inputs:
     description: Used to pull node distributions from go-versions.  Since there's a default, this is typically not supplied by the user.
     default: ${{ github.token }}
 runs:
-  using: 'node12'
+  using: 'node16'
   main: 'dist/index.js'
