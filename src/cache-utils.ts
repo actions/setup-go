@@ -34,13 +34,13 @@ export const getCommandOutput = async (toolCommand: string) => {
 };
 
 export const getPackageManagerInfo = async (packageManager: string) => {
-  if (!supportedPackageManagers.packageManager) {
+  if (!supportedPackageManagers[packageManager]) {
     throw new Error(
       `It's not possible to use ${packageManager}, please, check correctness of the package manager name spelling.`
     );
   }
 
-  return supportedPackageManagers.packageManager;
+  return supportedPackageManagers[packageManager];
 };
 
 export const getCacheDirectoryPath = async (
