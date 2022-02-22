@@ -21,13 +21,15 @@ export async function run() {
 }
 
 const cachePackages = async () => {
-  const cachingFlag = core.getInput('cache');
+  const cachingFlag = core.getBooleanInput('cache');
   if (!cachingFlag) return;
+
+  const packageManager = core.getInput('package-manager');
 
   const state = core.getState(State.CacheMatchedKey);
   const primaryKey = core.getState(State.CachePrimaryKey);
 
-  const packageManagerInfo = await getPackageManagerInfo();
+  const packageManagerInfo = await getPackageManagerInfo(packageManager);
 
   const cachePath = await getCacheDirectoryPath(packageManagerInfo);
 

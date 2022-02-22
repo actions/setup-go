@@ -3705,7 +3705,7 @@ function run() {
             // stable will be true unless false is the exact input
             // since getting unstable versions should be explicit
             let stable = (core.getInput('stable') || 'true').toUpperCase() === 'TRUE';
-            const cache = core.getInput('cache');
+            const cache = core.getBooleanInput('cache');
             core.info(`Setup go ${stable ? 'stable' : ''} version spec ${versionSpec}`);
             if (versionSpec) {
                 let token = core.getInput('token');
@@ -3723,8 +3723,9 @@ function run() {
                 if (isGhes()) {
                     throw new Error('Caching is not supported on GHES');
                 }
+                const packageManager = core.getInput('package-manager');
                 const cacheDependencyPath = core.getInput('cache-dependency-path');
-                yield cache_restore_1.restoreCache(cache, cacheDependencyPath);
+                yield cache_restore_1.restoreCache(packageManager, cacheDependencyPath);
             }
             // add problem matchers
             const matchersPath = path_1.default.join(__dirname, '../..', 'matchers.json');
@@ -4170,11 +4171,13 @@ var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, ge
     });
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.getCacheDirectoryPath = exports.getPackageManagerInfo = exports.getCommandOutput = exports.defaultPackageManager = void 0;
+exports.getCacheDirectoryPath = exports.getPackageManagerInfo = exports.getCommandOutput = exports.supportedPackageManagers = void 0;
 const exec = __importStar(__webpack_require__(986));
-exports.defaultPackageManager = {
-    goSumFilePattern: 'go.sum',
-    getCacheFolderCommand: 'go env GOMODCACHE'
+exports.supportedPackageManagers = {
+    default: {
+        dependencyFilePattern: 'go.sum',
+        getCacheFolderCommand: 'go env GOMODCACHE'
+    }
 };
 exports.getCommandOutput = (toolCommand) => __awaiter(void 0, void 0, void 0, function* () {
     let { stdout, stderr, exitCode } = yield exec.getExecOutput(toolCommand, undefined, { ignoreReturnCode: true });
@@ -4186,8 +4189,11 @@ exports.getCommandOutput = (toolCommand) => __awaiter(void 0, void 0, void 0, fu
     }
     return stdout.trim();
 });
-exports.getPackageManagerInfo = () => __awaiter(void 0, void 0, void 0, function* () {
-    return exports.defaultPackageManager;
+exports.getPackageManagerInfo = (packageManager) => __awaiter(void 0, void 0, void 0, function* () {
+    if (!exports.supportedPackageManagers.packageManager) {
+        throw new Error(`It's not possible to use ${packageManager}, please, check correctness of the package manager name spelling.`);
+    }
+    return exports.supportedPackageManagers.packageManager;
 });
 exports.getCacheDirectoryPath = (packageManagerInfo) => __awaiter(void 0, void 0, void 0, function* () {
     const stdout = yield exports.getCommandOutput(packageManagerInfo.getCacheFolderCommand);
@@ -34239,13 +34245,13 @@ const fs_1 = __importDefault(__webpack_require__(747));
 const constants_1 = __webpack_require__(196);
 const cache_utils_1 = __webpack_require__(143);
 exports.restoreCache = (packageManager, cacheDependencyPath) => __awaiter(void 0, void 0, void 0, function* () {
-    const packageManagerInfo = yield cache_utils_1.getPackageManagerInfo();
+    const packageManagerInfo = yield cache_utils_1.getPackageManagerInfo(packageManager);
     const platform = process.env.RUNNER_OS;
     const cachePath = yield cache_utils_1.getCacheDirectoryPath(packageManagerInfo);
-    const goSumFilePath = cacheDependencyPath
+    const dependencyFilePath = cacheDependencyPath
         ? cacheDependencyPath
-        : findGoSumFile(packageManagerInfo);
-    const fileHash = yield glob.hashFiles(goSumFilePath);
+        : findDependencyFile(packageManagerInfo);
+    const fileHash = yield glob.hashFiles(dependencyFilePath);
     if (!fileHash) {
         throw new Error('Some specified paths were not resolved, unable to cache dependencies.');
     }
@@ -34261,15 +34267,15 @@ exports.restoreCache = (packageManager, cacheDependencyPath) => __awaiter(void 0
     core.saveState(constants_1.State.CacheMatchedKey, cacheKey);
     core.info(`Cache restored from key: ${cacheKey}`);
 });
-const findGoSumFile = (packageManager) => {
-    let goSumFile = packageManager.goSumFilePattern;
+const findDependencyFile = (packageManager) => {
+    let dependencyFile = packageManager.dependencyFilePattern;
     const workspace = process.env.GITHUB_WORKSPACE;
     const rootContent = fs_1.default.readdirSync(workspace);
-    const goSumFileExists = rootContent.includes(goSumFile);
+    const goSumFileExists = rootContent.includes(dependencyFile);
     if (!goSumFileExists) {
-        throw new Error(`Dependencies file  go.sum is not found in ${workspace}. Supported file pattern: ${goSumFile}`);
+        throw new Error(`Dependencies file is not found in ${workspace}. Supported file pattern: ${dependencyFile}`);
     }
-    return path_1.default.join(workspace, goSumFile);
+    return path_1.default.join(workspace, dependencyFile);
 };
 
 

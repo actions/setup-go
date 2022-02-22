@@ -1,13 +1,19 @@
 import * as exec from '@actions/exec';
 
+type SupportedPackageManagers = {
+  [prop: string]: PackageManagerInfo;
+};
+
 export interface PackageManagerInfo {
-  goSumFilePattern: string;
+  dependencyFilePattern: string;
   getCacheFolderCommand: string;
 }
 
-export const defaultPackageManager: PackageManagerInfo = {
-  goSumFilePattern: 'go.sum',
-  getCacheFolderCommand: 'go env GOMODCACHE'
+export const supportedPackageManagers: SupportedPackageManagers = {
+  default: {
+    dependencyFilePattern: 'go.sum',
+    getCacheFolderCommand: 'go env GOMODCACHE'
+  }
 };
 
 export const getCommandOutput = async (toolCommand: string) => {
@@ -27,8 +33,14 @@ export const getCommandOutput = async (toolCommand: string) => {
   return stdout.trim();
 };
 
-export const getPackageManagerInfo = async () => {
-  return defaultPackageManager;
+export const getPackageManagerInfo = async (packageManager: string) => {
+  if (!supportedPackageManagers.packageManager) {
+    throw new Error(
+      `It's not possible to use ${packageManager}, please, check correctness of the package manager name spelling.`
+    );
+  }
+
+  return supportedPackageManagers.packageManager;
 };
 
 export const getCacheDirectoryPath = async (

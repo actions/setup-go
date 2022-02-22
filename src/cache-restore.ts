@@ -15,15 +15,15 @@ export const restoreCache = async (
   packageManager: string,
   cacheDependencyPath?: string
 ) => {
-  const packageManagerInfo = await getPackageManagerInfo();
+  const packageManagerInfo = await getPackageManagerInfo(packageManager);
   const platform = process.env.RUNNER_OS;
 
   const cachePath = await getCacheDirectoryPath(packageManagerInfo);
 
-  const goSumFilePath = cacheDependencyPath
+  const dependencyFilePath = cacheDependencyPath
     ? cacheDependencyPath
-    : findGoSumFile(packageManagerInfo);
-  const fileHash = await glob.hashFiles(goSumFilePath);
+    : findDependencyFile(packageManagerInfo);
+  const fileHash = await glob.hashFiles(dependencyFilePath);
 
   if (!fileHash) {
     throw new Error(
@@ -48,17 +48,17 @@ export const restoreCache = async (
   core.info(`Cache restored from key: ${cacheKey}`);
 };
 
-const findGoSumFile = (packageManager: PackageManagerInfo) => {
-  let goSumFile = packageManager.goSumFilePattern;
+const findDependencyFile = (packageManager: PackageManagerInfo) => {
+  let dependencyFile = packageManager.dependencyFilePattern;
   const workspace = process.env.GITHUB_WORKSPACE!;
   const rootContent = fs.readdirSync(workspace);
 
-  const goSumFileExists = rootContent.includes(goSumFile);
+  const goSumFileExists = rootContent.includes(dependencyFile);
   if (!goSumFileExists) {
     throw new Error(
-      `Dependencies file  go.sum is not found in ${workspace}. Supported file pattern: ${goSumFile}`
+      `Dependencies file is not found in ${workspace}. Supported file pattern: ${dependencyFile}`
     );
   }
 
-  return path.join(workspace, goSumFile);
+  return path.join(workspace, dependencyFile);
 };

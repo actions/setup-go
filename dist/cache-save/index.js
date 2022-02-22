@@ -3927,11 +3927,13 @@ var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, ge
     });
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.getCacheDirectoryPath = exports.getPackageManagerInfo = exports.getCommandOutput = exports.defaultPackageManager = void 0;
+exports.getCacheDirectoryPath = exports.getPackageManagerInfo = exports.getCommandOutput = exports.supportedPackageManagers = void 0;
 const exec = __importStar(__webpack_require__(986));
-exports.defaultPackageManager = {
-    goSumFilePattern: 'go.sum',
-    getCacheFolderCommand: 'go env GOMODCACHE'
+exports.supportedPackageManagers = {
+    default: {
+        dependencyFilePattern: 'go.sum',
+        getCacheFolderCommand: 'go env GOMODCACHE'
+    }
 };
 exports.getCommandOutput = (toolCommand) => __awaiter(void 0, void 0, void 0, function* () {
     let { stdout, stderr, exitCode } = yield exec.getExecOutput(toolCommand, undefined, { ignoreReturnCode: true });
@@ -3943,8 +3945,11 @@ exports.getCommandOutput = (toolCommand) => __awaiter(void 0, void 0, void 0, fu
     }
     return stdout.trim();
 });
-exports.getPackageManagerInfo = () => __awaiter(void 0, void 0, void 0, function* () {
-    return exports.defaultPackageManager;
+exports.getPackageManagerInfo = (packageManager) => __awaiter(void 0, void 0, void 0, function* () {
+    if (!exports.supportedPackageManagers.packageManager) {
+        throw new Error(`It's not possible to use ${packageManager}, please, check correctness of the package manager name spelling.`);
+    }
+    return exports.supportedPackageManagers.packageManager;
 });
 exports.getCacheDirectoryPath = (packageManagerInfo) => __awaiter(void 0, void 0, void 0, function* () {
     const stdout = yield exports.getCommandOutput(packageManagerInfo.getCacheFolderCommand);
@@ -46368,12 +46373,13 @@ function run() {
 }
 exports.run = run;
 const cachePackages = () => __awaiter(void 0, void 0, void 0, function* () {
-    const cachingFlag = core.getInput('cache');
+    const cachingFlag = core.getBooleanInput('cache');
     if (!cachingFlag)
         return;
+    const packageManager = core.getInput('package-manager');
     const state = core.getState(constants_1.State.CacheMatchedKey);
     const primaryKey = core.getState(constants_1.State.CachePrimaryKey);
-    const packageManagerInfo = yield cache_utils_1.getPackageManagerInfo();
+    const packageManagerInfo = yield cache_utils_1.getPackageManagerInfo(packageManager);
     const cachePath = yield cache_utils_1.getCacheDirectoryPath(packageManagerInfo);
     if (!fs_1.default.existsSync(cachePath)) {
         throw new Error(`Cache folder path is retrieved but doesn't exist on disk: ${cachePath}`);
