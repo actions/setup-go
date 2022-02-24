@@ -278,7 +278,7 @@ export function makeSemver(version: string): string {
   version = version.replace('beta', '-beta.').replace('rc', '-rc.');
   let parts = version.split('-');
 
-  let semVersion = semver.coerce(version)?.version;
+  let semVersion = semver.coerce(parts[0])?.version;
   if (!semVersion) {
     throw new Error(
       `The version: ${version} can't be changed to SemVer notation`

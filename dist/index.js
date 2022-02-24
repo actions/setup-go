@@ -6090,7 +6090,7 @@ function makeSemver(version) {
     version = version.replace('go', '');
     version = version.replace('beta', '-beta.').replace('rc', '-rc.');
     let parts = version.split('-');
-    let semVersion = (_a = semver.coerce(version)) === null || _a === void 0 ? void 0 : _a.version;
+    let semVersion = (_a = semver.coerce(parts[0])) === null || _a === void 0 ? void 0 : _a.version;
     if (!semVersion) {
         throw new Error(`The version: ${version} can't be changed to SemVer notation`);
     }
