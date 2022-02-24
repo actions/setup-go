@@ -271,8 +271,8 @@ export async function getVersionsDist(
 // Convert the go version syntax into semver for semver matching
 // 1.13.1 => 1.13.1
 // 1.13 => 1.13.0
-// 1.10beta1 => 1.10.0-beta1, 1.10rc1 => 1.10.0-rc1
-// 1.8.5beta1 => 1.8.5-beta1, 1.8.5rc1 => 1.8.5-rc1
+// 1.10beta1 => 1.10.0-beta.1, 1.10rc1 => 1.10.0-rc.1
+// 1.8.5beta1 => 1.8.5-beta.1, 1.8.5rc1 => 1.8.5-rc.1
 export function makeSemver(version: string): string {
   version = version.replace('go', '');
   version = version.replace('beta', '-beta.').replace('rc', '-rc.');
