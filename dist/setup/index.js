@@ -3728,7 +3728,7 @@ function run() {
                 yield cache_restore_1.restoreCache(packageManager, cacheDependencyPath);
             }
             // add problem matchers
-            const matchersPath = path_1.default.join(process.cwd(), 'matchers.json');
+            const matchersPath = path_1.default.join(__dirname, '../..', 'matchers.json');
             core.info(`##[add-matcher]${matchersPath}`);
             // output the version actually being used
             let goPath = yield io.which('go');
