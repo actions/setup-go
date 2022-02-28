@@ -22,7 +22,6 @@ inputs:
   cache-dependency-path:
     description: 'Used to specify the path to a dependency file: go.sum'
 runs:
-  using: 'node12'
-  main: 'dist/setup/index.js'
-  post: 'dist/cache-save/index.js'
-  post-if: success()
+  using: 'node16'
+  main: 'dist/index.js'
+
