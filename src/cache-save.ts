@@ -21,10 +21,13 @@ export async function run() {
 }
 
 const cachePackages = async () => {
-  const cachingFlag = core.getBooleanInput('cache');
-  if (!cachingFlag) return;
-
-  const packageManager = core.getInput('package-manager');
+  
+  const cacheInput = core.getInput('cache');
+  if (!cacheInput) {
+    return;
+  }
+  
+  const packageManager = cacheInput.toUpperCase() === 'TRUE' ? 'default' : cacheInput;
 
   const state = core.getState(State.CacheMatchedKey);
   const primaryKey = core.getState(State.CachePrimaryKey);

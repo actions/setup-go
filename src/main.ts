@@ -18,7 +18,9 @@ export async function run() {
     // stable will be true unless false is the exact input
     // since getting unstable versions should be explicit
     let stable = (core.getInput('stable') || 'true').toUpperCase() === 'TRUE';
-    const cache = core.getBooleanInput('cache');
+
+    const cacheInput = core.getInput('cache');
+    const cache = cacheInput.toUpperCase() === 'TRUE' ? 'default' : cacheInput;
 
     core.info(`Setup go ${stable ? 'stable' : ''} version spec ${versionSpec}`);
 
