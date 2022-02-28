@@ -3944,7 +3944,8 @@ exports.getPackageManagerInfo = (packageManager) => __awaiter(void 0, void 0, vo
     if (!package_managers_1.supportedPackageManagers[packageManager]) {
         throw new Error(`It's not possible to use ${packageManager}, please, check correctness of the package manager name spelling.`);
     }
-    return package_managers_1.supportedPackageManagers[packageManager];
+    const obtainedPackageManager = package_managers_1.supportedPackageManagers[packageManager];
+    return obtainedPackageManager;
 });
 exports.getCacheDirectoryPath = (packageManagerInfo) => __awaiter(void 0, void 0, void 0, function* () {
     const stdout = yield exports.getCommandOutput(packageManagerInfo.getCacheFolderCommand);
@@ -46368,10 +46369,11 @@ function run() {
 }
 exports.run = run;
 const cachePackages = () => __awaiter(void 0, void 0, void 0, function* () {
-    const cachingFlag = core.getBooleanInput('cache');
-    if (!cachingFlag)
+    const cacheInput = core.getInput('cache');
+    if (!cacheInput) {
         return;
-    const packageManager = core.getInput('package-manager');
+    }
+    const packageManager = cacheInput.toUpperCase() === 'TRUE' ? 'default' : cacheInput;
     const state = core.getState(constants_1.State.CacheMatchedKey);
     const primaryKey = core.getState(constants_1.State.CachePrimaryKey);
     const packageManagerInfo = yield cache_utils_1.getPackageManagerInfo(packageManager);

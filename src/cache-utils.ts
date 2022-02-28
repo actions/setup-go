@@ -24,7 +24,7 @@ export const getPackageManagerInfo = async (packageManager: string) => {
       `It's not possible to use ${packageManager}, please, check correctness of the package manager name spelling.`
     );
   }
-  const obtainedPackageManager = supportedPackageManagers[packageManager]
+  const obtainedPackageManager = supportedPackageManagers[packageManager];
 
   return obtainedPackageManager;
 };

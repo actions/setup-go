@@ -19,9 +19,8 @@ export async function run() {
     // since getting unstable versions should be explicit
     let stable = (core.getInput('stable') || 'true').toUpperCase() === 'TRUE';
 
-    const cacheInput = core.getInput('cache');
-    const cache = cacheInput.toUpperCase() === 'TRUE' ? 'default' : cacheInput;
-
+    const cache = core.getInput('cache');
+        
     core.info(`Setup go ${stable ? 'stable' : ''} version spec ${versionSpec}`);
 
     if (versionSpec) {
@@ -49,7 +48,7 @@ export async function run() {
       if (isGhes()) {
         throw new Error('Caching is not supported on GHES');
       }
-      const packageManager = core.getInput('package-manager');
+      const packageManager = cache.toUpperCase() === 'TRUE' ? 'default' : cache;
       const cacheDependencyPath = core.getInput('cache-dependency-path');
       await restoreCache(packageManager, cacheDependencyPath);
     }

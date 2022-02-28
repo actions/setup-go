@@ -3705,7 +3705,8 @@ function run() {
             // stable will be true unless false is the exact input
             // since getting unstable versions should be explicit
             let stable = (core.getInput('stable') || 'true').toUpperCase() === 'TRUE';
-            const cache = core.getBooleanInput('cache');
+            const cacheInput = core.getInput('cache');
+            const cache = cacheInput.toUpperCase() === 'TRUE' ? 'default' : cacheInput;
             core.info(`Setup go ${stable ? 'stable' : ''} version spec ${versionSpec}`);
             if (versionSpec) {
                 let token = core.getInput('token');
@@ -4188,7 +4189,8 @@ exports.getPackageManagerInfo = (packageManager) => __awaiter(void 0, void 0, vo
     if (!package_managers_1.supportedPackageManagers[packageManager]) {
         throw new Error(`It's not possible to use ${packageManager}, please, check correctness of the package manager name spelling.`);
     }
-    return package_managers_1.supportedPackageManagers[packageManager];
+    const obtainedPackageManager = package_managers_1.supportedPackageManagers[packageManager];
+    return obtainedPackageManager;
 });
 exports.getCacheDirectoryPath = (packageManagerInfo) => __awaiter(void 0, void 0, void 0, function* () {
     const stdout = yield exports.getCommandOutput(packageManagerInfo.getCacheFolderCommand);
