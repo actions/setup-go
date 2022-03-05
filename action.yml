@@ -7,9 +7,6 @@ inputs:
   check-latest:
     description: 'Set this option to true if you want the action to always check for the latest available version that satisfies the version spec'
     default: false
-  stable:
-    description: 'Whether to download only stable versions'
-    default: 'true'
   token:
     description: Used to pull node distributions from go-versions.  Since there's a default, this is typically not supplied by the user.
     default: ${{ github.token }}

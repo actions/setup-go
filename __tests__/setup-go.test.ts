@@ -147,7 +147,7 @@ describe('setup-go', () => {
     os.arch = 'x64';
 
     // spec: 1.13.0 => 1.13
-    let match: im.IGoVersion | undefined = await im.findMatch('1.13.0', true);
+    let match: im.IGoVersion | undefined = await im.findMatch('1.13.0');
     expect(match).toBeDefined();
     let version: string = match ? match.version : '';
     expect(version).toBe('go1.13');
@@ -160,7 +160,7 @@ describe('setup-go', () => {
     os.arch = 'x64';
 
     // spec: 1.13 => 1.13.7 (latest)
-    let match: im.IGoVersion | undefined = await im.findMatch('1.13', true);
+    let match: im.IGoVersion | undefined = await im.findMatch('1.13');
     expect(match).toBeDefined();
     let version: string = match ? match.version : '';
     expect(version).toBe('go1.13.7');
@@ -173,7 +173,7 @@ describe('setup-go', () => {
     os.arch = 'x64';
 
     // spec: ^1.13.6 => 1.13.7
-    let match: im.IGoVersion | undefined = await im.findMatch('^1.13.6', true);
+    let match: im.IGoVersion | undefined = await im.findMatch('^1.13.6');
     expect(match).toBeDefined();
     let version: string = match ? match.version : '';
     expect(version).toBe('go1.13.7');
@@ -186,7 +186,7 @@ describe('setup-go', () => {
     os.arch = 'x32';
 
     // spec: 1 => 1.13.7 (latest)
-    let match: im.IGoVersion | undefined = await im.findMatch('1', true);
+    let match: im.IGoVersion | undefined = await im.findMatch('1');
     expect(match).toBeDefined();
     let version: string = match ? match.version : '';
     expect(version).toBe('go1.13.7');
@@ -199,10 +199,7 @@ describe('setup-go', () => {
     os.arch = 'x64';
 
     // spec: 1.14, stable=false => go1.14rc1
-    let match: im.IGoVersion | undefined = await im.findMatch(
-      '1.14.0-rc1',
-      false
-    );
+    let match: im.IGoVersion | undefined = await im.findMatch('1.14.0-rc.1');
     expect(match).toBeDefined();
     let version: string = match ? match.version : '';
     expect(version).toBe('go1.14rc1');
@@ -218,7 +215,7 @@ describe('setup-go', () => {
     findSpy.mockImplementation(() => toolPath);
     await main.run();
 
-    expect(logSpy).toHaveBeenCalledWith(`Setup go stable version spec 1.13.0`);
+    expect(logSpy).toHaveBeenCalledWith(`Setup go version spec 1.13.0`);
   });
 
   it('evaluates to stable with no input', async () => {
@@ -230,7 +227,7 @@ describe('setup-go', () => {
     findSpy.mockImplementation(() => toolPath);
     await main.run();
 
-    expect(logSpy).toHaveBeenCalledWith(`Setup go stable version spec 1.13.0`);
+    expect(logSpy).toHaveBeenCalledWith(`Setup go version spec 1.13.0`);
   });
 
   it('finds a version of go already in the cache', async () => {
@@ -396,7 +393,7 @@ describe('setup-go', () => {
     await main.run();
 
     let expPath = path.join(toolPath, 'bin');
-    expect(logSpy).toHaveBeenCalledWith('Setup go stable version spec 1.12.14');
+    expect(logSpy).toHaveBeenCalledWith('Setup go version spec 1.12.14');
     expect(findSpy).toHaveBeenCalled();
     expect(logSpy).toHaveBeenCalledWith('Attempting to download 1.12.14...');
     expect(dlSpy).toHaveBeenCalled();
@@ -560,11 +557,11 @@ describe('setup-go', () => {
 
   // 1.13.1 => 1.13.1
   // 1.13 => 1.13.0
-  // 1.10beta1 => 1.10.0-beta1, 1.10rc1 => 1.10.0-rc1
-  // 1.8.5beta1 => 1.8.5-beta1, 1.8.5rc1 => 1.8.5-rc1
+  // 1.10beta1 => 1.10.0-beta.1, 1.10rc1 => 1.10.0-rc.1
+  // 1.8.5beta1 => 1.8.5-beta.1, 1.8.5rc1 => 1.8.5-rc.1
   it('converts prerelease versions', async () => {
-    expect(im.makeSemver('1.10beta1')).toBe('1.10.0-beta1');
-    expect(im.makeSemver('1.10rc1')).toBe('1.10.0-rc1');
+    expect(im.makeSemver('1.10beta1')).toBe('1.10.0-beta.1');
+    expect(im.makeSemver('1.10rc1')).toBe('1.10.0-rc.1');
   });
 
   it('converts dot zero versions', async () => {
@@ -608,7 +605,7 @@ describe('setup-go', () => {
 
       await main.run();
 
-      expect(logSpy).toHaveBeenCalledWith('Setup go stable version spec 1.16');
+      expect(logSpy).toHaveBeenCalledWith('Setup go version spec 1.16');
       expect(logSpy).toHaveBeenCalledWith(`Found in cache @ ${toolPath}`);
     });
 
@@ -633,7 +630,7 @@ describe('setup-go', () => {
       await main.run();
 
       expect(logSpy).toHaveBeenCalledWith(
-        `Setup go stable version spec ${versionSpec}`
+        `Setup go version spec ${versionSpec}`
       );
       expect(logSpy).toHaveBeenCalledWith(
         'Attempting to resolve the latest version from the manifest...'
