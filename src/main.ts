@@ -20,7 +20,7 @@ export async function run() {
     let stable = (core.getInput('stable') || 'true').toUpperCase() === 'TRUE';
 
     const cache = core.getInput('cache');
-        
+
     core.info(`Setup go ${stable ? 'stable' : ''} version spec ${versionSpec}`);
 
     if (versionSpec) {

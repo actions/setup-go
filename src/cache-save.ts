@@ -26,8 +26,9 @@ const cachePackages = async () => {
     return;
   }
 
-  const packageManager = cacheInput.toUpperCase() === 'TRUE' ? 'default' : cacheInput;
-  
+  const packageManager =
+    cacheInput.toUpperCase() === 'TRUE' ? 'default' : cacheInput;
+
   const state = core.getState(State.CacheMatchedKey);
   const primaryKey = core.getState(State.CachePrimaryKey);
 
