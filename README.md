@@ -8,22 +8,22 @@
 
 This action sets up a go environment for use in actions by:
 
-- optionally downloading and caching a version of Go by version and adding to PATH
-- registering problem matchers for error output
+- Optionally downloading and caching a version of Go by version and adding to `PATH`.
+- Registering problem matchers for error output.
 
 # V3
 
 The V3 edition of the action offers:
 
 - Adds `GOBIN` to the `PATH`
-- Proxy Support
-- `stable` input
+- Proxy support
 - Check latest version
-- Bug Fixes (including issues around version matching and semver)
+- Bug fixes (including issues around version matching and semver)
 
 The action will first check the local cache for a version match. If a version is not found locally, it will pull it from the `main` branch of the [go-versions](https://github.com/actions/go-versions/blob/main/versions-manifest.json) repository. On miss or failure, it will fall back to downloading directly from [go dist](https://storage.googleapis.com/golang). To change the default behavior, please use the [check-latest input](#check-latest-version).
 
 Matching by [semver spec](https://github.com/npm/node-semver):
+
 ```yaml
 steps:
   - uses: actions/checkout@v3
@@ -66,6 +66,7 @@ steps:
 See [action.yml](action.yml)
 
 ## Basic:
+
 ```yaml
 steps:
   - uses: actions/checkout@v3
@@ -95,6 +96,7 @@ steps:
 ```
 
 ## Matrix Testing:
+
 ```yaml
 jobs:
   build:
@@ -113,6 +115,7 @@ jobs:
 ```
 
 ### Supported version syntax
+
 The `go-version` input supports the following syntax:
 
 Specific versions: `1.15`, `1.16.1`, `1.17.0-rc.2`, `1.16.0-beta.1`
