@@ -1,10 +1,7 @@
 # setup-go
 
-<p align="left">
-  <a href="https://github.com/actions/setup-go/actions"><img alt="GitHub Actions status" src="https://github.com/actions/setup-go/workflows/build-test/badge.svg"></a>
-
-  <a href="https://github.com/actions/setup-go/actions"><img alt="versions status" src="https://github.com/actions/setup-go/workflows/go-versions/badge.svg"></a>
-</p>
+[![build-test](https://github.com/actions/setup-go/actions/workflows/workflow.yml/badge.svg)](https://github.com/actions/setup-go/actions/workflows/workflow.yml)
+[![Validate 'setup-go'](https://github.com/actions/setup-go/actions/workflows/versions.yml/badge.svg)](https://github.com/actions/setup-go/actions/workflows/versions.yml)
 
 This action sets up a go environment for use in actions by:
 
