@@ -3,7 +3,7 @@
 <p align="left">
   <a href="https://github.com/actions/setup-go/actions"><img alt="GitHub Actions status" src="https://github.com/actions/setup-go/workflows/build-test/badge.svg"></a>
 
-  <a href="https://github.com/actions/setup-go/actions"><img alt="versions status" src="https://github.com/actions/setup-go/workflows/go-versions/badge.svg"></a>  
+  <a href="https://github.com/actions/setup-go/actions"><img alt="versions status" src="https://github.com/actions/setup-go/workflows/go-versions/badge.svg"></a>
 </p>
 
 This action sets up a go environment for use in actions by:
@@ -16,6 +16,7 @@ This action sets up a go environment for use in actions by:
 The V3 offers:
 - Adds GOBIN to the PATH
 - Proxy Support
+- `stable` input
 - Check latest version
 - Bug Fixes (including issues around version matching and semver)
 
@@ -25,7 +26,7 @@ Matching by [semver spec](https://github.com/npm/node-semver):
 ```yaml
 steps:
   - uses: actions/checkout@v3
-  - uses: actions/setup-go@v3
+  - uses: actions/setup-go@v2
     with:
       go-version: '^1.13.1' # The Go version to download (if necessary) and use.
   - run: go version
@@ -44,7 +45,7 @@ Matching an unstable pre-release:
 ```yaml
 steps:
   - uses: actions/checkout@v3
-  - uses: actions/setup-go@v3
+  - uses: actions/setup-go@v2
     with:
       go-version: '1.18.0-rc.1' # The Go version to download (if necessary) and use.
   - run: go version
@@ -67,14 +68,14 @@ See [action.yml](action.yml)
 ```yaml
 steps:
   - uses: actions/checkout@v3
-  - uses: actions/setup-go@v3
+  - uses: actions/setup-go@v2
     with:
       go-version: '1.16.1' # The Go version to download (if necessary) and use.
   - run: go run hello.go
 ```
 
 
-## Check latest version:  
+## Check latest version:
 
 The `check-latest` flag defaults to `false`. Use the default or set `check-latest` to `false` if you prefer stability and if you want to ensure a specific Go version is always used.
 
@@ -85,7 +86,7 @@ If `check-latest` is set to `true`, the action first checks if the cached versio
 ```yaml
 steps:
   - uses: actions/checkout@v3
-  - uses: actions/setup-go@v3
+  - uses: actions/setup-go@v2
     with:
       go-version: '1.14'
       check-latest: true
@@ -113,7 +114,7 @@ jobs:
 ### Supported version syntax
 The `go-version` input supports the following syntax:
 
-Specific versions: `1.15`, `1.16.1`, `1.17.0-rc.2`, `1.16.0-beta.1`  
+Specific versions: `1.15`, `1.16.1`, `1.17.0-rc.2`, `1.16.0-beta.1`
 SemVer's version range syntax: `^1.13.1`, `>=1.18.0-rc.1`
 For more information about semantic versioning please refer [semver](https://github.com/npm/node-semver) documentation
 

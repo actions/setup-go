@@ -22,7 +22,7 @@ jobs:
         go: [1.12, 1.13, 1.14]
     steps:
       - name: Checkout
-        uses: actions/checkout@v2
+        uses: actions/checkout@v3
 
       - name: setup-go ${{ matrix.go }}
         uses: ./
@@ -41,7 +41,7 @@ jobs:
         os: [ubuntu-latest, windows-latest, macos-latest]
         go-version: [1.16, 1.17]
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v3
       - name: Setup Go and check latest
         uses: ./
         with:
@@ -60,13 +60,13 @@ jobs:
         go: [1.12.16, 1.13.11, 1.14.3]
     steps:
       - name: Checkout
-        uses: actions/checkout@v2
-      
+        uses: actions/checkout@v3
+
       - name: setup-go ${{ matrix.go }}
         uses: ./
         with:
           go-version: ${{ matrix.go }}
-      
+
       - name: verify go
         run: __tests__/verify-go.sh ${{ matrix.go }}
         shell: bash
@@ -81,7 +81,7 @@ jobs:
         go: [1.9, 1.8.6]
     steps:
       - name: Checkout
-        uses: actions/checkout@v2
+        uses: actions/checkout@v3
 
       - name: setup-go ${{ matrix.go }}
         uses: ./
