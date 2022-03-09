@@ -13,8 +13,9 @@ This action sets up a go environment for use in actions by:
 
 # V3
 
-The V3 offers:
-- Adds GOBIN to the PATH
+The V3 edition of the action offers:
+
+- Adds `GOBIN` to the `PATH`
 - Proxy Support
 - `stable` input
 - Check latest version
@@ -26,7 +27,7 @@ Matching by [semver spec](https://github.com/npm/node-semver):
 ```yaml
 steps:
   - uses: actions/checkout@v3
-  - uses: actions/setup-go@v2
+  - uses: actions/setup-go@v3
     with:
       go-version: '^1.13.1' # The Go version to download (if necessary) and use.
   - run: go version
@@ -45,7 +46,7 @@ Matching an unstable pre-release:
 ```yaml
 steps:
   - uses: actions/checkout@v3
-  - uses: actions/setup-go@v2
+  - uses: actions/setup-go@v3
     with:
       go-version: '1.18.0-rc.1' # The Go version to download (if necessary) and use.
   - run: go version
@@ -68,7 +69,7 @@ See [action.yml](action.yml)
 ```yaml
 steps:
   - uses: actions/checkout@v3
-  - uses: actions/setup-go@v2
+  - uses: actions/setup-go@v3
     with:
       go-version: '1.16.1' # The Go version to download (if necessary) and use.
   - run: go run hello.go
@@ -86,7 +87,7 @@ If `check-latest` is set to `true`, the action first checks if the cached versio
 ```yaml
 steps:
   - uses: actions/checkout@v3
-  - uses: actions/setup-go@v2
+  - uses: actions/setup-go@v3
     with:
       go-version: '1.14'
       check-latest: true
