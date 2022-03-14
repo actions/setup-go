@@ -51,7 +51,6 @@ describe('setup-go', () => {
     getBooleanInputSpy = jest.spyOn(core, 'getBooleanInput');
     getBooleanInputSpy.mockImplementation(name => inputs[name]);
     exportVarSpy = jest.spyOn(core, 'exportVariable');
-    extractTarSpy = jest.spyOn(core, 'exportVariable');
 
     // node
     os = {};
