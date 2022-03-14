@@ -240,7 +240,7 @@ describe('setup-go', () => {
     let toolPath = path.normalize('/cache/go/1.13.0/x64');
     findSpy.mockImplementation(() => toolPath);
 
-    let vars: { [key: string]: string; } = {};
+    let vars: {[key: string]: string} = {};
     exportVarSpy.mockImplementation((name: string, val: string) => {
       vars[name] = val;
     });
@@ -256,17 +256,16 @@ describe('setup-go', () => {
     let toolPath = path.normalize('/cache/go/1.8.0/x64');
     findSpy.mockImplementation(() => toolPath);
 
-    let vars: { [key: string]: string; } = {};
+    let vars: {[key: string]: string} = {};
     exportVarSpy.mockImplementation((name: string, val: string) => {
       vars[name] = val;
     });
 
     await main.run();
     expect(vars).toStrictEqual({
-      "GOROOT": toolPath
+      GOROOT: toolPath
     });
   });
-
 
   it('finds a version of go already in the cache', async () => {
     inputs['go-version'] = '1.13.0';
