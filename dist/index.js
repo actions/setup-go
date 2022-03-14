@@ -2086,7 +2086,7 @@ function run() {
                 const version = installer.makeSemver(versionSpec);
                 // Go versions less than 1.9 require GOROOT to be set
                 if (semver.lt(version, '1.9.0')) {
-                    core.info("Setting GOROOT for Go version < 1.9");
+                    core.info('Setting GOROOT for Go version < 1.9');
                     core.exportVariable('GOROOT', installDir);
                 }
                 let added = yield addBinToPath();
