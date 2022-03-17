@@ -2062,6 +2062,7 @@ exports.addBinToPath = exports.run = void 0;
 const core = __importStar(__webpack_require__(470));
 const io = __importStar(__webpack_require__(1));
 const installer = __importStar(__webpack_require__(749));
+const semver = __importStar(__webpack_require__(280));
 const path_1 = __importDefault(__webpack_require__(622));
 const child_process_1 = __importDefault(__webpack_require__(129));
 const fs_1 = __importDefault(__webpack_require__(747));
@@ -2080,9 +2081,14 @@ function run() {
                 let auth = !token || isGhes() ? undefined : `token ${token}`;
                 const checkLatest = core.getBooleanInput('check-latest');
                 const installDir = yield installer.getGo(versionSpec, checkLatest, auth);
-                core.exportVariable('GOROOT', installDir);
                 core.addPath(path_1.default.join(installDir, 'bin'));
                 core.info('Added go to the path');
+                const version = installer.makeSemver(versionSpec);
+                // Go versions less than 1.9 require GOROOT to be set
+                if (semver.lt(version, '1.9.0')) {
+                    core.info('Setting GOROOT for Go version < 1.9');
+                    core.exportVariable('GOROOT', installDir);
+                }
                 let added = yield addBinToPath();
                 core.debug(`add bin ${added}`);
                 core.info(`Successfully setup go version ${versionSpec}`);

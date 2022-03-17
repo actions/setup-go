@@ -1,6 +1,7 @@
 import * as core from '@actions/core';
 import * as io from '@actions/io';
 import * as installer from './installer';
+import * as semver from 'semver';
 import path from 'path';
 import cp from 'child_process';
 import fs from 'fs';
@@ -23,9 +24,15 @@ export async function run() {
       const checkLatest = core.getBooleanInput('check-latest');
       const installDir = await installer.getGo(versionSpec, checkLatest, auth);
 
-      core.exportVariable('GOROOT', installDir);
       core.addPath(path.join(installDir, 'bin'));
       core.info('Added go to the path');
+
+      const version = installer.makeSemver(versionSpec);
+      // Go versions less than 1.9 require GOROOT to be set
+      if (semver.lt(version, '1.9.0')) {
+        core.info('Setting GOROOT for Go version < 1.9');
+        core.exportVariable('GOROOT', installDir);
+      }
 
       let added = await addBinToPath();
       core.debug(`add bin ${added}`);
