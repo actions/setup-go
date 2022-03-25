@@ -11,9 +11,9 @@ This action sets up a go environment for use in actions by:
 - optionally downloading and caching a version of Go by version and adding to PATH
 - registering problem matchers for error output
 
-# V2
+# V3
 
-The V2 offers:
+The V3 offers:
 - Adds GOBIN to the PATH
 - Proxy Support
 - `stable` input 
@@ -26,7 +26,7 @@ Matching by [semver spec](https://github.com/npm/node-semver):
 ```yaml
 steps:
   - uses: actions/checkout@v2
-  - uses: actions/setup-go@v2
+  - uses: actions/setup-go@v3
     with:
       go-version: '^1.13.1' # The Go version to download (if necessary) and use.
   - run: go version
@@ -36,7 +36,7 @@ Matching an unstable pre-release:
 ```yaml
 steps:
   - uses: actions/checkout@v2
-  - uses: actions/setup-go@v2
+  - uses: actions/setup-go@v3
     with:
       stable: 'false'
       go-version: '1.14.0-rc1' # The Go version to download (if necessary) and use.
@@ -51,7 +51,7 @@ See [action.yml](action.yml)
 ```yaml
 steps:
   - uses: actions/checkout@v2
-  - uses: actions/setup-go@v2
+  - uses: actions/setup-go@v3
     with:
       go-version: '1.16.1' # The Go version to download (if necessary) and use.
   - run: go run hello.go
@@ -69,7 +69,7 @@ If `check-latest` is set to `true`, the action first checks if the cached versio
 ```yaml
 steps:
   - uses: actions/checkout@v2
-  - uses: actions/setup-go@v2
+  - uses: actions/setup-go@v3
     with:
       go-version: '1.14'
       check-latest: true
@@ -88,7 +88,7 @@ jobs:
     steps:
       - uses: actions/checkout@v2
       - name: Setup go
-        uses: actions/setup-go@v2
+        uses: actions/setup-go@v3
         with:
           go-version: ${{ matrix.go }}
       - run: go run hello.go
