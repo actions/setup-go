@@ -16,7 +16,6 @@ This action sets up a go environment for use in actions by:
 The V3 offers:
 - Adds GOBIN to the PATH
 - Proxy Support
-- `stable` input 
 - Check latest version
 - Bug Fixes (including issues around version matching and semver)
 
