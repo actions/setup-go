@@ -24,21 +24,38 @@ The action will first check the local cache for a version match. If a version is
 Matching by [semver spec](https://github.com/npm/node-semver):
 ```yaml
 steps:
-  - uses: actions/checkout@v2
+  - uses: actions/checkout@v3
   - uses: actions/setup-go@v3
     with:
       go-version: '^1.13.1' # The Go version to download (if necessary) and use.
   - run: go version
 ```
 
+```yaml
+steps:
+  - uses: actions/checkout@v3
+  - uses: actions/setup-go@v3
+    with:
+      go-version: '>=1.17.0'
+  - run: go version
+```
+
 Matching an unstable pre-release:
 ```yaml
 steps:
-  - uses: actions/checkout@v2
+  - uses: actions/checkout@v3
   - uses: actions/setup-go@v3
     with:
-      stable: 'false'
-      go-version: '1.14.0-rc1' # The Go version to download (if necessary) and use.
+      go-version: '1.18.0-rc.1' # The Go version to download (if necessary) and use.
+  - run: go version
+```
+
+```yaml
+steps:
+  - uses: actions/checkout@v3
+  - uses: actions/setup-go@v3
+    with:
+      go-version: '1.16.0-beta.1' # The Go version to download (if necessary) and use.
   - run: go version
 ```
 
@@ -49,7 +66,7 @@ See [action.yml](action.yml)
 ## Basic:
 ```yaml
 steps:
-  - uses: actions/checkout@v2
+  - uses: actions/checkout@v3
   - uses: actions/setup-go@v3
     with:
       go-version: '1.16.1' # The Go version to download (if necessary) and use.
@@ -67,7 +84,7 @@ If `check-latest` is set to `true`, the action first checks if the cached versio
 
 ```yaml
 steps:
-  - uses: actions/checkout@v2
+  - uses: actions/checkout@v3
   - uses: actions/setup-go@v3
     with:
       go-version: '1.14'
@@ -85,7 +102,7 @@ jobs:
         go: [ '1.14', '1.13' ]
     name: Go ${{ matrix.go }} sample
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v3
       - name: Setup go
         uses: actions/setup-go@v3
         with:
@@ -96,8 +113,8 @@ jobs:
 ### Supported version syntax
 The `go-version` input supports the following syntax:
 
-Specific versions: `1.15`, `1.16.1`, `1.17.0-rc2`, `1.16.0-beta1`  
-SemVer's version range syntax: `^1.13.1`  
+Specific versions: `1.15`, `1.16.1`, `1.17.0-rc.2`, `1.16.0-beta.1`  
+SemVer's version range syntax: `^1.13.1`, `>=1.18.0-rc.1`
 For more information about semantic versioning please refer [semver](https://github.com/npm/node-semver) documentation
 
 # License
