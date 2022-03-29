@@ -43,7 +43,7 @@ steps:
 Matching an unstable pre-release:
 ```yaml
 steps:
-  - uses: actions/checkout@v2
+  - uses: actions/checkout@v3
   - uses: actions/setup-go@v3
     with:
       go-version: '1.18.0-rc.1' # The Go version to download (if necessary) and use.
@@ -52,7 +52,7 @@ steps:
 
 ```yaml
 steps:
-  - uses: actions/checkout@v2
+  - uses: actions/checkout@v3
   - uses: actions/setup-go@v3
     with:
       go-version: '1.16.0-beta.1' # The Go version to download (if necessary) and use.
