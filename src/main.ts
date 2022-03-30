@@ -1,6 +1,7 @@
 import * as core from '@actions/core';
 import * as io from '@actions/io';
 import * as installer from './installer';
+import * as semver from 'semver';
 import path from 'path';
 import {restoreCache} from './cache-restore';
 import cp from 'child_process';
@@ -25,9 +26,15 @@ export async function run() {
       const checkLatest = core.getBooleanInput('check-latest');
       const installDir = await installer.getGo(versionSpec, checkLatest, auth);
 
-      core.exportVariable('GOROOT', installDir);
       core.addPath(path.join(installDir, 'bin'));
       core.info('Added go to the path');
+
+      const version = installer.makeSemver(versionSpec);
+      // Go versions less than 1.9 require GOROOT to be set
+      if (semver.lt(version, '1.9.0')) {
+        core.info('Setting GOROOT for Go version < 1.9');
+        core.exportVariable('GOROOT', installDir);
+      }
 
       let added = await addBinToPath();
       core.debug(`add bin ${added}`);
@@ -77,13 +84,13 @@ export async function addBinToPath(): Promise<boolean> {
     if (!fs.existsSync(gp)) {
       // some of the hosted images have go install but not profile dir
       core.debug(`creating ${gp}`);
-      io.mkdirP(gp);
+      await io.mkdirP(gp);
     }
 
     let bp = path.join(gp, 'bin');
     if (!fs.existsSync(bp)) {
       core.debug(`creating ${bp}`);
-      io.mkdirP(bp);
+      await io.mkdirP(bp);
     }
 
     core.addPath(bp);

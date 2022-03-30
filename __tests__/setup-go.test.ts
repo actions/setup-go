@@ -20,6 +20,7 @@ describe('setup-go', () => {
 
   let inSpy: jest.SpyInstance;
   let getBooleanInputSpy: jest.SpyInstance;
+  let exportVarSpy: jest.SpyInstance;
   let findSpy: jest.SpyInstance;
   let cnSpy: jest.SpyInstance;
   let logSpy: jest.SpyInstance;
@@ -27,7 +28,7 @@ describe('setup-go', () => {
   let platSpy: jest.SpyInstance;
   let archSpy: jest.SpyInstance;
   let dlSpy: jest.SpyInstance;
-  let exSpy: jest.SpyInstance;
+  let extractTarSpy: jest.SpyInstance;
   let cacheSpy: jest.SpyInstance;
   let dbgSpy: jest.SpyInstance;
   let whichSpy: jest.SpyInstance;
@@ -49,6 +50,7 @@ describe('setup-go', () => {
     inSpy.mockImplementation(name => inputs[name]);
     getBooleanInputSpy = jest.spyOn(core, 'getBooleanInput');
     getBooleanInputSpy.mockImplementation(name => inputs[name]);
+    exportVarSpy = jest.spyOn(core, 'exportVariable');
 
     // node
     os = {};
@@ -61,7 +63,7 @@ describe('setup-go', () => {
     // @actions/tool-cache
     findSpy = jest.spyOn(tc, 'find');
     dlSpy = jest.spyOn(tc, 'downloadTool');
-    exSpy = jest.spyOn(tc, 'extractTar');
+    extractTarSpy = jest.spyOn(tc, 'extractTar');
     cacheSpy = jest.spyOn(tc, 'cacheDir');
     getSpy = jest.spyOn(im, 'getVersionsDist');
     getManifestSpy = jest.spyOn(tc, 'getManifestFromRepo');
@@ -230,6 +232,40 @@ describe('setup-go', () => {
     expect(logSpy).toHaveBeenCalledWith(`Setup go version spec 1.13.0`);
   });
 
+  it('does not export any variables for Go versions >=1.9', async () => {
+    inputs['go-version'] = '1.13.0';
+    inSpy.mockImplementation(name => inputs[name]);
+
+    let toolPath = path.normalize('/cache/go/1.13.0/x64');
+    findSpy.mockImplementation(() => toolPath);
+
+    let vars: {[key: string]: string} = {};
+    exportVarSpy.mockImplementation((name: string, val: string) => {
+      vars[name] = val;
+    });
+
+    await main.run();
+    expect(vars).toStrictEqual({});
+  });
+
+  it('exports GOROOT for Go versions <1.9', async () => {
+    inputs['go-version'] = '1.8';
+    inSpy.mockImplementation(name => inputs[name]);
+
+    let toolPath = path.normalize('/cache/go/1.8.0/x64');
+    findSpy.mockImplementation(() => toolPath);
+
+    let vars: {[key: string]: string} = {};
+    exportVarSpy.mockImplementation((name: string, val: string) => {
+      vars[name] = val;
+    });
+
+    await main.run();
+    expect(vars).toStrictEqual({
+      GOROOT: toolPath
+    });
+  });
+
   it('finds a version of go already in the cache', async () => {
     inputs['go-version'] = '1.13.0';
 
@@ -271,14 +307,14 @@ describe('setup-go', () => {
     findSpy.mockImplementation(() => '');
     dlSpy.mockImplementation(() => '/some/temp/path');
     let toolPath = path.normalize('/cache/go/1.13.0/x64');
-    exSpy.mockImplementation(() => '/some/other/temp/path');
+    extractTarSpy.mockImplementation(() => '/some/other/temp/path');
     cacheSpy.mockImplementation(() => toolPath);
     await main.run();
 
     let expPath = path.join(toolPath, 'bin');
 
     expect(dlSpy).toHaveBeenCalled();
-    expect(exSpy).toHaveBeenCalled();
+    expect(extractTarSpy).toHaveBeenCalled();
     expect(cnSpy).toHaveBeenCalledWith(`::add-path::${expPath}${osm.EOL}`);
   });
 
@@ -313,7 +349,7 @@ describe('setup-go', () => {
 
     dlSpy.mockImplementation(async () => '/some/temp/path');
     let toolPath = path.normalize('/cache/go/1.12.16/x64');
-    exSpy.mockImplementation(async () => '/some/other/temp/path');
+    extractTarSpy.mockImplementation(async () => '/some/other/temp/path');
     cacheSpy.mockImplementation(async () => toolPath);
 
     await main.run();
@@ -321,7 +357,7 @@ describe('setup-go', () => {
     let expPath = path.join(toolPath, 'bin');
 
     expect(dlSpy).toHaveBeenCalled();
-    expect(exSpy).toHaveBeenCalled();
+    expect(extractTarSpy).toHaveBeenCalled();
     expect(logSpy).not.toHaveBeenCalledWith(
       'Not found in manifest.  Falling back to download directly from Go'
     );
@@ -350,7 +386,7 @@ describe('setup-go', () => {
 
     dlSpy.mockImplementation(async () => '/some/temp/path');
     let toolPath = path.normalize('/cache/go/1.12.17/x64');
-    exSpy.mockImplementation(async () => '/some/other/temp/path');
+    extractTarSpy.mockImplementation(async () => '/some/other/temp/path');
     cacheSpy.mockImplementation(async () => toolPath);
 
     await main.run();
@@ -358,7 +394,7 @@ describe('setup-go', () => {
     let expPath = path.join(toolPath, 'bin');
 
     expect(dlSpy).toHaveBeenCalled();
-    expect(exSpy).toHaveBeenCalled();
+    expect(extractTarSpy).toHaveBeenCalled();
     expect(logSpy).not.toHaveBeenCalledWith(
       'Not found in manifest.  Falling back to download directly from Go'
     );
@@ -387,7 +423,7 @@ describe('setup-go', () => {
 
     dlSpy.mockImplementation(async () => '/some/temp/path');
     let toolPath = path.normalize('/cache/go/1.12.14/x64');
-    exSpy.mockImplementation(async () => '/some/other/temp/path');
+    extractTarSpy.mockImplementation(async () => '/some/other/temp/path');
     cacheSpy.mockImplementation(async () => toolPath);
 
     await main.run();
@@ -398,7 +434,7 @@ describe('setup-go', () => {
     expect(logSpy).toHaveBeenCalledWith('Attempting to download 1.12.14...');
     expect(dlSpy).toHaveBeenCalled();
     expect(logSpy).toHaveBeenCalledWith('matching 1.12.14...');
-    expect(exSpy).toHaveBeenCalled();
+    expect(extractTarSpy).toHaveBeenCalled();
     expect(logSpy).toHaveBeenCalledWith(
       'Not found in manifest.  Falling back to download directly from Go'
     );
@@ -600,7 +636,7 @@ describe('setup-go', () => {
       const toolPath = path.normalize('/cache/go/1.16.1/x64');
       findSpy.mockReturnValue(toolPath);
       dlSpy.mockImplementation(async () => '/some/temp/path');
-      exSpy.mockImplementation(async () => '/some/other/temp/path');
+      extractTarSpy.mockImplementation(async () => '/some/other/temp/path');
       cacheSpy.mockImplementation(async () => toolPath);
 
       await main.run();
@@ -622,7 +658,7 @@ describe('setup-go', () => {
       findSpy.mockImplementation(() => '');
       dlSpy.mockImplementation(async () => '/some/temp/path');
       const toolPath = path.normalize('/cache/go/1.17.5/x64');
-      exSpy.mockImplementation(async () => '/some/other/temp/path');
+      extractTarSpy.mockImplementation(async () => '/some/other/temp/path');
       cacheSpy.mockImplementation(async () => toolPath);
       const expectedUrl =
         'https://github.com/actions/go-versions/releases/download/1.17.6-1668090892/go-1.17.6-darwin-x64.tar.gz';
@@ -663,7 +699,7 @@ describe('setup-go', () => {
 
       dlSpy.mockImplementation(async () => '/some/temp/path');
       let toolPath = path.normalize('/cache/go/1.13.7/x64');
-      exSpy.mockImplementation(async () => '/some/other/temp/path');
+      extractTarSpy.mockImplementation(async () => '/some/other/temp/path');
       cacheSpy.mockImplementation(async () => toolPath);
 
       await main.run();
@@ -671,7 +707,7 @@ describe('setup-go', () => {
       let expPath = path.join(toolPath, 'bin');
 
       expect(dlSpy).toHaveBeenCalled();
-      expect(exSpy).toHaveBeenCalled();
+      expect(extractTarSpy).toHaveBeenCalled();
       expect(logSpy).toHaveBeenCalledWith(
         'Attempting to resolve the latest version from the manifest...'
       );
@@ -705,7 +741,7 @@ describe('setup-go', () => {
 
       dlSpy.mockImplementation(async () => '/some/temp/path');
       let toolPath = path.normalize('/cache/go/1.13.7/x64');
-      exSpy.mockImplementation(async () => '/some/other/temp/path');
+      extractTarSpy.mockImplementation(async () => '/some/other/temp/path');
       cacheSpy.mockImplementation(async () => toolPath);
 
       await main.run();
@@ -716,7 +752,7 @@ describe('setup-go', () => {
         `Failed to resolve version ${versionSpec} from manifest`
       );
       expect(dlSpy).toHaveBeenCalled();
-      expect(exSpy).toHaveBeenCalled();
+      expect(extractTarSpy).toHaveBeenCalled();
       expect(logSpy).toHaveBeenCalledWith(
         'Attempting to resolve the latest version from the manifest...'
       );
