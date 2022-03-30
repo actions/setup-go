@@ -3689,6 +3689,7 @@ exports.addBinToPath = exports.run = void 0;
 const core = __importStar(__webpack_require__(470));
 const io = __importStar(__webpack_require__(1));
 const installer = __importStar(__webpack_require__(923));
+const semver = __importStar(__webpack_require__(280));
 const path_1 = __importDefault(__webpack_require__(622));
 const cache_restore_1 = __webpack_require__(409);
 const child_process_1 = __importDefault(__webpack_require__(129));
@@ -3709,9 +3710,14 @@ function run() {
                 let auth = !token || isGhes() ? undefined : `token ${token}`;
                 const checkLatest = core.getBooleanInput('check-latest');
                 const installDir = yield installer.getGo(versionSpec, checkLatest, auth);
-                core.exportVariable('GOROOT', installDir);
                 core.addPath(path_1.default.join(installDir, 'bin'));
                 core.info('Added go to the path');
+                const version = installer.makeSemver(versionSpec);
+                // Go versions less than 1.9 require GOROOT to be set
+                if (semver.lt(version, '1.9.0')) {
+                    core.info('Setting GOROOT for Go version < 1.9');
+                    core.exportVariable('GOROOT', installDir);
+                }
                 let added = yield addBinToPath();
                 core.debug(`add bin ${added}`);
                 core.info(`Successfully setup go version ${versionSpec}`);
@@ -3758,12 +3764,12 @@ function addBinToPath() {
             if (!fs_1.default.existsSync(gp)) {
                 // some of the hosted images have go install but not profile dir
                 core.debug(`creating ${gp}`);
-                io.mkdirP(gp);
+                yield io.mkdirP(gp);
             }
             let bp = path_1.default.join(gp, 'bin');
             if (!fs_1.default.existsSync(bp)) {
                 core.debug(`creating ${bp}`);
-                io.mkdirP(bp);
+                yield io.mkdirP(bp);
             }
             core.addPath(bp);
             added = true;
