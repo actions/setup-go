@@ -24,7 +24,7 @@ describe('restoreCache', () => {
     getCacheDirectoryPathSpy.mockImplementation(
       (PackageManager: PackageManagerInfo) => {
         return new Promise<string>(resolve => {
-          resolve('Some cache directory path');
+          resolve('cache_directory_path');
         });
       }
     );
