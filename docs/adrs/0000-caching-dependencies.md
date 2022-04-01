@@ -4,13 +4,13 @@ Date: 2022-03-29
 Status: Accepted
 
 # Context
-`actions/setup-go` is the one of the most popular action related to Golang in GitHub Actions. A lot of customers use it in conjunction with [actions/cache](https://github.com/actions/cache) to speed up dependencies installation.  
+`actions/setup-go` is the one of the most popular action related to Golang in GitHub Actions. Many customers use it in conjunction with [actions/cache](https://github.com/actions/cache) to speed up dependency installation process.  
 See more examples on proper usage in [actions/cache documentation](https://github.com/actions/cache/blob/main/examples.md#go---modules).
 
 # Goals & Anti-Goals
 Integration of caching functionality into `actions/setup-go` action will bring the following benefits for action users:
 - Decrease the entry threshold for using the cache for Go dependencies and simplify initial configuration
-- Simplify YAML pipelines because no need additional steps to enable caching
+- Simplify YAML pipelines because there will be no need for additional steps to enable caching
 - More users will use cache for Go so more customers will have fast builds!
 
 We don't pursue the goal to provide wide customization of caching in scope of `actions/setup-go` action. The purpose of this integration is covering ~90% of basic use-cases. If user needs flexible customization, we should advice them to use `actions/cache` directly.
@@ -18,12 +18,12 @@ We don't pursue the goal to provide wide customization of caching in scope of `a
 # Decision
 - Add `cache` input parameter to `actions/setup-go`. For now, input will accept the following values: 
   - `true` - enable caching for go dependencies
-  - `false` and `''` - disable caching for go dependencies. It will be set by default
-We're planing to get this values as strings, because if we'll get proposla for possible future tool, it will be easier to adjust logic
+  - `false` and `''` - disable caching for go dependencies. This value will be set as default value
+We're planning to get these values as strings. That will enable us to extend the functionality in future much easier if we get proposals for it.
 - Cache feature will be disabled by default to make sure that we don't break existing customers. We will consider enabling cache by default in next major releases
-- Action will try to search a go.sum files in the repository and throw error if no one is found
+- Action will try to search a go.sum files in the repository and throw error in the scenario that it was not found
 - The hash of found file will be used as cache key (the same approach like [actions/cache](https://github.com/actions/cache/blob/main/examples.md#go---modules) recommends)
-- The following key cache will be used `${{ runner.os }}-go${{ go-version }}-${{ hashFiles('<package-lock-path>') }}`
+- The following key cache will be used `${{ runner.os }}-go${{ go-version }}-${{ hashFiles('<go.sum-path>') }}`
 - Action will cache global cache from the `go env GOCACHE` command
 
 # Example of real use-cases
@@ -33,7 +33,7 @@ steps:
 - uses: actions/checkout@v3
 - uses: actions/setup-go@v3
   with:
-    go-version: '14'
+    go-version: '16'
     cache: true
 ```
 
