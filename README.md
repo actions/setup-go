@@ -11,13 +11,13 @@ This action sets up a go environment for use in actions by:
 - optionally downloading and caching a version of Go by version and adding to PATH
 - registering problem matchers for error output
 
-# V2
+# V3
 
-The V2 offers:
+The V3 offers:
 - Adds GOBIN to the PATH
 - Proxy Support
-- `stable` input 
 - Check latest version
+- Caching packages dependencies
 - Bug Fixes (including issues around version matching and semver)
 
 The action will first check the local cache for a version match. If a version is not found locally, it will pull it from the `main` branch of the [go-versions](https://github.com/actions/go-versions/blob/main/versions-manifest.json) repository. On miss or failure, it will fall back to downloading directly from [go dist](https://storage.googleapis.com/golang). To change the default behavior, please use the [check-latest input](#check-latest-version).
@@ -25,21 +25,38 @@ The action will first check the local cache for a version match. If a version is
 Matching by [semver spec](https://github.com/npm/node-semver):
 ```yaml
 steps:
-  - uses: actions/checkout@v2
-  - uses: actions/setup-go@v2
+  - uses: actions/checkout@v3
+  - uses: actions/setup-go@v3
     with:
       go-version: '^1.13.1' # The Go version to download (if necessary) and use.
+  - run: go version
+```
+
+```yaml
+steps:
+  - uses: actions/checkout@v3
+  - uses: actions/setup-go@v3
+    with:
+      go-version: '>=1.17.0'
   - run: go version
 ```
 
 Matching an unstable pre-release:
 ```yaml
 steps:
-  - uses: actions/checkout@v2
-  - uses: actions/setup-go@v2
+  - uses: actions/checkout@v3
+  - uses: actions/setup-go@v3
     with:
-      stable: 'false'
-      go-version: '1.14.0-rc1' # The Go version to download (if necessary) and use.
+      go-version: '1.18.0-rc.1' # The Go version to download (if necessary) and use.
+  - run: go version
+```
+
+```yaml
+steps:
+  - uses: actions/checkout@v3
+  - uses: actions/setup-go@v3
+    with:
+      go-version: '1.16.0-beta.1' # The Go version to download (if necessary) and use.
   - run: go version
 ```
 
@@ -50,8 +67,8 @@ See [action.yml](action.yml)
 ## Basic:
 ```yaml
 steps:
-  - uses: actions/checkout@v2
-  - uses: actions/setup-go@v2
+  - uses: actions/checkout@v3
+  - uses: actions/setup-go@v3
     with:
       go-version: '1.16.1' # The Go version to download (if necessary) and use.
   - run: go run hello.go
@@ -68,11 +85,42 @@ If `check-latest` is set to `true`, the action first checks if the cached versio
 
 ```yaml
 steps:
-  - uses: actions/checkout@v2
-  - uses: actions/setup-go@v2
+  - uses: actions/checkout@v3
+  - uses: actions/setup-go@v3
     with:
       go-version: '1.14'
       check-latest: true
+  - run: go run hello.go
+```
+
+## Caching packages dependencies:
+
+The action has a built-in functionality for caching and restoring dependencies. It uses [actions/cache](https://github.com/actions/cache) under the hood for caching dependencies but requires less configuration settings.The `cache` input is optional, and caching is turned off by default.
+
+The action defaults to search for the dependency file - go.sum in the repository root, and uses its hash as a part of the cache key. Use `cache-dependency-path` input for cases when multiple dependency files are used, or they are located in different subdirectories.
+
+**Caching packages dependencies without specifying dependency file path**
+```yaml
+steps:
+  - uses: actions/checkout@v3
+  - uses: actions/setup-go@v3
+    with:
+      go-version: '1.14'
+      check-latest: true
+      cache: true
+  - run: go run hello.go
+```
+
+**Caching packages dependencies in monorepos**
+```yaml
+steps:
+  - uses: actions/checkout@v3
+  - uses: actions/setup-go@v3
+    with:
+      go-version: '1.14'
+      check-latest: true
+      cache: true
+      cache-dependency-path: subdir/go.sum
   - run: go run hello.go
 ```
 
@@ -86,9 +134,9 @@ jobs:
         go: [ '1.14', '1.13' ]
     name: Go ${{ matrix.go }} sample
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v3
       - name: Setup go
-        uses: actions/setup-go@v2
+        uses: actions/setup-go@v3
         with:
           go-version: ${{ matrix.go }}
       - run: go run hello.go
@@ -97,8 +145,8 @@ jobs:
 ### Supported version syntax
 The `go-version` input supports the following syntax:
 
-Specific versions: `1.15`, `1.16.1`, `1.17.0-rc2`, `1.16.0-beta1`  
-SemVer's version range syntax: `^1.13.1`  
+Specific versions: `1.15`, `1.16.1`, `1.17.0-rc.2`, `1.16.0-beta.1`  
+SemVer's version range syntax: `^1.13.1`, `>=1.18.0-rc.1`
 For more information about semantic versioning please refer [semver](https://github.com/npm/node-semver) documentation
 
 # License

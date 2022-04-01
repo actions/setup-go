@@ -3342,10 +3342,7 @@ const options_1 = __webpack_require__(538);
 const requestUtils_1 = __webpack_require__(899);
 const versionSalt = '1.0';
 function getCacheApiUrl(resource) {
-    // Ideally we just use ACTIONS_CACHE_URL
-    const baseUrl = (process.env['ACTIONS_CACHE_URL'] ||
-        process.env['ACTIONS_RUNTIME_URL'] ||
-        '').replace('pipelines', 'artifactcache');
+    const baseUrl = process.env['ACTIONS_CACHE_URL'] || '';
     if (!baseUrl) {
         throw new Error('Cache Service Url not found, unable to restore cache.');
     }
@@ -3689,6 +3686,7 @@ exports.addBinToPath = exports.run = void 0;
 const core = __importStar(__webpack_require__(470));
 const io = __importStar(__webpack_require__(1));
 const installer = __importStar(__webpack_require__(923));
+const semver = __importStar(__webpack_require__(280));
 const path_1 = __importDefault(__webpack_require__(622));
 const cache_restore_1 = __webpack_require__(409);
 const child_process_1 = __importDefault(__webpack_require__(129));
@@ -3702,19 +3700,21 @@ function run() {
             // If not supplied then problem matchers will still be setup.  Useful for self-hosted.
             //
             let versionSpec = core.getInput('go-version');
-            // stable will be true unless false is the exact input
-            // since getting unstable versions should be explicit
-            let stable = (core.getInput('stable') || 'true').toUpperCase() === 'TRUE';
-            const cache = core.getBooleanInput('cache');
-            core.info(`Setup go ${stable ? 'stable' : ''} version spec ${versionSpec}`);
+            const cache = core.getInput('cache');
+            core.info(`Setup go version spec ${versionSpec}`);
             if (versionSpec) {
                 let token = core.getInput('token');
                 let auth = !token || isGhes() ? undefined : `token ${token}`;
                 const checkLatest = core.getBooleanInput('check-latest');
-                const installDir = yield installer.getGo(versionSpec, stable, checkLatest, auth);
-                core.exportVariable('GOROOT', installDir);
+                const installDir = yield installer.getGo(versionSpec, checkLatest, auth);
                 core.addPath(path_1.default.join(installDir, 'bin'));
                 core.info('Added go to the path');
+                const version = installer.makeSemver(versionSpec);
+                // Go versions less than 1.9 require GOROOT to be set
+                if (semver.lt(version, '1.9.0')) {
+                    core.info('Setting GOROOT for Go version < 1.9');
+                    core.exportVariable('GOROOT', installDir);
+                }
                 let added = yield addBinToPath();
                 core.debug(`add bin ${added}`);
                 core.info(`Successfully setup go version ${versionSpec}`);
@@ -3723,7 +3723,7 @@ function run() {
                 if (isGhes()) {
                     throw new Error('Caching is not supported on GHES');
                 }
-                const packageManager = core.getInput('package-manager');
+                const packageManager = cache.toUpperCase() === 'TRUE' ? 'default' : cache;
                 const cacheDependencyPath = core.getInput('cache-dependency-path');
                 yield cache_restore_1.restoreCache(packageManager, cacheDependencyPath);
             }
@@ -3761,12 +3761,12 @@ function addBinToPath() {
             if (!fs_1.default.existsSync(gp)) {
                 // some of the hosted images have go install but not profile dir
                 core.debug(`creating ${gp}`);
-                io.mkdirP(gp);
+                yield io.mkdirP(gp);
             }
             let bp = path_1.default.join(gp, 'bin');
             if (!fs_1.default.existsSync(bp)) {
                 core.debug(`creating ${bp}`);
-                io.mkdirP(bp);
+                yield io.mkdirP(bp);
             }
             core.addPath(bp);
             added = true;
@@ -4188,7 +4188,8 @@ exports.getPackageManagerInfo = (packageManager) => __awaiter(void 0, void 0, vo
     if (!package_managers_1.supportedPackageManagers[packageManager]) {
         throw new Error(`It's not possible to use ${packageManager}, please, check correctness of the package manager name spelling.`);
     }
-    return package_managers_1.supportedPackageManagers[packageManager];
+    const obtainedPackageManager = package_managers_1.supportedPackageManagers[packageManager];
+    return obtainedPackageManager;
 });
 exports.getCacheDirectoryPath = (packageManagerInfo) => __awaiter(void 0, void 0, void 0, function* () {
     const stdout = yield exports.getCommandOutput(packageManagerInfo.getCacheFolderCommand);
@@ -6081,7 +6082,8 @@ function downloadCacheStorageSDK(archiveLocation, archivePath, options) {
             //
             // If the file exceeds the buffer maximum length (~1 GB on 32-bit systems and ~2 GB
             // on 64-bit systems), split the download into multiple segments
-            const maxSegmentSize = buffer.constants.MAX_LENGTH;
+            // ~2 GB = 2147483647, beyond this, we start getting out of range error. So, capping it accordingly.
+            const maxSegmentSize = Math.min(2147483647, buffer.constants.MAX_LENGTH);
             const downloadProgress = new DownloadProgress(contentLength);
             const fd = fs.openSync(archivePath, 'w');
             try {
@@ -45174,6 +45176,15 @@ function checkKey(key) {
     }
 }
 /**
+ * isFeatureAvailable to check the presence of Actions cache service
+ *
+ * @returns boolean return true if Actions cache service feature is available, otherwise false
+ */
+function isFeatureAvailable() {
+    return !!process.env['ACTIONS_CACHE_URL'];
+}
+exports.isFeatureAvailable = isFeatureAvailable;
+/**
  * Restores cache from keys
  *
  * @param paths a list of file paths to restore from the cache
@@ -52460,7 +52471,7 @@ __exportStar(__webpack_require__(764), exports);
 
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.getArch = exports.getPlatform = void 0;
-let os = __webpack_require__(87);
+const os = __webpack_require__(87);
 function getPlatform() {
     // darwin and linux match already
     // freebsd not supported yet but future proofed.
@@ -52632,13 +52643,13 @@ const semver = __importStar(__webpack_require__(280));
 const httpm = __importStar(__webpack_require__(539));
 const sys = __importStar(__webpack_require__(913));
 const os_1 = __importDefault(__webpack_require__(87));
-function getGo(versionSpec, stable, checkLatest, auth) {
+function getGo(versionSpec, checkLatest, auth) {
     return __awaiter(this, void 0, void 0, function* () {
         let osPlat = os_1.default.platform();
         let osArch = os_1.default.arch();
         if (checkLatest) {
             core.info('Attempting to resolve the latest version from the manifest...');
-            const resolvedVersion = yield resolveVersionFromManifest(versionSpec, stable, auth);
+            const resolvedVersion = yield resolveVersionFromManifest(versionSpec, true, auth);
             if (resolvedVersion) {
                 versionSpec = resolvedVersion;
                 core.info(`Resolved as '${versionSpec}'`);
@@ -52662,7 +52673,7 @@ function getGo(versionSpec, stable, checkLatest, auth) {
         // Try download from internal distribution (popular versions only)
         //
         try {
-            info = yield getInfoFromManifest(versionSpec, stable, auth);
+            info = yield getInfoFromManifest(versionSpec, true, auth);
             if (info) {
                 downloadPath = yield installGoVersion(info, auth);
             }
@@ -52685,7 +52696,7 @@ function getGo(versionSpec, stable, checkLatest, auth) {
         // Download from storage.googleapis.com
         //
         if (!downloadPath) {
-            info = yield getInfoFromDist(versionSpec, stable);
+            info = yield getInfoFromDist(versionSpec);
             if (!info) {
                 throw new Error(`Unable to find Go version '${versionSpec}' for platform ${osPlat} and architecture ${osArch}.`);
             }
@@ -52760,10 +52771,10 @@ function getInfoFromManifest(versionSpec, stable, auth) {
     });
 }
 exports.getInfoFromManifest = getInfoFromManifest;
-function getInfoFromDist(versionSpec, stable) {
+function getInfoFromDist(versionSpec) {
     return __awaiter(this, void 0, void 0, function* () {
         let version;
-        version = yield findMatch(versionSpec, stable);
+        version = yield findMatch(versionSpec);
         if (!version) {
             return null;
         }
@@ -52776,7 +52787,7 @@ function getInfoFromDist(versionSpec, stable) {
         };
     });
 }
-function findMatch(versionSpec, stable) {
+function findMatch(versionSpec) {
     return __awaiter(this, void 0, void 0, function* () {
         let archFilter = sys.getArch();
         let platFilter = sys.getPlatform();
@@ -52791,15 +52802,8 @@ function findMatch(versionSpec, stable) {
         for (let i = 0; i < candidates.length; i++) {
             let candidate = candidates[i];
             let version = makeSemver(candidate.version);
-            // 1.13.0 is advertised as 1.13 preventing being able to match exactly 1.13.0
-            // since a semver of 1.13 would match latest 1.13
-            let parts = version.split('.');
-            if (parts.length == 2) {
-                version = version + '.0';
-            }
             core.debug(`check ${version} satisfies ${versionSpec}`);
-            if (semver.satisfies(version, versionSpec) &&
-                (!stable || candidate.stable === stable)) {
+            if (semver.satisfies(version, versionSpec)) {
                 goFile = candidate.files.find(file => {
                     core.debug(`${file.arch}===${archFilter} && ${file.os}===${platFilter}`);
                     return file.arch === archFilter && file.os === platFilter;
@@ -52835,19 +52839,25 @@ exports.getVersionsDist = getVersionsDist;
 // Convert the go version syntax into semver for semver matching
 // 1.13.1 => 1.13.1
 // 1.13 => 1.13.0
-// 1.10beta1 => 1.10.0-beta1, 1.10rc1 => 1.10.0-rc1
-// 1.8.5beta1 => 1.8.5-beta1, 1.8.5rc1 => 1.8.5-rc1
+// 1.10beta1 => 1.10.0-beta.1, 1.10rc1 => 1.10.0-rc.1
+// 1.8.5beta1 => 1.8.5-beta.1, 1.8.5rc1 => 1.8.5-rc.1
 function makeSemver(version) {
+    var _a;
     version = version.replace('go', '');
-    version = version.replace('beta', '-beta').replace('rc', '-rc');
+    version = version.replace('beta', '-beta.').replace('rc', '-rc.');
     let parts = version.split('-');
-    let verPart = parts[0];
-    let prereleasePart = parts.length > 1 ? `-${parts[1]}` : '';
-    let verParts = verPart.split('.');
-    if (verParts.length == 2) {
-        verPart += '.0';
+    let semVersion = (_a = semver.coerce(parts[0])) === null || _a === void 0 ? void 0 : _a.version;
+    if (!semVersion) {
+        throw new Error(`The version: ${version} can't be changed to SemVer notation`);
     }
-    return `${verPart}${prereleasePart}`;
+    if (!parts[1]) {
+        return semVersion;
+    }
+    const fullVersion = semver.valid(`${semVersion}-${parts[1]}`);
+    if (!fullVersion) {
+        throw new Error(`The version: ${version} can't be changed to SemVer notation`);
+    }
+    return fullVersion;
 }
 exports.makeSemver = makeSemver;
 

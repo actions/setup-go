@@ -3231,10 +3231,7 @@ const options_1 = __webpack_require__(538);
 const requestUtils_1 = __webpack_require__(899);
 const versionSalt = '1.0';
 function getCacheApiUrl(resource) {
-    // Ideally we just use ACTIONS_CACHE_URL
-    const baseUrl = (process.env['ACTIONS_CACHE_URL'] ||
-        process.env['ACTIONS_RUNTIME_URL'] ||
-        '').replace('pipelines', 'artifactcache');
+    const baseUrl = process.env['ACTIONS_CACHE_URL'] || '';
     if (!baseUrl) {
         throw new Error('Cache Service Url not found, unable to restore cache.');
     }
@@ -3944,7 +3941,8 @@ exports.getPackageManagerInfo = (packageManager) => __awaiter(void 0, void 0, vo
     if (!package_managers_1.supportedPackageManagers[packageManager]) {
         throw new Error(`It's not possible to use ${packageManager}, please, check correctness of the package manager name spelling.`);
     }
-    return package_managers_1.supportedPackageManagers[packageManager];
+    const obtainedPackageManager = package_managers_1.supportedPackageManagers[packageManager];
+    return obtainedPackageManager;
 });
 exports.getCacheDirectoryPath = (packageManagerInfo) => __awaiter(void 0, void 0, void 0, function* () {
     const stdout = yield exports.getCommandOutput(packageManagerInfo.getCacheFolderCommand);
@@ -5657,7 +5655,8 @@ function downloadCacheStorageSDK(archiveLocation, archivePath, options) {
             //
             // If the file exceeds the buffer maximum length (~1 GB on 32-bit systems and ~2 GB
             // on 64-bit systems), split the download into multiple segments
-            const maxSegmentSize = buffer.constants.MAX_LENGTH;
+            // ~2 GB = 2147483647, beyond this, we start getting out of range error. So, capping it accordingly.
+            const maxSegmentSize = Math.min(2147483647, buffer.constants.MAX_LENGTH);
             const downloadProgress = new DownloadProgress(contentLength);
             const fd = fs.openSync(archivePath, 'w');
             try {
@@ -43508,6 +43507,15 @@ function checkKey(key) {
     }
 }
 /**
+ * isFeatureAvailable to check the presence of Actions cache service
+ *
+ * @returns boolean return true if Actions cache service feature is available, otherwise false
+ */
+function isFeatureAvailable() {
+    return !!process.env['ACTIONS_CACHE_URL'];
+}
+exports.isFeatureAvailable = isFeatureAvailable;
+/**
  * Restores cache from keys
  *
  * @param paths a list of file paths to restore from the cache
@@ -46368,10 +46376,11 @@ function run() {
 }
 exports.run = run;
 const cachePackages = () => __awaiter(void 0, void 0, void 0, function* () {
-    const cachingFlag = core.getBooleanInput('cache');
-    if (!cachingFlag)
+    const cacheInput = core.getInput('cache');
+    if (!cacheInput) {
         return;
-    const packageManager = core.getInput('package-manager');
+    }
+    const packageManager = cacheInput.toUpperCase() === 'TRUE' ? 'default' : cacheInput;
     const state = core.getState(constants_1.State.CacheMatchedKey);
     const primaryKey = core.getState(constants_1.State.CachePrimaryKey);
     const packageManagerInfo = yield cache_utils_1.getPackageManagerInfo(packageManager);
