@@ -8,7 +8,7 @@ describe('getCommandOutput', () => {
 
   it('should return trimmed stdout in case of successful exit code', async () => {
     //Arrange
-    const stdoutResult = ' some stdout ';
+    const stdoutResult = ' stdout ';
     const trimmedStdout = stdoutResult.trim();
 
     getExecOutputSpy.mockImplementation((commandLine: string) => {
@@ -19,13 +19,13 @@ describe('getCommandOutput', () => {
 
     //Act + Assert
     return cacheUtils
-      .getCommandOutput('some command')
+      .getCommandOutput('command')
       .then(data => expect(data).toBe(trimmedStdout));
   });
 
   it('should return error in case of unsuccessful exit code', async () => {
     //Arrange
-    const stderrResult = 'Some error message';
+    const stderrResult = 'error message';
 
     getExecOutputSpy.mockImplementation((commandLine: string) => {
       return new Promise<exec.ExecOutput>(resolve => {
@@ -35,7 +35,7 @@ describe('getCommandOutput', () => {
 
     //Act + Assert
     expect(async () => {
-      await cacheUtils.getCommandOutput('some command');
+      await cacheUtils.getCommandOutput('command');
     }).rejects.toThrow();
   });
 });

@@ -18,7 +18,7 @@ describe('restoreCache', () => {
   let setOutputSpy = jest.spyOn(core, 'setOutput');
 
   const packageManager = 'default';
-  const cacheDependencyPath = 'some path';
+  const cacheDependencyPath = 'path';
 
   beforeEach(() => {
     getCacheDirectoryPathSpy.mockImplementation(
@@ -50,7 +50,7 @@ describe('restoreCache', () => {
     //Arrange
     hashFilesSpy.mockImplementation((somePath: string) => {
       return new Promise<string>(resolve => {
-        resolve('Some File Hash');
+        resolve('file_hash');
       });
     });
 
@@ -69,13 +69,13 @@ describe('restoreCache', () => {
     //Arrange
     hashFilesSpy.mockImplementation((somePath: string) => {
       return new Promise<string>(resolve => {
-        resolve('Some File Hash');
+        resolve('file_hash');
       });
     });
 
     restoreCacheSpy.mockImplementation(() => {
       return new Promise<string>(resolve => {
-        resolve('Some cache key');
+        resolve('cache_key');
       });
     });
 
