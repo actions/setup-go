@@ -17,6 +17,7 @@ The V3 offers:
 - Adds GOBIN to the PATH
 - Proxy Support
 - Check latest version
+- Caching packages dependencies
 - Bug Fixes (including issues around version matching and semver)
 
 The action will first check the local cache for a version match. If a version is not found locally, it will pull it from the `main` branch of the [go-versions](https://github.com/actions/go-versions/blob/main/versions-manifest.json) repository. On miss or failure, it will fall back to downloading directly from [go dist](https://storage.googleapis.com/golang). To change the default behavior, please use the [check-latest input](#check-latest-version).
@@ -89,6 +90,37 @@ steps:
     with:
       go-version: '1.14'
       check-latest: true
+  - run: go run hello.go
+```
+
+## Caching packages dependencies:
+
+The action has a built-in functionality for caching and restoring dependencies. It uses [actions/cache](https://github.com/actions/cache) under the hood for caching dependencies but requires less configuration settings.The `cache` input is optional, and caching is turned off by default.
+
+The action defaults to search for the dependency file - go.sum in the repository root, and uses its hash as a part of the cache key. Use `cache-dependency-path` input for cases when multiple dependency files are used, or they are located in different subdirectories.
+
+**Caching packages dependencies without specifying dependency file path**
+```yaml
+steps:
+  - uses: actions/checkout@v3
+  - uses: actions/setup-go@v3
+    with:
+      go-version: '1.14'
+      check-latest: true
+      cache: true
+  - run: go run hello.go
+```
+
+**Caching packages dependencies in monorepos**
+```yaml
+steps:
+  - uses: actions/checkout@v3
+  - uses: actions/setup-go@v3
+    with:
+      go-version: '1.14'
+      check-latest: true
+      cache: true
+      cache-dependency-path: subdir/go.sum
   - run: go run hello.go
 ```
 

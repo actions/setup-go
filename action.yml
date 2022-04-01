@@ -13,7 +13,7 @@ inputs:
   cache:
     description: Used to specify whether go-modules caching is needed. Set to true, if you'd like to enable caching.
   cache-dependency-path:
-    description: 'Used to specify the path to a dependency file: go.sum'
+    description: 'Used to specify the path to a dependency file - go.sum'
 runs:
   using: 'node16'
   main: 'dist/setup/index.js'
