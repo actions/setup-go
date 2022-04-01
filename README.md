@@ -40,6 +40,7 @@ steps:
 ```
 
 Matching an unstable pre-release:
+
 ```yaml
 steps:
   - uses: actions/checkout@v3
@@ -62,7 +63,7 @@ steps:
 
 See [action.yml](action.yml)
 
-## Basic:
+## Basic
 
 ```yaml
 steps:
@@ -74,7 +75,7 @@ steps:
 ```
 
 
-## Check latest version:
+## Check latest version
 
 The `check-latest` flag defaults to `false`. Use the default or set `check-latest` to `false` if you prefer stability and if you want to ensure a specific Go version is always used.
 
@@ -92,7 +93,7 @@ steps:
   - run: go run hello.go
 ```
 
-## Matrix Testing:
+## Matrix testing
 
 ```yaml
 jobs:
@@ -115,9 +116,10 @@ jobs:
 
 The `go-version` input supports the following syntax:
 
-Specific versions: `1.15`, `1.16.1`, `1.17.0-rc.2`, `1.16.0-beta.1`
-SemVer's version range syntax: `^1.13.1`, `>=1.18.0-rc.1`
-For more information about semantic versioning please refer [semver](https://github.com/npm/node-semver) documentation
+- Specific versions: `1.15`, `1.16.1`, `1.17.0-rc.2`, `1.16.0-beta.1`
+- SemVer's version range syntax: `^1.13.1`, `>=1.18.0-rc.1`
+
+For more information about semantic versioning, please refer to [semver](https://github.com/npm/node-semver) documentation.
 
 # License
 
@@ -125,8 +127,8 @@ The scripts and documentation in this project are released under the [MIT Licens
 
 # Contributions
 
-Contributions are welcome!  See [Contributor's Guide](docs/contributors.md)
+Contributions are welcome! See [Contributor's Guide](docs/contributors.md)
 
 ## Code of Conduct
 
-:wave: Be nice.  See [our code of conduct](CONDUCT)
+:wave: Be nice. See [our code of conduct](CONDUCT)
