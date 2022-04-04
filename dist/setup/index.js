@@ -3700,7 +3700,7 @@ function run() {
             // If not supplied then problem matchers will still be setup.  Useful for self-hosted.
             //
             let versionSpec = core.getInput('go-version');
-            const cache = core.getInput('cache');
+            const cache = core.getBooleanInput('cache');
             core.info(`Setup go version spec ${versionSpec}`);
             if (versionSpec) {
                 let token = core.getInput('token');
@@ -3723,7 +3723,7 @@ function run() {
                 if (isGhes()) {
                     throw new Error('Caching is not supported on GHES');
                 }
-                const packageManager = cache.toUpperCase() === 'TRUE' ? 'default' : cache;
+                const packageManager = 'default';
                 const cacheDependencyPath = core.getInput('cache-dependency-path');
                 yield cache_restore_1.restoreCache(packageManager, cacheDependencyPath);
             }
@@ -34244,6 +34244,7 @@ const cache_utils_1 = __webpack_require__(143);
 exports.restoreCache = (packageManager, cacheDependencyPath) => __awaiter(void 0, void 0, void 0, function* () {
     const packageManagerInfo = yield cache_utils_1.getPackageManagerInfo(packageManager);
     const platform = process.env.RUNNER_OS;
+    const versionSpec = core.getInput('go-version');
     const cachePath = yield cache_utils_1.getCacheDirectoryPath(packageManagerInfo);
     const dependencyFilePath = cacheDependencyPath
         ? cacheDependencyPath
@@ -34252,7 +34253,7 @@ exports.restoreCache = (packageManager, cacheDependencyPath) => __awaiter(void 0
     if (!fileHash) {
         throw new Error('Some specified paths were not resolved, unable to cache dependencies.');
     }
-    const primaryKey = `go-cache-${platform}-${fileHash}`;
+    const primaryKey = `${platform}-go${versionSpec}-${fileHash}`;
     core.debug(`primary key is ${primaryKey}`);
     core.saveState(constants_1.State.CachePrimaryKey, primaryKey);
     const cacheKey = yield cache.restoreCache([cachePath], primaryKey);

@@ -105,7 +105,7 @@ steps:
   - uses: actions/checkout@v3
   - uses: actions/setup-go@v3
     with:
-      go-version: '1.14'
+      go-version: '1.17'
       check-latest: true
       cache: true
   - run: go run hello.go
@@ -117,7 +117,7 @@ steps:
   - uses: actions/checkout@v3
   - uses: actions/setup-go@v3
     with:
-      go-version: '1.14'
+      go-version: '1.17'
       check-latest: true
       cache: true
       cache-dependency-path: subdir/go.sum

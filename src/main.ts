@@ -16,7 +16,7 @@ export async function run() {
     //
     let versionSpec = core.getInput('go-version');
 
-    const cache = core.getInput('cache');
+    const cache = core.getBooleanInput('cache');
     core.info(`Setup go version spec ${versionSpec}`);
 
     if (versionSpec) {
@@ -45,7 +45,7 @@ export async function run() {
       if (isGhes()) {
         throw new Error('Caching is not supported on GHES');
       }
-      const packageManager = cache.toUpperCase() === 'TRUE' ? 'default' : cache;
+      const packageManager = 'default';
       const cacheDependencyPath = core.getInput('cache-dependency-path');
       await restoreCache(packageManager, cacheDependencyPath);
     }
