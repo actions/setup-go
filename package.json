@@ -33,7 +33,7 @@
     "@types/jest": "^27.4.1",
     "@types/node": "^16.11.25",
     "@types/semver": "^6.0.0",
-    "@zeit/ncc": "^0.21.0",
+    "@vercel/ncc": "^0.33.3",
     "jest": "^27.5.1",
     "jest-circus": "^27.5.1",
     "nock": "^10.0.6",
