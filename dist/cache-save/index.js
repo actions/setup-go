@@ -46376,11 +46376,11 @@ function run() {
 }
 exports.run = run;
 const cachePackages = () => __awaiter(void 0, void 0, void 0, function* () {
-    const cacheInput = core.getInput('cache');
+    const cacheInput = core.getBooleanInput('cache');
     if (!cacheInput) {
         return;
     }
-    const packageManager = cacheInput.toUpperCase() === 'TRUE' ? 'default' : cacheInput;
+    const packageManager = 'default';
     const state = core.getState(constants_1.State.CacheMatchedKey);
     const primaryKey = core.getState(constants_1.State.CachePrimaryKey);
     const packageManagerInfo = yield cache_utils_1.getPackageManagerInfo(packageManager);
