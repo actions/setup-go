@@ -1,7 +1,7 @@
 name: 'Setup Go environment'
 description: 'Setup a Go environment and add it to the PATH'
 author: 'GitHub'
-inputs: 
+inputs:
   go-version:
     description: 'The Go version to download (if necessary) and use. Supports semver spec and ranges.'
   check-latest:
@@ -10,6 +10,9 @@ inputs:
   token:
     description: Used to pull node distributions from go-versions.  Since there's a default, this is typically not supplied by the user.
     default: ${{ github.token }}
+outputs:
+  go-version:
+    description: 'The installed Go version. Useful when given a version range as input.'
 runs:
   using: 'node16'
   main: 'dist/index.js'
