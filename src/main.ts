@@ -48,12 +48,7 @@ export async function run() {
     let goVersion = (cp.execSync(`${goPath} version`) || '').toString();
     core.info(goVersion);
 
-    // get the installed version as an Action output
-    // based on go/src/cmd/go/internal/version/version.go:
-    // fmt.Printf("go version %s %s/%s\n", runtime.Version(), runtime.GOOS, runtime.GOARCH)
-    // expecting go<version> for runtime.Version()
-    let goVersionOutput = [...goVersion.split(' ')[2]].slice(2).join('');
-    core.setOutput('go-version', goVersionOutput);
+    core.setOutput('go-version', parseGoVersion(goVersion));
 
     core.startGroup('go env');
     let goEnv = (cp.execSync(`${goPath} env`) || '').toString();
@@ -100,4 +95,12 @@ function isGhes(): boolean {
     process.env['GITHUB_SERVER_URL'] || 'https://github.com'
   );
   return ghUrl.hostname.toUpperCase() !== 'GITHUB.COM';
+}
+
+export function parseGoVersion(versionString: string): string {
+  // get the installed version as an Action output
+  // based on go/src/cmd/go/internal/version/version.go:
+  // fmt.Printf("go version %s %s/%s\n", runtime.Version(), runtime.GOOS, runtime.GOARCH)
+  // expecting go<version> for runtime.Version()
+  return versionString.split(' ')[2].slice('go'.length);
 }
