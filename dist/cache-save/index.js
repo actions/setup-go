@@ -48,6 +48,25 @@ module.exports =
 
 "use strict";
 
+var __createBinding = (this && this.__createBinding) || (Object.create ? (function(o, m, k, k2) {
+    if (k2 === undefined) k2 = k;
+    Object.defineProperty(o, k2, { enumerable: true, get: function() { return m[k]; } });
+}) : (function(o, m, k, k2) {
+    if (k2 === undefined) k2 = k;
+    o[k2] = m[k];
+}));
+var __setModuleDefault = (this && this.__setModuleDefault) || (Object.create ? (function(o, v) {
+    Object.defineProperty(o, "default", { enumerable: true, value: v });
+}) : function(o, v) {
+    o["default"] = v;
+});
+var __importStar = (this && this.__importStar) || function (mod) {
+    if (mod && mod.__esModule) return mod;
+    var result = {};
+    if (mod != null) for (var k in mod) if (k !== "default" && Object.hasOwnProperty.call(mod, k)) __createBinding(result, mod, k);
+    __setModuleDefault(result, mod);
+    return result;
+};
 var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, generator) {
     function adopt(value) { return value instanceof P ? value : new P(function (resolve) { resolve(value); }); }
     return new (P || (P = Promise))(function (resolve, reject) {
@@ -58,11 +77,14 @@ var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, ge
     });
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-const childProcess = __webpack_require__(129);
-const path = __webpack_require__(622);
+exports.findInPath = exports.which = exports.mkdirP = exports.rmRF = exports.mv = exports.cp = void 0;
+const assert_1 = __webpack_require__(357);
+const childProcess = __importStar(__webpack_require__(129));
+const path = __importStar(__webpack_require__(622));
 const util_1 = __webpack_require__(669);
-const ioUtil = __webpack_require__(672);
+const ioUtil = __importStar(__webpack_require__(672));
 const exec = util_1.promisify(childProcess.exec);
+const execFile = util_1.promisify(childProcess.execFile);
 /**
  * Copies a file or folder.
  * Based off of shelljs - https://github.com/shelljs/shelljs/blob/9237f66c52e5daa40458f94f9565e18e8132f5a6/src/cp.js
@@ -73,14 +95,14 @@ const exec = util_1.promisify(childProcess.exec);
  */
 function cp(source, dest, options = {}) {
     return __awaiter(this, void 0, void 0, function* () {
-        const { force, recursive } = readCopyOptions(options);
+        const { force, recursive, copySourceDirectory } = readCopyOptions(options);
         const destStat = (yield ioUtil.exists(dest)) ? yield ioUtil.stat(dest) : null;
         // Dest is an existing file, but not forcing
         if (destStat && destStat.isFile() && !force) {
             return;
         }
         // If dest is an existing directory, should copy inside.
-        const newDest = destStat && destStat.isDirectory()
+        const newDest = destStat && destStat.isDirectory() && copySourceDirectory
             ? path.join(dest, path.basename(source))
             : dest;
         if (!(yield ioUtil.exists(source))) {
@@ -145,12 +167,22 @@ function rmRF(inputPath) {
         if (ioUtil.IS_WINDOWS) {
             // Node doesn't provide a delete operation, only an unlink function. This means that if the file is being used by another
             // program (e.g. antivirus), it won't be deleted. To address this, we shell out the work to rd/del.
+            // Check for invalid characters
+            // https://docs.microsoft.com/en-us/windows/win32/fileio/naming-a-file
+            if (/[*"<>|]/.test(inputPath)) {
+                throw new Error('File path must not contain `*`, `"`, `<`, `>` or `|` on Windows');
+            }
             try {
+                const cmdPath = ioUtil.getCmdPath();
                 if (yield ioUtil.isDirectory(inputPath, true)) {
-                    yield exec(`rd /s /q "${inputPath}"`);
+                    yield exec(`${cmdPath} /s /c "rd /s /q "%inputPath%""`, {
+                        env: { inputPath }
+                    });
                 }
                 else {
-                    yield exec(`del /f /a "${inputPath}"`);
+                    yield exec(`${cmdPath} /s /c "del /f /a "%inputPath%""`, {
+                        env: { inputPath }
+                    });
                 }
             }
             catch (err) {
@@ -183,7 +215,7 @@ function rmRF(inputPath) {
                 return;
             }
             if (isDir) {
-                yield exec(`rm -rf "${inputPath}"`);
+                yield execFile(`rm`, [`-rf`, `${inputPath}`]);
             }
             else {
                 yield ioUtil.unlink(inputPath);
@@ -201,7 +233,8 @@ exports.rmRF = rmRF;
  */
 function mkdirP(fsPath) {
     return __awaiter(this, void 0, void 0, function* () {
-        yield ioUtil.mkdirP(fsPath);
+        assert_1.ok(fsPath, 'a path argument must be provided');
+        yield ioUtil.mkdir(fsPath, { recursive: true });
     });
 }
 exports.mkdirP = mkdirP;
@@ -229,62 +262,80 @@ function which(tool, check) {
                     throw new Error(`Unable to locate executable file: ${tool}. Please verify either the file path exists or the file can be found within a directory specified by the PATH environment variable. Also check the file mode to verify the file is executable.`);
                 }
             }
+            return result;
         }
-        try {
-            // build the list of extensions to try
-            const extensions = [];
-            if (ioUtil.IS_WINDOWS && process.env.PATHEXT) {
-                for (const extension of process.env.PATHEXT.split(path.delimiter)) {
-                    if (extension) {
-                        extensions.push(extension);
-                    }
-                }
-            }
-            // if it's rooted, return it if exists. otherwise return empty.
-            if (ioUtil.isRooted(tool)) {
-                const filePath = yield ioUtil.tryGetExecutablePath(tool, extensions);
-                if (filePath) {
-                    return filePath;
-                }
-                return '';
-            }
-            // if any path separators, return empty
-            if (tool.includes('/') || (ioUtil.IS_WINDOWS && tool.includes('\\'))) {
-                return '';
-            }
-            // build the list of directories
-            //
-            // Note, technically "where" checks the current directory on Windows. From a toolkit perspective,
-            // it feels like we should not do this. Checking the current directory seems like more of a use
-            // case of a shell, and the which() function exposed by the toolkit should strive for consistency
-            // across platforms.
-            const directories = [];
-            if (process.env.PATH) {
-                for (const p of process.env.PATH.split(path.delimiter)) {
-                    if (p) {
-                        directories.push(p);
-                    }
-                }
-            }
-            // return the first match
-            for (const directory of directories) {
-                const filePath = yield ioUtil.tryGetExecutablePath(directory + path.sep + tool, extensions);
-                if (filePath) {
-                    return filePath;
-                }
-            }
-            return '';
+        const matches = yield findInPath(tool);
+        if (matches && matches.length > 0) {
+            return matches[0];
         }
-        catch (err) {
-            throw new Error(`which failed with message ${err.message}`);
-        }
+        return '';
     });
 }
 exports.which = which;
+/**
+ * Returns a list of all occurrences of the given tool on the system path.
+ *
+ * @returns   Promise<string[]>  the paths of the tool
+ */
+function findInPath(tool) {
+    return __awaiter(this, void 0, void 0, function* () {
+        if (!tool) {
+            throw new Error("parameter 'tool' is required");
+        }
+        // build the list of extensions to try
+        const extensions = [];
+        if (ioUtil.IS_WINDOWS && process.env['PATHEXT']) {
+            for (const extension of process.env['PATHEXT'].split(path.delimiter)) {
+                if (extension) {
+                    extensions.push(extension);
+                }
+            }
+        }
+        // if it's rooted, return it if exists. otherwise return empty.
+        if (ioUtil.isRooted(tool)) {
+            const filePath = yield ioUtil.tryGetExecutablePath(tool, extensions);
+            if (filePath) {
+                return [filePath];
+            }
+            return [];
+        }
+        // if any path separators, return empty
+        if (tool.includes(path.sep)) {
+            return [];
+        }
+        // build the list of directories
+        //
+        // Note, technically "where" checks the current directory on Windows. From a toolkit perspective,
+        // it feels like we should not do this. Checking the current directory seems like more of a use
+        // case of a shell, and the which() function exposed by the toolkit should strive for consistency
+        // across platforms.
+        const directories = [];
+        if (process.env.PATH) {
+            for (const p of process.env.PATH.split(path.delimiter)) {
+                if (p) {
+                    directories.push(p);
+                }
+            }
+        }
+        // find all matches
+        const matches = [];
+        for (const directory of directories) {
+            const filePath = yield ioUtil.tryGetExecutablePath(path.join(directory, tool), extensions);
+            if (filePath) {
+                matches.push(filePath);
+            }
+        }
+        return matches;
+    });
+}
+exports.findInPath = findInPath;
 function readCopyOptions(options) {
     const force = options.force == null ? true : options.force;
     const recursive = Boolean(options.recursive);
-    return { force, recursive };
+    const copySourceDirectory = options.copySourceDirectory == null
+        ? true
+        : Boolean(options.copySourceDirectory);
+    return { force, recursive, copySourceDirectory };
 }
 function cpDirRecursive(sourceDir, destDir, currentDepth, force) {
     return __awaiter(this, void 0, void 0, function* () {
@@ -1148,6 +1199,11 @@ function assertDefined(name, value) {
     return value;
 }
 exports.assertDefined = assertDefined;
+function isGhes() {
+    const ghUrl = new URL(process.env['GITHUB_SERVER_URL'] || 'https://github.com');
+    return ghUrl.hostname.toUpperCase() !== 'GITHUB.COM';
+}
+exports.isGhes = isGhes;
 //# sourceMappingURL=cacheUtils.js.map
 
 /***/ }),
@@ -1371,74 +1427,7 @@ module.exports = ["ac","com.ac","edu.ac","gov.ac","net.ac","mil.ac","org.ac","ad
 /* 51 */,
 /* 52 */,
 /* 53 */,
-/* 54 */
-/***/ (function(__unusedmodule, exports) {
-
-"use strict";
-/*!
- * Copyright (c) 2015, Salesforce.com, Inc.
- * All rights reserved.
- *
- * Redistribution and use in source and binary forms, with or without
- * modification, are permitted provided that the following conditions are met:
- *
- * 1. Redistributions of source code must retain the above copyright notice,
- * this list of conditions and the following disclaimer.
- *
- * 2. Redistributions in binary form must reproduce the above copyright notice,
- * this list of conditions and the following disclaimer in the documentation
- * and/or other materials provided with the distribution.
- *
- * 3. Neither the name of Salesforce.com nor the names of its contributors may
- * be used to endorse or promote products derived from this software without
- * specific prior written permission.
- *
- * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
- * AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
- * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
- * ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE
- * LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
- * CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
- * SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
- * INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
- * CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
- * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
- * POSSIBILITY OF SUCH DAMAGE.
- */
-
-/*
- * "A request-path path-matches a given cookie-path if at least one of the
- * following conditions holds:"
- */
-function pathMatch(reqPath, cookiePath) {
-  // "o  The cookie-path and the request-path are identical."
-  if (cookiePath === reqPath) {
-    return true;
-  }
-
-  const idx = reqPath.indexOf(cookiePath);
-  if (idx === 0) {
-    // "o  The cookie-path is a prefix of the request-path, and the last
-    // character of the cookie-path is %x2F ("/")."
-    if (cookiePath.substr(-1) === "/") {
-      return true;
-    }
-
-    // " o  The cookie-path is a prefix of the request-path, and the first
-    // character of the request-path that is not included in the cookie- path
-    // is a %x2F ("/") character."
-    if (reqPath.substr(cookiePath.length, 1) === "/") {
-      return true;
-    }
-  }
-
-  return false;
-}
-
-exports.pathMatch = pathMatch;
-
-
-/***/ }),
+/* 54 */,
 /* 55 */,
 /* 56 */,
 /* 57 */,
@@ -1671,7 +1660,83 @@ module.exports = require("os");
 
 /***/ }),
 /* 88 */,
-/* 89 */,
+/* 89 */
+/***/ (function(__unusedmodule, exports, __webpack_require__) {
+
+"use strict";
+/*!
+ * Copyright (c) 2015, Salesforce.com, Inc.
+ * All rights reserved.
+ *
+ * Redistribution and use in source and binary forms, with or without
+ * modification, are permitted provided that the following conditions are met:
+ *
+ * 1. Redistributions of source code must retain the above copyright notice,
+ * this list of conditions and the following disclaimer.
+ *
+ * 2. Redistributions in binary form must reproduce the above copyright notice,
+ * this list of conditions and the following disclaimer in the documentation
+ * and/or other materials provided with the distribution.
+ *
+ * 3. Neither the name of Salesforce.com nor the names of its contributors may
+ * be used to endorse or promote products derived from this software without
+ * specific prior written permission.
+ *
+ * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
+ * AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+ * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
+ * ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE
+ * LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
+ * CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
+ * SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
+ * INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
+ * CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
+ * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
+ * POSSIBILITY OF SUCH DAMAGE.
+ */
+
+const pubsuffix = __webpack_require__(562);
+
+// Gives the permutation of all possible domainMatch()es of a given domain. The
+// array is in shortest-to-longest order.  Handy for indexing.
+const SPECIAL_USE_DOMAINS = ["local"]; // RFC 6761
+function permuteDomain(domain, allowSpecialUseDomain) {
+  let pubSuf = null;
+  if (allowSpecialUseDomain) {
+    const domainParts = domain.split(".");
+    if (SPECIAL_USE_DOMAINS.includes(domainParts[domainParts.length - 1])) {
+      pubSuf = `${domainParts[domainParts.length - 2]}.${
+        domainParts[domainParts.length - 1]
+      }`;
+    } else {
+      pubSuf = pubsuffix.getPublicSuffix(domain);
+    }
+  } else {
+    pubSuf = pubsuffix.getPublicSuffix(domain);
+  }
+
+  if (!pubSuf) {
+    return null;
+  }
+  if (pubSuf == domain) {
+    return [domain];
+  }
+
+  const prefix = domain.slice(0, -(pubSuf.length + 1)); // ".example.com"
+  const parts = prefix.split(".").reverse();
+  let cur = pubSuf;
+  const permutations = [cur];
+  while (parts.length) {
+    cur = `${parts.shift()}.${cur}`;
+    permutations.push(cur);
+  }
+  return permutations;
+}
+
+exports.permuteDomain = permuteDomain;
+
+
+/***/ }),
 /* 90 */
 /***/ (function(__unusedmodule, exports, __webpack_require__) {
 
@@ -1697,7 +1762,7 @@ exports.default = _default;
 /* 91 */
 /***/ (function(module, __unusedexports, __webpack_require__) {
 
-var serialOrdered = __webpack_require__(192);
+var serialOrdered = __webpack_require__(892);
 
 // Public API
 module.exports = serial;
@@ -1724,10 +1789,10 @@ function serial(list, iterator, callback)
 module.exports = minimatch
 minimatch.Minimatch = Minimatch
 
-var path = { sep: '/' }
-try {
-  path = __webpack_require__(622)
-} catch (er) {}
+var path = (function () { try { return __webpack_require__(622) } catch (e) {}}()) || {
+  sep: '/'
+}
+minimatch.sep = path.sep
 
 var GLOBSTAR = minimatch.GLOBSTAR = Minimatch.GLOBSTAR = {}
 var expand = __webpack_require__(306)
@@ -1779,43 +1844,64 @@ function filter (pattern, options) {
 }
 
 function ext (a, b) {
-  a = a || {}
   b = b || {}
   var t = {}
-  Object.keys(b).forEach(function (k) {
-    t[k] = b[k]
-  })
   Object.keys(a).forEach(function (k) {
     t[k] = a[k]
+  })
+  Object.keys(b).forEach(function (k) {
+    t[k] = b[k]
   })
   return t
 }
 
 minimatch.defaults = function (def) {
-  if (!def || !Object.keys(def).length) return minimatch
+  if (!def || typeof def !== 'object' || !Object.keys(def).length) {
+    return minimatch
+  }
 
   var orig = minimatch
 
   var m = function minimatch (p, pattern, options) {
-    return orig.minimatch(p, pattern, ext(def, options))
+    return orig(p, pattern, ext(def, options))
   }
 
   m.Minimatch = function Minimatch (pattern, options) {
     return new orig.Minimatch(pattern, ext(def, options))
+  }
+  m.Minimatch.defaults = function defaults (options) {
+    return orig.defaults(ext(def, options)).Minimatch
+  }
+
+  m.filter = function filter (pattern, options) {
+    return orig.filter(pattern, ext(def, options))
+  }
+
+  m.defaults = function defaults (options) {
+    return orig.defaults(ext(def, options))
+  }
+
+  m.makeRe = function makeRe (pattern, options) {
+    return orig.makeRe(pattern, ext(def, options))
+  }
+
+  m.braceExpand = function braceExpand (pattern, options) {
+    return orig.braceExpand(pattern, ext(def, options))
+  }
+
+  m.match = function (list, pattern, options) {
+    return orig.match(list, pattern, ext(def, options))
   }
 
   return m
 }
 
 Minimatch.defaults = function (def) {
-  if (!def || !Object.keys(def).length) return Minimatch
   return minimatch.defaults(def).Minimatch
 }
 
 function minimatch (p, pattern, options) {
-  if (typeof pattern !== 'string') {
-    throw new TypeError('glob pattern string required')
-  }
+  assertValidPattern(pattern)
 
   if (!options) options = {}
 
@@ -1823,9 +1909,6 @@ function minimatch (p, pattern, options) {
   if (!options.nocomment && pattern.charAt(0) === '#') {
     return false
   }
-
-  // "" only matches ""
-  if (pattern.trim() === '') return p === ''
 
   return new Minimatch(pattern, options).match(p)
 }
@@ -1835,15 +1918,14 @@ function Minimatch (pattern, options) {
     return new Minimatch(pattern, options)
   }
 
-  if (typeof pattern !== 'string') {
-    throw new TypeError('glob pattern string required')
-  }
+  assertValidPattern(pattern)
 
   if (!options) options = {}
+
   pattern = pattern.trim()
 
   // windows support: need to use /, not \
-  if (path.sep !== '/') {
+  if (!options.allowWindowsEscape && path.sep !== '/') {
     pattern = pattern.split(path.sep).join('/')
   }
 
@@ -1854,6 +1936,7 @@ function Minimatch (pattern, options) {
   this.negate = false
   this.comment = false
   this.empty = false
+  this.partial = !!options.partial
 
   // make the set of regexps etc.
   this.make()
@@ -1863,9 +1946,6 @@ Minimatch.prototype.debug = function () {}
 
 Minimatch.prototype.make = make
 function make () {
-  // don't do it more than once.
-  if (this._made) return
-
   var pattern = this.pattern
   var options = this.options
 
@@ -1885,7 +1965,7 @@ function make () {
   // step 2: expand braces
   var set = this.globSet = this.braceExpand()
 
-  if (options.debug) this.debug = console.error
+  if (options.debug) this.debug = function debug() { console.error.apply(console, arguments) }
 
   this.debug(this.pattern, set)
 
@@ -1965,17 +2045,27 @@ function braceExpand (pattern, options) {
   pattern = typeof pattern === 'undefined'
     ? this.pattern : pattern
 
-  if (typeof pattern === 'undefined') {
-    throw new TypeError('undefined pattern')
-  }
+  assertValidPattern(pattern)
 
-  if (options.nobrace ||
-    !pattern.match(/\{.*\}/)) {
+  // Thanks to Yeting Li <https://github.com/yetingli> for
+  // improving this regexp to avoid a ReDOS vulnerability.
+  if (options.nobrace || !/\{(?:(?!\{).)*\}/.test(pattern)) {
     // shortcut. no need to expand.
     return [pattern]
   }
 
   return expand(pattern)
+}
+
+var MAX_PATTERN_LENGTH = 1024 * 64
+var assertValidPattern = function (pattern) {
+  if (typeof pattern !== 'string') {
+    throw new TypeError('invalid pattern')
+  }
+
+  if (pattern.length > MAX_PATTERN_LENGTH) {
+    throw new TypeError('pattern is too long')
+  }
 }
 
 // parse a component of the expanded set.
@@ -1992,14 +2082,17 @@ function braceExpand (pattern, options) {
 Minimatch.prototype.parse = parse
 var SUBPARSE = {}
 function parse (pattern, isSub) {
-  if (pattern.length > 1024 * 64) {
-    throw new TypeError('pattern is too long')
-  }
+  assertValidPattern(pattern)
 
   var options = this.options
 
   // shortcuts
-  if (!options.noglobstar && pattern === '**') return GLOBSTAR
+  if (pattern === '**') {
+    if (!options.noglobstar)
+      return GLOBSTAR
+    else
+      pattern = '*'
+  }
   if (pattern === '') return ''
 
   var re = ''
@@ -2055,10 +2148,12 @@ function parse (pattern, isSub) {
     }
 
     switch (c) {
-      case '/':
+      /* istanbul ignore next */
+      case '/': {
         // completely not allowed, even escaped.
         // Should already be path-split by now.
         return false
+      }
 
       case '\\':
         clearStateChar()
@@ -2177,25 +2272,23 @@ function parse (pattern, isSub) {
 
         // handle the case where we left a class open.
         // "[z-a]" is valid, equivalent to "\[z-a\]"
-        if (inClass) {
-          // split where the last [ was, make sure we don't have
-          // an invalid re. if so, re-walk the contents of the
-          // would-be class to re-translate any characters that
-          // were passed through as-is
-          // TODO: It would probably be faster to determine this
-          // without a try/catch and a new RegExp, but it's tricky
-          // to do safely.  For now, this is safe and works.
-          var cs = pattern.substring(classStart + 1, i)
-          try {
-            RegExp('[' + cs + ']')
-          } catch (er) {
-            // not a valid class!
-            var sp = this.parse(cs, SUBPARSE)
-            re = re.substr(0, reClassStart) + '\\[' + sp[0] + '\\]'
-            hasMagic = hasMagic || sp[1]
-            inClass = false
-            continue
-          }
+        // split where the last [ was, make sure we don't have
+        // an invalid re. if so, re-walk the contents of the
+        // would-be class to re-translate any characters that
+        // were passed through as-is
+        // TODO: It would probably be faster to determine this
+        // without a try/catch and a new RegExp, but it's tricky
+        // to do safely.  For now, this is safe and works.
+        var cs = pattern.substring(classStart + 1, i)
+        try {
+          RegExp('[' + cs + ']')
+        } catch (er) {
+          // not a valid class!
+          var sp = this.parse(cs, SUBPARSE)
+          re = re.substr(0, reClassStart) + '\\[' + sp[0] + '\\]'
+          hasMagic = hasMagic || sp[1]
+          inClass = false
+          continue
         }
 
         // finish up the class.
@@ -2279,9 +2372,7 @@ function parse (pattern, isSub) {
   // something that could conceivably capture a dot
   var addPatternStart = false
   switch (re.charAt(0)) {
-    case '.':
-    case '[':
-    case '(': addPatternStart = true
+    case '[': case '.': case '(': addPatternStart = true
   }
 
   // Hack to work around lack of negative lookbehind in JS
@@ -2343,7 +2434,7 @@ function parse (pattern, isSub) {
   var flags = options.nocase ? 'i' : ''
   try {
     var regExp = new RegExp('^' + re + '$', flags)
-  } catch (er) {
+  } catch (er) /* istanbul ignore next - should be impossible */ {
     // If it was an invalid regular expression, then it can't match
     // anything.  This trick looks for a character after the end of
     // the string, which is of course impossible, except in multi-line
@@ -2401,7 +2492,7 @@ function makeRe () {
 
   try {
     this.regexp = new RegExp(re, flags)
-  } catch (ex) {
+  } catch (ex) /* istanbul ignore next - should be impossible */ {
     this.regexp = false
   }
   return this.regexp
@@ -2419,8 +2510,8 @@ minimatch.match = function (list, pattern, options) {
   return list
 }
 
-Minimatch.prototype.match = match
-function match (f, partial) {
+Minimatch.prototype.match = function match (f, partial) {
+  if (typeof partial === 'undefined') partial = this.partial
   this.debug('match', f, this.pattern)
   // short-circuit in the case of busted things.
   // comments, etc.
@@ -2502,6 +2593,7 @@ Minimatch.prototype.matchOne = function (file, pattern, partial) {
 
     // should be impossible.
     // some invalid regexp stuff in the set.
+    /* istanbul ignore if */
     if (p === false) return false
 
     if (p === GLOBSTAR) {
@@ -2575,6 +2667,7 @@ Minimatch.prototype.matchOne = function (file, pattern, partial) {
       // no match was found.
       // However, in partial mode, we can't say this is necessarily over.
       // If there's more *pattern* left, then
+      /* istanbul ignore if */
       if (partial) {
         // ran out of file
         this.debug('\n>>> no match, partial?', file, fr, pattern, pr)
@@ -2588,11 +2681,7 @@ Minimatch.prototype.matchOne = function (file, pattern, partial) {
     // patterns with magic have been turned into regexps.
     var hit
     if (typeof p === 'string') {
-      if (options.nocase) {
-        hit = f.toLowerCase() === p.toLowerCase()
-      } else {
-        hit = f === p
-      }
+      hit = f === p
       this.debug('string match', p, f, hit)
     } else {
       hit = f.match(p)
@@ -2623,16 +2712,16 @@ Minimatch.prototype.matchOne = function (file, pattern, partial) {
     // this is ok if we're doing the match as part of
     // a glob fs traversal.
     return partial
-  } else if (pi === pl) {
+  } else /* istanbul ignore else */ if (pi === pl) {
     // ran out of pattern, still have file left.
     // this is only acceptable if we're on the very last
     // empty segment of a file with a trailing slash.
     // a/* should match a/b/
-    var emptyFileEnd = (fi === fl - 1) && (file[fi] === '')
-    return emptyFileEnd
+    return (fi === fl - 1) && (file[fi] === '')
   }
 
   // should be unreachable.
+  /* istanbul ignore next */
   throw new Error('wtf?')
 }
 
@@ -3309,18 +3398,18 @@ function downloadCache(archiveLocation, archivePath, options) {
 exports.downloadCache = downloadCache;
 // Reserve Cache
 function reserveCache(key, paths, options) {
-    var _a, _b;
     return __awaiter(this, void 0, void 0, function* () {
         const httpClient = createHttpClient();
         const version = getCacheVersion(paths, options === null || options === void 0 ? void 0 : options.compressionMethod);
         const reserveCacheRequest = {
             key,
-            version
+            version,
+            cacheSize: options === null || options === void 0 ? void 0 : options.cacheSize
         };
         const response = yield requestUtils_1.retryTypedResponse('reserveCache', () => __awaiter(this, void 0, void 0, function* () {
             return httpClient.postJson(getCacheApiUrl('caches'), reserveCacheRequest);
         }));
-        return (_b = (_a = response === null || response === void 0 ? void 0 : response.result) === null || _a === void 0 ? void 0 : _a.cacheId) !== null && _b !== void 0 ? _b : -1;
+        return response;
     });
 }
 exports.reserveCache = reserveCache;
@@ -4710,87 +4799,7 @@ exports.default = _default;
 /* 189 */,
 /* 190 */,
 /* 191 */,
-/* 192 */
-/***/ (function(module, __unusedexports, __webpack_require__) {
-
-var iterate    = __webpack_require__(157)
-  , initState  = __webpack_require__(903)
-  , terminator = __webpack_require__(939)
-  ;
-
-// Public API
-module.exports = serialOrdered;
-// sorting helpers
-module.exports.ascending  = ascending;
-module.exports.descending = descending;
-
-/**
- * Runs iterator over provided sorted array elements in series
- *
- * @param   {array|object} list - array or object (named list) to iterate over
- * @param   {function} iterator - iterator to run
- * @param   {function} sortMethod - custom sort function
- * @param   {function} callback - invoked when all elements processed
- * @returns {function} - jobs terminator
- */
-function serialOrdered(list, iterator, sortMethod, callback)
-{
-  var state = initState(list, sortMethod);
-
-  iterate(list, iterator, state, function iteratorHandler(error, result)
-  {
-    if (error)
-    {
-      callback(error, result);
-      return;
-    }
-
-    state.index++;
-
-    // are we there yet?
-    if (state.index < (state['keyedList'] || list).length)
-    {
-      iterate(list, iterator, state, iteratorHandler);
-      return;
-    }
-
-    // done here
-    callback(null, state.results);
-  });
-
-  return terminator.bind(state, callback);
-}
-
-/*
- * -- Sort methods
- */
-
-/**
- * sort helper to sort array elements in ascending order
- *
- * @param   {mixed} a - an item to compare
- * @param   {mixed} b - an item to compare
- * @returns {number} - comparison result
- */
-function ascending(a, b)
-{
-  return a < b ? -1 : a > b ? 1 : 0;
-}
-
-/**
- * sort helper to sort array elements in descending order
- *
- * @param   {mixed} a - an item to compare
- * @param   {mixed} b - an item to compare
- * @returns {number} - comparison result
- */
-function descending(a, b)
-{
-  return -1 * ascending(a, b);
-}
-
-
-/***/ }),
+/* 192 */,
 /* 193 */,
 /* 194 */,
 /* 195 */,
@@ -9031,81 +9040,7 @@ function expand(str, isTop) {
 /* 329 */,
 /* 330 */,
 /* 331 */,
-/* 332 */,
-/* 333 */,
-/* 334 */
-/***/ (function(module, __unusedexports, __webpack_require__) {
-
-module.exports =
-{
-  parallel      : __webpack_require__(424),
-  serial        : __webpack_require__(91),
-  serialOrdered : __webpack_require__(192)
-};
-
-
-/***/ }),
-/* 335 */,
-/* 336 */,
-/* 337 */,
-/* 338 */,
-/* 339 */,
-/* 340 */
-/***/ (function(__unusedmodule, exports) {
-
-"use strict";
-
-/*
- * Copyright The OpenTelemetry Authors
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *      https://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- */
-Object.defineProperty(exports, "__esModule", { value: true });
-exports.SamplingDecision = void 0;
-/**
- * A sampling decision that determines how a {@link Span} will be recorded
- * and collected.
- */
-var SamplingDecision;
-(function (SamplingDecision) {
-    /**
-     * `Span.isRecording() === false`, span will not be recorded and all events
-     * and attributes will be dropped.
-     */
-    SamplingDecision[SamplingDecision["NOT_RECORD"] = 0] = "NOT_RECORD";
-    /**
-     * `Span.isRecording() === true`, but `Sampled` flag in {@link TraceFlags}
-     * MUST NOT be set.
-     */
-    SamplingDecision[SamplingDecision["RECORD"] = 1] = "RECORD";
-    /**
-     * `Span.isRecording() === true` AND `Sampled` flag in {@link TraceFlags}
-     * MUST be set.
-     */
-    SamplingDecision[SamplingDecision["RECORD_AND_SAMPLED"] = 2] = "RECORD_AND_SAMPLED";
-})(SamplingDecision = exports.SamplingDecision || (exports.SamplingDecision = {}));
-//# sourceMappingURL=SamplingResult.js.map
-
-/***/ }),
-/* 341 */,
-/* 342 */,
-/* 343 */,
-/* 344 */,
-/* 345 */,
-/* 346 */,
-/* 347 */,
-/* 348 */,
-/* 349 */
+/* 332 */
 /***/ (function(__unusedmodule, exports, __webpack_require__) {
 
 "use strict";
@@ -9141,9 +9076,9 @@ var SamplingDecision;
  */
 
 const { fromCallback } = __webpack_require__(147);
-const Store = __webpack_require__(627).Store;
-const permuteDomain = __webpack_require__(383).permuteDomain;
-const pathMatch = __webpack_require__(54).pathMatch;
+const Store = __webpack_require__(338).Store;
+const permuteDomain = __webpack_require__(89).permuteDomain;
+const pathMatch = __webpack_require__(348).pathMatch;
 const util = __webpack_require__(669);
 
 class MemoryCookieStore extends Store {
@@ -9302,6 +9237,229 @@ exports.MemoryCookieStore = MemoryCookieStore;
 
 
 /***/ }),
+/* 333 */,
+/* 334 */
+/***/ (function(module, __unusedexports, __webpack_require__) {
+
+module.exports =
+{
+  parallel      : __webpack_require__(424),
+  serial        : __webpack_require__(91),
+  serialOrdered : __webpack_require__(892)
+};
+
+
+/***/ }),
+/* 335 */,
+/* 336 */,
+/* 337 */,
+/* 338 */
+/***/ (function(__unusedmodule, exports) {
+
+"use strict";
+/*!
+ * Copyright (c) 2015, Salesforce.com, Inc.
+ * All rights reserved.
+ *
+ * Redistribution and use in source and binary forms, with or without
+ * modification, are permitted provided that the following conditions are met:
+ *
+ * 1. Redistributions of source code must retain the above copyright notice,
+ * this list of conditions and the following disclaimer.
+ *
+ * 2. Redistributions in binary form must reproduce the above copyright notice,
+ * this list of conditions and the following disclaimer in the documentation
+ * and/or other materials provided with the distribution.
+ *
+ * 3. Neither the name of Salesforce.com nor the names of its contributors may
+ * be used to endorse or promote products derived from this software without
+ * specific prior written permission.
+ *
+ * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
+ * AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+ * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
+ * ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE
+ * LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
+ * CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
+ * SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
+ * INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
+ * CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
+ * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
+ * POSSIBILITY OF SUCH DAMAGE.
+ */
+
+/*jshint unused:false */
+
+class Store {
+  constructor() {
+    this.synchronous = false;
+  }
+
+  findCookie(domain, path, key, cb) {
+    throw new Error("findCookie is not implemented");
+  }
+
+  findCookies(domain, path, allowSpecialUseDomain, cb) {
+    throw new Error("findCookies is not implemented");
+  }
+
+  putCookie(cookie, cb) {
+    throw new Error("putCookie is not implemented");
+  }
+
+  updateCookie(oldCookie, newCookie, cb) {
+    // recommended default implementation:
+    // return this.putCookie(newCookie, cb);
+    throw new Error("updateCookie is not implemented");
+  }
+
+  removeCookie(domain, path, key, cb) {
+    throw new Error("removeCookie is not implemented");
+  }
+
+  removeCookies(domain, path, cb) {
+    throw new Error("removeCookies is not implemented");
+  }
+
+  removeAllCookies(cb) {
+    throw new Error("removeAllCookies is not implemented");
+  }
+
+  getAllCookies(cb) {
+    throw new Error(
+      "getAllCookies is not implemented (therefore jar cannot be serialized)"
+    );
+  }
+}
+
+exports.Store = Store;
+
+
+/***/ }),
+/* 339 */,
+/* 340 */
+/***/ (function(__unusedmodule, exports) {
+
+"use strict";
+
+/*
+ * Copyright The OpenTelemetry Authors
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *      https://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+Object.defineProperty(exports, "__esModule", { value: true });
+exports.SamplingDecision = void 0;
+/**
+ * A sampling decision that determines how a {@link Span} will be recorded
+ * and collected.
+ */
+var SamplingDecision;
+(function (SamplingDecision) {
+    /**
+     * `Span.isRecording() === false`, span will not be recorded and all events
+     * and attributes will be dropped.
+     */
+    SamplingDecision[SamplingDecision["NOT_RECORD"] = 0] = "NOT_RECORD";
+    /**
+     * `Span.isRecording() === true`, but `Sampled` flag in {@link TraceFlags}
+     * MUST NOT be set.
+     */
+    SamplingDecision[SamplingDecision["RECORD"] = 1] = "RECORD";
+    /**
+     * `Span.isRecording() === true` AND `Sampled` flag in {@link TraceFlags}
+     * MUST be set.
+     */
+    SamplingDecision[SamplingDecision["RECORD_AND_SAMPLED"] = 2] = "RECORD_AND_SAMPLED";
+})(SamplingDecision = exports.SamplingDecision || (exports.SamplingDecision = {}));
+//# sourceMappingURL=SamplingResult.js.map
+
+/***/ }),
+/* 341 */,
+/* 342 */,
+/* 343 */,
+/* 344 */,
+/* 345 */,
+/* 346 */,
+/* 347 */,
+/* 348 */
+/***/ (function(__unusedmodule, exports) {
+
+"use strict";
+/*!
+ * Copyright (c) 2015, Salesforce.com, Inc.
+ * All rights reserved.
+ *
+ * Redistribution and use in source and binary forms, with or without
+ * modification, are permitted provided that the following conditions are met:
+ *
+ * 1. Redistributions of source code must retain the above copyright notice,
+ * this list of conditions and the following disclaimer.
+ *
+ * 2. Redistributions in binary form must reproduce the above copyright notice,
+ * this list of conditions and the following disclaimer in the documentation
+ * and/or other materials provided with the distribution.
+ *
+ * 3. Neither the name of Salesforce.com nor the names of its contributors may
+ * be used to endorse or promote products derived from this software without
+ * specific prior written permission.
+ *
+ * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
+ * AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+ * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
+ * ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE
+ * LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
+ * CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
+ * SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
+ * INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
+ * CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
+ * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
+ * POSSIBILITY OF SUCH DAMAGE.
+ */
+
+/*
+ * "A request-path path-matches a given cookie-path if at least one of the
+ * following conditions holds:"
+ */
+function pathMatch(reqPath, cookiePath) {
+  // "o  The cookie-path and the request-path are identical."
+  if (cookiePath === reqPath) {
+    return true;
+  }
+
+  const idx = reqPath.indexOf(cookiePath);
+  if (idx === 0) {
+    // "o  The cookie-path is a prefix of the request-path, and the last
+    // character of the cookie-path is %x2F ("/")."
+    if (cookiePath.substr(-1) === "/") {
+      return true;
+    }
+
+    // " o  The cookie-path is a prefix of the request-path, and the first
+    // character of the request-path that is not included in the cookie- path
+    // is a %x2F ("/") character."
+    if (reqPath.substr(cookiePath.length, 1) === "/") {
+      return true;
+    }
+  }
+
+  return false;
+}
+
+exports.pathMatch = pathMatch;
+
+
+/***/ }),
+/* 349 */,
 /* 350 */
 /***/ (function(__unusedmodule, exports) {
 
@@ -9475,6 +9633,29 @@ var coreLro = __webpack_require__(889);
 var events = __webpack_require__(614);
 var fs = __webpack_require__(747);
 var util = __webpack_require__(669);
+
+function _interopNamespace(e) {
+    if (e && e.__esModule) return e;
+    var n = Object.create(null);
+    if (e) {
+        Object.keys(e).forEach(function (k) {
+            if (k !== 'default') {
+                var d = Object.getOwnPropertyDescriptor(e, k);
+                Object.defineProperty(n, k, d.get ? d : {
+                    enumerable: true,
+                    get: function () { return e[k]; }
+                });
+            }
+        });
+    }
+    n["default"] = e;
+    return Object.freeze(n);
+}
+
+var coreHttp__namespace = /*#__PURE__*/_interopNamespace(coreHttp);
+var os__namespace = /*#__PURE__*/_interopNamespace(os);
+var fs__namespace = /*#__PURE__*/_interopNamespace(fs);
+var util__namespace = /*#__PURE__*/_interopNamespace(util);
 
 /*
  * Copyright (c) Microsoft Corporation.
@@ -10430,10 +10611,10 @@ const BlobItemInternal = {
         modelProperties: {
             name: {
                 serializedName: "Name",
-                required: true,
                 xmlName: "Name",
                 type: {
-                    name: "String"
+                    name: "Composite",
+                    className: "BlobName"
                 }
             },
             deleted: {
@@ -10503,6 +10684,30 @@ const BlobItemInternal = {
                 xmlName: "HasVersionsOnly",
                 type: {
                     name: "Boolean"
+                }
+            }
+        }
+    }
+};
+const BlobName = {
+    serializedName: "BlobName",
+    type: {
+        name: "Composite",
+        className: "BlobName",
+        modelProperties: {
+            encoded: {
+                serializedName: "Encoded",
+                xmlName: "Encoded",
+                xmlIsAttribute: true,
+                type: {
+                    name: "Boolean"
+                }
+            },
+            content: {
+                serializedName: "content",
+                xmlName: "content",
+                type: {
+                    name: "String"
                 }
             }
         }
@@ -10951,10 +11156,10 @@ const BlobPrefix = {
         modelProperties: {
             name: {
                 serializedName: "Name",
-                required: true,
                 xmlName: "Name",
                 type: {
-                    name: "String"
+                    name: "Composite",
+                    className: "BlobName"
                 }
             }
         }
@@ -12566,6 +12771,59 @@ const ContainerSubmitBatchExceptionHeaders = {
     type: {
         name: "Composite",
         className: "ContainerSubmitBatchExceptionHeaders",
+        modelProperties: {
+            errorCode: {
+                serializedName: "x-ms-error-code",
+                xmlName: "x-ms-error-code",
+                type: {
+                    name: "String"
+                }
+            }
+        }
+    }
+};
+const ContainerFilterBlobsHeaders = {
+    serializedName: "Container_filterBlobsHeaders",
+    type: {
+        name: "Composite",
+        className: "ContainerFilterBlobsHeaders",
+        modelProperties: {
+            clientRequestId: {
+                serializedName: "x-ms-client-request-id",
+                xmlName: "x-ms-client-request-id",
+                type: {
+                    name: "String"
+                }
+            },
+            requestId: {
+                serializedName: "x-ms-request-id",
+                xmlName: "x-ms-request-id",
+                type: {
+                    name: "String"
+                }
+            },
+            version: {
+                serializedName: "x-ms-version",
+                xmlName: "x-ms-version",
+                type: {
+                    name: "String"
+                }
+            },
+            date: {
+                serializedName: "date",
+                xmlName: "date",
+                type: {
+                    name: "DateTimeRfc1123"
+                }
+            }
+        }
+    }
+};
+const ContainerFilterBlobsExceptionHeaders = {
+    serializedName: "Container_filterBlobsExceptionHeaders",
+    type: {
+        name: "Composite",
+        className: "ContainerFilterBlobsExceptionHeaders",
         modelProperties: {
             errorCode: {
                 serializedName: "x-ms-error-code",
@@ -15085,6 +15343,13 @@ const BlobCopyFromURLHeaders = {
                     name: "ByteArray"
                 }
             },
+            encryptionScope: {
+                serializedName: "x-ms-encryption-scope",
+                xmlName: "x-ms-encryption-scope",
+                type: {
+                    name: "String"
+                }
+            },
             errorCode: {
                 serializedName: "x-ms-error-code",
                 xmlName: "x-ms-error-code",
@@ -17602,6 +17867,7 @@ var Mappers = /*#__PURE__*/Object.freeze({
     ListBlobsFlatSegmentResponse: ListBlobsFlatSegmentResponse,
     BlobFlatListSegment: BlobFlatListSegment,
     BlobItemInternal: BlobItemInternal,
+    BlobName: BlobName,
     BlobPropertiesInternal: BlobPropertiesInternal,
     ListBlobsHierarchySegmentResponse: ListBlobsHierarchySegmentResponse,
     BlobHierarchyListSegment: BlobHierarchyListSegment,
@@ -17653,6 +17919,8 @@ var Mappers = /*#__PURE__*/Object.freeze({
     ContainerRenameExceptionHeaders: ContainerRenameExceptionHeaders,
     ContainerSubmitBatchHeaders: ContainerSubmitBatchHeaders,
     ContainerSubmitBatchExceptionHeaders: ContainerSubmitBatchExceptionHeaders,
+    ContainerFilterBlobsHeaders: ContainerFilterBlobsHeaders,
+    ContainerFilterBlobsExceptionHeaders: ContainerFilterBlobsExceptionHeaders,
     ContainerAcquireLeaseHeaders: ContainerAcquireLeaseHeaders,
     ContainerAcquireLeaseExceptionHeaders: ContainerAcquireLeaseExceptionHeaders,
     ContainerReleaseLeaseHeaders: ContainerReleaseLeaseHeaders,
@@ -17840,7 +18108,7 @@ const timeoutInSeconds = {
 const version = {
     parameterPath: "version",
     mapper: {
-        defaultValue: "2020-10-02",
+        defaultValue: "2021-04-10",
         isConstant: true,
         serializedName: "x-ms-version",
         type: {
@@ -17935,7 +18203,7 @@ const include = {
             element: {
                 type: {
                     name: "Enum",
-                    allowedValues: ["metadata", "deleted"]
+                    allowedValues: ["metadata", "deleted", "system"]
                 }
             }
         }
@@ -18457,11 +18725,10 @@ const encryptionKeySha256 = {
     }
 };
 const encryptionAlgorithm = {
-    parameterPath: ["options", "encryptionAlgorithm"],
+    parameterPath: ["options", "cpkInfo", "encryptionAlgorithm"],
     mapper: {
-        defaultValue: "AES256",
-        isConstant: true,
         serializedName: "x-ms-encryption-algorithm",
+        xmlName: "x-ms-encryption-algorithm",
         type: {
             name: "String"
         }
@@ -19378,7 +19645,7 @@ class Service {
     setProperties(blobServiceProperties, options) {
         const operationArguments = {
             blobServiceProperties,
-            options: coreHttp.operationOptionsToRequestOptionsBase(options || {})
+            options: coreHttp__namespace.operationOptionsToRequestOptionsBase(options || {})
         };
         return this.client.sendOperationRequest(operationArguments, setPropertiesOperationSpec);
     }
@@ -19389,9 +19656,9 @@ class Service {
      */
     getProperties(options) {
         const operationArguments = {
-            options: coreHttp.operationOptionsToRequestOptionsBase(options || {})
+            options: coreHttp__namespace.operationOptionsToRequestOptionsBase(options || {})
         };
-        return this.client.sendOperationRequest(operationArguments, getPropertiesOperationSpec);
+        return this.client.sendOperationRequest(operationArguments, getPropertiesOperationSpec$2);
     }
     /**
      * Retrieves statistics related to replication for the Blob service. It is only available on the
@@ -19401,7 +19668,7 @@ class Service {
      */
     getStatistics(options) {
         const operationArguments = {
-            options: coreHttp.operationOptionsToRequestOptionsBase(options || {})
+            options: coreHttp__namespace.operationOptionsToRequestOptionsBase(options || {})
         };
         return this.client.sendOperationRequest(operationArguments, getStatisticsOperationSpec);
     }
@@ -19411,7 +19678,7 @@ class Service {
      */
     listContainersSegment(options) {
         const operationArguments = {
-            options: coreHttp.operationOptionsToRequestOptionsBase(options || {})
+            options: coreHttp__namespace.operationOptionsToRequestOptionsBase(options || {})
         };
         return this.client.sendOperationRequest(operationArguments, listContainersSegmentOperationSpec);
     }
@@ -19424,7 +19691,7 @@ class Service {
     getUserDelegationKey(keyInfo, options) {
         const operationArguments = {
             keyInfo,
-            options: coreHttp.operationOptionsToRequestOptionsBase(options || {})
+            options: coreHttp__namespace.operationOptionsToRequestOptionsBase(options || {})
         };
         return this.client.sendOperationRequest(operationArguments, getUserDelegationKeyOperationSpec);
     }
@@ -19434,9 +19701,9 @@ class Service {
      */
     getAccountInfo(options) {
         const operationArguments = {
-            options: coreHttp.operationOptionsToRequestOptionsBase(options || {})
+            options: coreHttp__namespace.operationOptionsToRequestOptionsBase(options || {})
         };
-        return this.client.sendOperationRequest(operationArguments, getAccountInfoOperationSpec);
+        return this.client.sendOperationRequest(operationArguments, getAccountInfoOperationSpec$2);
     }
     /**
      * The Batch operation allows multiple API calls to be embedded into a single HTTP request.
@@ -19451,9 +19718,9 @@ class Service {
             contentLength,
             multipartContentType,
             body,
-            options: coreHttp.operationOptionsToRequestOptionsBase(options || {})
+            options: coreHttp__namespace.operationOptionsToRequestOptionsBase(options || {})
         };
-        return this.client.sendOperationRequest(operationArguments, submitBatchOperationSpec);
+        return this.client.sendOperationRequest(operationArguments, submitBatchOperationSpec$1);
     }
     /**
      * The Filter Blobs operation enables callers to list blobs across all containers whose tags match a
@@ -19463,13 +19730,13 @@ class Service {
      */
     filterBlobs(options) {
         const operationArguments = {
-            options: coreHttp.operationOptionsToRequestOptionsBase(options || {})
+            options: coreHttp__namespace.operationOptionsToRequestOptionsBase(options || {})
         };
-        return this.client.sendOperationRequest(operationArguments, filterBlobsOperationSpec);
+        return this.client.sendOperationRequest(operationArguments, filterBlobsOperationSpec$1);
     }
 }
 // Operation Specifications
-const xmlSerializer = new coreHttp.Serializer(Mappers, /* isXml */ true);
+const xmlSerializer$5 = new coreHttp__namespace.Serializer(Mappers, /* isXml */ true);
 const setPropertiesOperationSpec = {
     path: "/",
     httpMethod: "PUT",
@@ -19498,9 +19765,9 @@ const setPropertiesOperationSpec = {
     isXML: true,
     contentType: "application/xml; charset=utf-8",
     mediaType: "xml",
-    serializer: xmlSerializer
+    serializer: xmlSerializer$5
 };
-const getPropertiesOperationSpec = {
+const getPropertiesOperationSpec$2 = {
     path: "/",
     httpMethod: "GET",
     responses: {
@@ -19525,7 +19792,7 @@ const getPropertiesOperationSpec = {
         accept1
     ],
     isXML: true,
-    serializer: xmlSerializer
+    serializer: xmlSerializer$5
 };
 const getStatisticsOperationSpec = {
     path: "/",
@@ -19552,7 +19819,7 @@ const getStatisticsOperationSpec = {
         accept1
     ],
     isXML: true,
-    serializer: xmlSerializer
+    serializer: xmlSerializer$5
 };
 const listContainersSegmentOperationSpec = {
     path: "/",
@@ -19582,7 +19849,7 @@ const listContainersSegmentOperationSpec = {
         accept1
     ],
     isXML: true,
-    serializer: xmlSerializer
+    serializer: xmlSerializer$5
 };
 const getUserDelegationKeyOperationSpec = {
     path: "/",
@@ -19613,9 +19880,9 @@ const getUserDelegationKeyOperationSpec = {
     isXML: true,
     contentType: "application/xml; charset=utf-8",
     mediaType: "xml",
-    serializer: xmlSerializer
+    serializer: xmlSerializer$5
 };
-const getAccountInfoOperationSpec = {
+const getAccountInfoOperationSpec$2 = {
     path: "/",
     httpMethod: "GET",
     responses: {
@@ -19631,9 +19898,9 @@ const getAccountInfoOperationSpec = {
     urlParameters: [url],
     headerParameters: [version, accept1],
     isXML: true,
-    serializer: xmlSerializer
+    serializer: xmlSerializer$5
 };
-const submitBatchOperationSpec = {
+const submitBatchOperationSpec$1 = {
     path: "/",
     httpMethod: "POST",
     responses: {
@@ -19663,9 +19930,9 @@ const submitBatchOperationSpec = {
     isXML: true,
     contentType: "application/xml; charset=utf-8",
     mediaType: "xml",
-    serializer: xmlSerializer
+    serializer: xmlSerializer$5
 };
-const filterBlobsOperationSpec = {
+const filterBlobsOperationSpec$1 = {
     path: "/",
     httpMethod: "GET",
     responses: {
@@ -19692,7 +19959,7 @@ const filterBlobsOperationSpec = {
         accept1
     ],
     isXML: true,
-    serializer: xmlSerializer
+    serializer: xmlSerializer$5
 };
 
 /*
@@ -19718,9 +19985,9 @@ class Container {
      */
     create(options) {
         const operationArguments = {
-            options: coreHttp.operationOptionsToRequestOptionsBase(options || {})
+            options: coreHttp__namespace.operationOptionsToRequestOptionsBase(options || {})
         };
-        return this.client.sendOperationRequest(operationArguments, createOperationSpec);
+        return this.client.sendOperationRequest(operationArguments, createOperationSpec$2);
     }
     /**
      * returns all user-defined metadata and system properties for the specified container. The data
@@ -19729,7 +19996,7 @@ class Container {
      */
     getProperties(options) {
         const operationArguments = {
-            options: coreHttp.operationOptionsToRequestOptionsBase(options || {})
+            options: coreHttp__namespace.operationOptionsToRequestOptionsBase(options || {})
         };
         return this.client.sendOperationRequest(operationArguments, getPropertiesOperationSpec$1);
     }
@@ -19740,9 +20007,9 @@ class Container {
      */
     delete(options) {
         const operationArguments = {
-            options: coreHttp.operationOptionsToRequestOptionsBase(options || {})
+            options: coreHttp__namespace.operationOptionsToRequestOptionsBase(options || {})
         };
-        return this.client.sendOperationRequest(operationArguments, deleteOperationSpec);
+        return this.client.sendOperationRequest(operationArguments, deleteOperationSpec$1);
     }
     /**
      * operation sets one or more user-defined name-value pairs for the specified container.
@@ -19750,9 +20017,9 @@ class Container {
      */
     setMetadata(options) {
         const operationArguments = {
-            options: coreHttp.operationOptionsToRequestOptionsBase(options || {})
+            options: coreHttp__namespace.operationOptionsToRequestOptionsBase(options || {})
         };
-        return this.client.sendOperationRequest(operationArguments, setMetadataOperationSpec);
+        return this.client.sendOperationRequest(operationArguments, setMetadataOperationSpec$1);
     }
     /**
      * gets the permissions for the specified container. The permissions indicate whether container data
@@ -19761,7 +20028,7 @@ class Container {
      */
     getAccessPolicy(options) {
         const operationArguments = {
-            options: coreHttp.operationOptionsToRequestOptionsBase(options || {})
+            options: coreHttp__namespace.operationOptionsToRequestOptionsBase(options || {})
         };
         return this.client.sendOperationRequest(operationArguments, getAccessPolicyOperationSpec);
     }
@@ -19772,7 +20039,7 @@ class Container {
      */
     setAccessPolicy(options) {
         const operationArguments = {
-            options: coreHttp.operationOptionsToRequestOptionsBase(options || {})
+            options: coreHttp__namespace.operationOptionsToRequestOptionsBase(options || {})
         };
         return this.client.sendOperationRequest(operationArguments, setAccessPolicyOperationSpec);
     }
@@ -19782,7 +20049,7 @@ class Container {
      */
     restore(options) {
         const operationArguments = {
-            options: coreHttp.operationOptionsToRequestOptionsBase(options || {})
+            options: coreHttp__namespace.operationOptionsToRequestOptionsBase(options || {})
         };
         return this.client.sendOperationRequest(operationArguments, restoreOperationSpec);
     }
@@ -19794,7 +20061,7 @@ class Container {
     rename(sourceContainerName, options) {
         const operationArguments = {
             sourceContainerName,
-            options: coreHttp.operationOptionsToRequestOptionsBase(options || {})
+            options: coreHttp__namespace.operationOptionsToRequestOptionsBase(options || {})
         };
         return this.client.sendOperationRequest(operationArguments, renameOperationSpec);
     }
@@ -19811,9 +20078,20 @@ class Container {
             contentLength,
             multipartContentType,
             body,
-            options: coreHttp.operationOptionsToRequestOptionsBase(options || {})
+            options: coreHttp__namespace.operationOptionsToRequestOptionsBase(options || {})
         };
-        return this.client.sendOperationRequest(operationArguments, submitBatchOperationSpec$1);
+        return this.client.sendOperationRequest(operationArguments, submitBatchOperationSpec);
+    }
+    /**
+     * The Filter Blobs operation enables callers to list blobs in a container whose tags match a given
+     * search expression.  Filter blobs searches within the given container.
+     * @param options The options parameters.
+     */
+    filterBlobs(options) {
+        const operationArguments = {
+            options: coreHttp__namespace.operationOptionsToRequestOptionsBase(options || {})
+        };
+        return this.client.sendOperationRequest(operationArguments, filterBlobsOperationSpec);
     }
     /**
      * [Update] establishes and manages a lock on a container for delete operations. The lock duration can
@@ -19822,9 +20100,9 @@ class Container {
      */
     acquireLease(options) {
         const operationArguments = {
-            options: coreHttp.operationOptionsToRequestOptionsBase(options || {})
+            options: coreHttp__namespace.operationOptionsToRequestOptionsBase(options || {})
         };
-        return this.client.sendOperationRequest(operationArguments, acquireLeaseOperationSpec);
+        return this.client.sendOperationRequest(operationArguments, acquireLeaseOperationSpec$1);
     }
     /**
      * [Update] establishes and manages a lock on a container for delete operations. The lock duration can
@@ -19835,9 +20113,9 @@ class Container {
     releaseLease(leaseId, options) {
         const operationArguments = {
             leaseId,
-            options: coreHttp.operationOptionsToRequestOptionsBase(options || {})
+            options: coreHttp__namespace.operationOptionsToRequestOptionsBase(options || {})
         };
-        return this.client.sendOperationRequest(operationArguments, releaseLeaseOperationSpec);
+        return this.client.sendOperationRequest(operationArguments, releaseLeaseOperationSpec$1);
     }
     /**
      * [Update] establishes and manages a lock on a container for delete operations. The lock duration can
@@ -19848,9 +20126,9 @@ class Container {
     renewLease(leaseId, options) {
         const operationArguments = {
             leaseId,
-            options: coreHttp.operationOptionsToRequestOptionsBase(options || {})
+            options: coreHttp__namespace.operationOptionsToRequestOptionsBase(options || {})
         };
-        return this.client.sendOperationRequest(operationArguments, renewLeaseOperationSpec);
+        return this.client.sendOperationRequest(operationArguments, renewLeaseOperationSpec$1);
     }
     /**
      * [Update] establishes and manages a lock on a container for delete operations. The lock duration can
@@ -19859,9 +20137,9 @@ class Container {
      */
     breakLease(options) {
         const operationArguments = {
-            options: coreHttp.operationOptionsToRequestOptionsBase(options || {})
+            options: coreHttp__namespace.operationOptionsToRequestOptionsBase(options || {})
         };
-        return this.client.sendOperationRequest(operationArguments, breakLeaseOperationSpec);
+        return this.client.sendOperationRequest(operationArguments, breakLeaseOperationSpec$1);
     }
     /**
      * [Update] establishes and manages a lock on a container for delete operations. The lock duration can
@@ -19876,9 +20154,9 @@ class Container {
         const operationArguments = {
             leaseId,
             proposedLeaseId,
-            options: coreHttp.operationOptionsToRequestOptionsBase(options || {})
+            options: coreHttp__namespace.operationOptionsToRequestOptionsBase(options || {})
         };
-        return this.client.sendOperationRequest(operationArguments, changeLeaseOperationSpec);
+        return this.client.sendOperationRequest(operationArguments, changeLeaseOperationSpec$1);
     }
     /**
      * [Update] The List Blobs operation returns a list of the blobs under the specified container
@@ -19886,7 +20164,7 @@ class Container {
      */
     listBlobFlatSegment(options) {
         const operationArguments = {
-            options: coreHttp.operationOptionsToRequestOptionsBase(options || {})
+            options: coreHttp__namespace.operationOptionsToRequestOptionsBase(options || {})
         };
         return this.client.sendOperationRequest(operationArguments, listBlobFlatSegmentOperationSpec);
     }
@@ -19901,7 +20179,7 @@ class Container {
     listBlobHierarchySegment(delimiter, options) {
         const operationArguments = {
             delimiter,
-            options: coreHttp.operationOptionsToRequestOptionsBase(options || {})
+            options: coreHttp__namespace.operationOptionsToRequestOptionsBase(options || {})
         };
         return this.client.sendOperationRequest(operationArguments, listBlobHierarchySegmentOperationSpec);
     }
@@ -19911,14 +20189,14 @@ class Container {
      */
     getAccountInfo(options) {
         const operationArguments = {
-            options: coreHttp.operationOptionsToRequestOptionsBase(options || {})
+            options: coreHttp__namespace.operationOptionsToRequestOptionsBase(options || {})
         };
         return this.client.sendOperationRequest(operationArguments, getAccountInfoOperationSpec$1);
     }
 }
 // Operation Specifications
-const xmlSerializer$1 = new coreHttp.Serializer(Mappers, /* isXml */ true);
-const createOperationSpec = {
+const xmlSerializer$4 = new coreHttp__namespace.Serializer(Mappers, /* isXml */ true);
+const createOperationSpec$2 = {
     path: "/{containerName}",
     httpMethod: "PUT",
     responses: {
@@ -19942,7 +20220,7 @@ const createOperationSpec = {
         preventEncryptionScopeOverride
     ],
     isXML: true,
-    serializer: xmlSerializer$1
+    serializer: xmlSerializer$4
 };
 const getPropertiesOperationSpec$1 = {
     path: "/{containerName}",
@@ -19965,9 +20243,9 @@ const getPropertiesOperationSpec$1 = {
         leaseId
     ],
     isXML: true,
-    serializer: xmlSerializer$1
+    serializer: xmlSerializer$4
 };
-const deleteOperationSpec = {
+const deleteOperationSpec$1 = {
     path: "/{containerName}",
     httpMethod: "DELETE",
     responses: {
@@ -19990,9 +20268,9 @@ const deleteOperationSpec = {
         ifUnmodifiedSince
     ],
     isXML: true,
-    serializer: xmlSerializer$1
+    serializer: xmlSerializer$4
 };
-const setMetadataOperationSpec = {
+const setMetadataOperationSpec$1 = {
     path: "/{containerName}",
     httpMethod: "PUT",
     responses: {
@@ -20019,7 +20297,7 @@ const setMetadataOperationSpec = {
         ifModifiedSince
     ],
     isXML: true,
-    serializer: xmlSerializer$1
+    serializer: xmlSerializer$4
 };
 const getAccessPolicyOperationSpec = {
     path: "/{containerName}",
@@ -20058,7 +20336,7 @@ const getAccessPolicyOperationSpec = {
         leaseId
     ],
     isXML: true,
-    serializer: xmlSerializer$1
+    serializer: xmlSerializer$4
 };
 const setAccessPolicyOperationSpec = {
     path: "/{containerName}",
@@ -20092,7 +20370,7 @@ const setAccessPolicyOperationSpec = {
     isXML: true,
     contentType: "application/xml; charset=utf-8",
     mediaType: "xml",
-    serializer: xmlSerializer$1
+    serializer: xmlSerializer$4
 };
 const restoreOperationSpec = {
     path: "/{containerName}",
@@ -20120,7 +20398,7 @@ const restoreOperationSpec = {
         deletedContainerVersion
     ],
     isXML: true,
-    serializer: xmlSerializer$1
+    serializer: xmlSerializer$4
 };
 const renameOperationSpec = {
     path: "/{containerName}",
@@ -20148,9 +20426,9 @@ const renameOperationSpec = {
         sourceLeaseId
     ],
     isXML: true,
-    serializer: xmlSerializer$1
+    serializer: xmlSerializer$4
 };
-const submitBatchOperationSpec$1 = {
+const submitBatchOperationSpec = {
     path: "/{containerName}",
     httpMethod: "POST",
     responses: {
@@ -20184,9 +20462,39 @@ const submitBatchOperationSpec$1 = {
     isXML: true,
     contentType: "application/xml; charset=utf-8",
     mediaType: "xml",
-    serializer: xmlSerializer$1
+    serializer: xmlSerializer$4
 };
-const acquireLeaseOperationSpec = {
+const filterBlobsOperationSpec = {
+    path: "/{containerName}",
+    httpMethod: "GET",
+    responses: {
+        200: {
+            bodyMapper: FilterBlobSegment,
+            headersMapper: ContainerFilterBlobsHeaders
+        },
+        default: {
+            bodyMapper: StorageError,
+            headersMapper: ContainerFilterBlobsExceptionHeaders
+        }
+    },
+    queryParameters: [
+        timeoutInSeconds,
+        marker,
+        maxPageSize,
+        comp5,
+        where,
+        restype2
+    ],
+    urlParameters: [url],
+    headerParameters: [
+        version,
+        requestId,
+        accept1
+    ],
+    isXML: true,
+    serializer: xmlSerializer$4
+};
+const acquireLeaseOperationSpec$1 = {
     path: "/{containerName}",
     httpMethod: "PUT",
     responses: {
@@ -20215,9 +20523,9 @@ const acquireLeaseOperationSpec = {
         proposedLeaseId
     ],
     isXML: true,
-    serializer: xmlSerializer$1
+    serializer: xmlSerializer$4
 };
-const releaseLeaseOperationSpec = {
+const releaseLeaseOperationSpec$1 = {
     path: "/{containerName}",
     httpMethod: "PUT",
     responses: {
@@ -20245,9 +20553,9 @@ const releaseLeaseOperationSpec = {
         leaseId1
     ],
     isXML: true,
-    serializer: xmlSerializer$1
+    serializer: xmlSerializer$4
 };
-const renewLeaseOperationSpec = {
+const renewLeaseOperationSpec$1 = {
     path: "/{containerName}",
     httpMethod: "PUT",
     responses: {
@@ -20275,9 +20583,9 @@ const renewLeaseOperationSpec = {
         action2
     ],
     isXML: true,
-    serializer: xmlSerializer$1
+    serializer: xmlSerializer$4
 };
-const breakLeaseOperationSpec = {
+const breakLeaseOperationSpec$1 = {
     path: "/{containerName}",
     httpMethod: "PUT",
     responses: {
@@ -20305,9 +20613,9 @@ const breakLeaseOperationSpec = {
         breakPeriod
     ],
     isXML: true,
-    serializer: xmlSerializer$1
+    serializer: xmlSerializer$4
 };
-const changeLeaseOperationSpec = {
+const changeLeaseOperationSpec$1 = {
     path: "/{containerName}",
     httpMethod: "PUT",
     responses: {
@@ -20336,7 +20644,7 @@ const changeLeaseOperationSpec = {
         proposedLeaseId1
     ],
     isXML: true,
-    serializer: xmlSerializer$1
+    serializer: xmlSerializer$4
 };
 const listBlobFlatSegmentOperationSpec = {
     path: "/{containerName}",
@@ -20367,7 +20675,7 @@ const listBlobFlatSegmentOperationSpec = {
         accept1
     ],
     isXML: true,
-    serializer: xmlSerializer$1
+    serializer: xmlSerializer$4
 };
 const listBlobHierarchySegmentOperationSpec = {
     path: "/{containerName}",
@@ -20399,7 +20707,7 @@ const listBlobHierarchySegmentOperationSpec = {
         accept1
     ],
     isXML: true,
-    serializer: xmlSerializer$1
+    serializer: xmlSerializer$4
 };
 const getAccountInfoOperationSpec$1 = {
     path: "/{containerName}",
@@ -20417,7 +20725,7 @@ const getAccountInfoOperationSpec$1 = {
     urlParameters: [url],
     headerParameters: [version, accept1],
     isXML: true,
-    serializer: xmlSerializer$1
+    serializer: xmlSerializer$4
 };
 
 /*
@@ -20443,7 +20751,7 @@ class Blob$1 {
      */
     download(options) {
         const operationArguments = {
-            options: coreHttp.operationOptionsToRequestOptionsBase(options || {})
+            options: coreHttp__namespace.operationOptionsToRequestOptionsBase(options || {})
         };
         return this.client.sendOperationRequest(operationArguments, downloadOperationSpec);
     }
@@ -20454,9 +20762,9 @@ class Blob$1 {
      */
     getProperties(options) {
         const operationArguments = {
-            options: coreHttp.operationOptionsToRequestOptionsBase(options || {})
+            options: coreHttp__namespace.operationOptionsToRequestOptionsBase(options || {})
         };
-        return this.client.sendOperationRequest(operationArguments, getPropertiesOperationSpec$2);
+        return this.client.sendOperationRequest(operationArguments, getPropertiesOperationSpec);
     }
     /**
      * If the storage account's soft delete feature is disabled then, when a blob is deleted, it is
@@ -20475,9 +20783,9 @@ class Blob$1 {
      */
     delete(options) {
         const operationArguments = {
-            options: coreHttp.operationOptionsToRequestOptionsBase(options || {})
+            options: coreHttp__namespace.operationOptionsToRequestOptionsBase(options || {})
         };
-        return this.client.sendOperationRequest(operationArguments, deleteOperationSpec$1);
+        return this.client.sendOperationRequest(operationArguments, deleteOperationSpec);
     }
     /**
      * Undelete a blob that was previously soft deleted
@@ -20485,7 +20793,7 @@ class Blob$1 {
      */
     undelete(options) {
         const operationArguments = {
-            options: coreHttp.operationOptionsToRequestOptionsBase(options || {})
+            options: coreHttp__namespace.operationOptionsToRequestOptionsBase(options || {})
         };
         return this.client.sendOperationRequest(operationArguments, undeleteOperationSpec);
     }
@@ -20497,7 +20805,7 @@ class Blob$1 {
     setExpiry(expiryOptions, options) {
         const operationArguments = {
             expiryOptions,
-            options: coreHttp.operationOptionsToRequestOptionsBase(options || {})
+            options: coreHttp__namespace.operationOptionsToRequestOptionsBase(options || {})
         };
         return this.client.sendOperationRequest(operationArguments, setExpiryOperationSpec);
     }
@@ -20507,7 +20815,7 @@ class Blob$1 {
      */
     setHttpHeaders(options) {
         const operationArguments = {
-            options: coreHttp.operationOptionsToRequestOptionsBase(options || {})
+            options: coreHttp__namespace.operationOptionsToRequestOptionsBase(options || {})
         };
         return this.client.sendOperationRequest(operationArguments, setHttpHeadersOperationSpec);
     }
@@ -20517,7 +20825,7 @@ class Blob$1 {
      */
     setImmutabilityPolicy(options) {
         const operationArguments = {
-            options: coreHttp.operationOptionsToRequestOptionsBase(options || {})
+            options: coreHttp__namespace.operationOptionsToRequestOptionsBase(options || {})
         };
         return this.client.sendOperationRequest(operationArguments, setImmutabilityPolicyOperationSpec);
     }
@@ -20527,7 +20835,7 @@ class Blob$1 {
      */
     deleteImmutabilityPolicy(options) {
         const operationArguments = {
-            options: coreHttp.operationOptionsToRequestOptionsBase(options || {})
+            options: coreHttp__namespace.operationOptionsToRequestOptionsBase(options || {})
         };
         return this.client.sendOperationRequest(operationArguments, deleteImmutabilityPolicyOperationSpec);
     }
@@ -20539,7 +20847,7 @@ class Blob$1 {
     setLegalHold(legalHold, options) {
         const operationArguments = {
             legalHold,
-            options: coreHttp.operationOptionsToRequestOptionsBase(options || {})
+            options: coreHttp__namespace.operationOptionsToRequestOptionsBase(options || {})
         };
         return this.client.sendOperationRequest(operationArguments, setLegalHoldOperationSpec);
     }
@@ -20550,9 +20858,9 @@ class Blob$1 {
      */
     setMetadata(options) {
         const operationArguments = {
-            options: coreHttp.operationOptionsToRequestOptionsBase(options || {})
+            options: coreHttp__namespace.operationOptionsToRequestOptionsBase(options || {})
         };
-        return this.client.sendOperationRequest(operationArguments, setMetadataOperationSpec$1);
+        return this.client.sendOperationRequest(operationArguments, setMetadataOperationSpec);
     }
     /**
      * [Update] The Lease Blob operation establishes and manages a lock on a blob for write and delete
@@ -20561,9 +20869,9 @@ class Blob$1 {
      */
     acquireLease(options) {
         const operationArguments = {
-            options: coreHttp.operationOptionsToRequestOptionsBase(options || {})
+            options: coreHttp__namespace.operationOptionsToRequestOptionsBase(options || {})
         };
-        return this.client.sendOperationRequest(operationArguments, acquireLeaseOperationSpec$1);
+        return this.client.sendOperationRequest(operationArguments, acquireLeaseOperationSpec);
     }
     /**
      * [Update] The Lease Blob operation establishes and manages a lock on a blob for write and delete
@@ -20574,9 +20882,9 @@ class Blob$1 {
     releaseLease(leaseId, options) {
         const operationArguments = {
             leaseId,
-            options: coreHttp.operationOptionsToRequestOptionsBase(options || {})
+            options: coreHttp__namespace.operationOptionsToRequestOptionsBase(options || {})
         };
-        return this.client.sendOperationRequest(operationArguments, releaseLeaseOperationSpec$1);
+        return this.client.sendOperationRequest(operationArguments, releaseLeaseOperationSpec);
     }
     /**
      * [Update] The Lease Blob operation establishes and manages a lock on a blob for write and delete
@@ -20587,9 +20895,9 @@ class Blob$1 {
     renewLease(leaseId, options) {
         const operationArguments = {
             leaseId,
-            options: coreHttp.operationOptionsToRequestOptionsBase(options || {})
+            options: coreHttp__namespace.operationOptionsToRequestOptionsBase(options || {})
         };
-        return this.client.sendOperationRequest(operationArguments, renewLeaseOperationSpec$1);
+        return this.client.sendOperationRequest(operationArguments, renewLeaseOperationSpec);
     }
     /**
      * [Update] The Lease Blob operation establishes and manages a lock on a blob for write and delete
@@ -20604,9 +20912,9 @@ class Blob$1 {
         const operationArguments = {
             leaseId,
             proposedLeaseId,
-            options: coreHttp.operationOptionsToRequestOptionsBase(options || {})
+            options: coreHttp__namespace.operationOptionsToRequestOptionsBase(options || {})
         };
-        return this.client.sendOperationRequest(operationArguments, changeLeaseOperationSpec$1);
+        return this.client.sendOperationRequest(operationArguments, changeLeaseOperationSpec);
     }
     /**
      * [Update] The Lease Blob operation establishes and manages a lock on a blob for write and delete
@@ -20615,9 +20923,9 @@ class Blob$1 {
      */
     breakLease(options) {
         const operationArguments = {
-            options: coreHttp.operationOptionsToRequestOptionsBase(options || {})
+            options: coreHttp__namespace.operationOptionsToRequestOptionsBase(options || {})
         };
-        return this.client.sendOperationRequest(operationArguments, breakLeaseOperationSpec$1);
+        return this.client.sendOperationRequest(operationArguments, breakLeaseOperationSpec);
     }
     /**
      * The Create Snapshot operation creates a read-only snapshot of a blob
@@ -20625,7 +20933,7 @@ class Blob$1 {
      */
     createSnapshot(options) {
         const operationArguments = {
-            options: coreHttp.operationOptionsToRequestOptionsBase(options || {})
+            options: coreHttp__namespace.operationOptionsToRequestOptionsBase(options || {})
         };
         return this.client.sendOperationRequest(operationArguments, createSnapshotOperationSpec);
     }
@@ -20640,7 +20948,7 @@ class Blob$1 {
     startCopyFromURL(copySource, options) {
         const operationArguments = {
             copySource,
-            options: coreHttp.operationOptionsToRequestOptionsBase(options || {})
+            options: coreHttp__namespace.operationOptionsToRequestOptionsBase(options || {})
         };
         return this.client.sendOperationRequest(operationArguments, startCopyFromURLOperationSpec);
     }
@@ -20656,7 +20964,7 @@ class Blob$1 {
     copyFromURL(copySource, options) {
         const operationArguments = {
             copySource,
-            options: coreHttp.operationOptionsToRequestOptionsBase(options || {})
+            options: coreHttp__namespace.operationOptionsToRequestOptionsBase(options || {})
         };
         return this.client.sendOperationRequest(operationArguments, copyFromURLOperationSpec);
     }
@@ -20670,7 +20978,7 @@ class Blob$1 {
     abortCopyFromURL(copyId, options) {
         const operationArguments = {
             copyId,
-            options: coreHttp.operationOptionsToRequestOptionsBase(options || {})
+            options: coreHttp__namespace.operationOptionsToRequestOptionsBase(options || {})
         };
         return this.client.sendOperationRequest(operationArguments, abortCopyFromURLOperationSpec);
     }
@@ -20686,7 +20994,7 @@ class Blob$1 {
     setTier(tier, options) {
         const operationArguments = {
             tier,
-            options: coreHttp.operationOptionsToRequestOptionsBase(options || {})
+            options: coreHttp__namespace.operationOptionsToRequestOptionsBase(options || {})
         };
         return this.client.sendOperationRequest(operationArguments, setTierOperationSpec);
     }
@@ -20696,9 +21004,9 @@ class Blob$1 {
      */
     getAccountInfo(options) {
         const operationArguments = {
-            options: coreHttp.operationOptionsToRequestOptionsBase(options || {})
+            options: coreHttp__namespace.operationOptionsToRequestOptionsBase(options || {})
         };
-        return this.client.sendOperationRequest(operationArguments, getAccountInfoOperationSpec$2);
+        return this.client.sendOperationRequest(operationArguments, getAccountInfoOperationSpec);
     }
     /**
      * The Query operation enables users to select/project on blob data by providing simple query
@@ -20707,7 +21015,7 @@ class Blob$1 {
      */
     query(options) {
         const operationArguments = {
-            options: coreHttp.operationOptionsToRequestOptionsBase(options || {})
+            options: coreHttp__namespace.operationOptionsToRequestOptionsBase(options || {})
         };
         return this.client.sendOperationRequest(operationArguments, queryOperationSpec);
     }
@@ -20717,7 +21025,7 @@ class Blob$1 {
      */
     getTags(options) {
         const operationArguments = {
-            options: coreHttp.operationOptionsToRequestOptionsBase(options || {})
+            options: coreHttp__namespace.operationOptionsToRequestOptionsBase(options || {})
         };
         return this.client.sendOperationRequest(operationArguments, getTagsOperationSpec);
     }
@@ -20727,13 +21035,13 @@ class Blob$1 {
      */
     setTags(options) {
         const operationArguments = {
-            options: coreHttp.operationOptionsToRequestOptionsBase(options || {})
+            options: coreHttp__namespace.operationOptionsToRequestOptionsBase(options || {})
         };
         return this.client.sendOperationRequest(operationArguments, setTagsOperationSpec);
     }
 }
 // Operation Specifications
-const xmlSerializer$2 = new coreHttp.Serializer(Mappers, /* isXml */ true);
+const xmlSerializer$3 = new coreHttp__namespace.Serializer(Mappers, /* isXml */ true);
 const downloadOperationSpec = {
     path: "/{containerName}/{blob}",
     httpMethod: "GET",
@@ -20781,9 +21089,9 @@ const downloadOperationSpec = {
         ifTags
     ],
     isXML: true,
-    serializer: xmlSerializer$2
+    serializer: xmlSerializer$3
 };
-const getPropertiesOperationSpec$2 = {
+const getPropertiesOperationSpec = {
     path: "/{containerName}/{blob}",
     httpMethod: "HEAD",
     responses: {
@@ -20816,9 +21124,9 @@ const getPropertiesOperationSpec$2 = {
         ifTags
     ],
     isXML: true,
-    serializer: xmlSerializer$2
+    serializer: xmlSerializer$3
 };
-const deleteOperationSpec$1 = {
+const deleteOperationSpec = {
     path: "/{containerName}/{blob}",
     httpMethod: "DELETE",
     responses: {
@@ -20850,7 +21158,7 @@ const deleteOperationSpec$1 = {
         deleteSnapshots
     ],
     isXML: true,
-    serializer: xmlSerializer$2
+    serializer: xmlSerializer$3
 };
 const undeleteOperationSpec = {
     path: "/{containerName}/{blob}",
@@ -20872,7 +21180,7 @@ const undeleteOperationSpec = {
         accept1
     ],
     isXML: true,
-    serializer: xmlSerializer$2
+    serializer: xmlSerializer$3
 };
 const setExpiryOperationSpec = {
     path: "/{containerName}/{blob}",
@@ -20896,7 +21204,7 @@ const setExpiryOperationSpec = {
         expiresOn
     ],
     isXML: true,
-    serializer: xmlSerializer$2
+    serializer: xmlSerializer$3
 };
 const setHttpHeadersOperationSpec = {
     path: "/{containerName}/{blob}",
@@ -20930,7 +21238,7 @@ const setHttpHeadersOperationSpec = {
         blobContentDisposition
     ],
     isXML: true,
-    serializer: xmlSerializer$2
+    serializer: xmlSerializer$3
 };
 const setImmutabilityPolicyOperationSpec = {
     path: "/{containerName}/{blob}",
@@ -20955,7 +21263,7 @@ const setImmutabilityPolicyOperationSpec = {
         immutabilityPolicyMode
     ],
     isXML: true,
-    serializer: xmlSerializer$2
+    serializer: xmlSerializer$3
 };
 const deleteImmutabilityPolicyOperationSpec = {
     path: "/{containerName}/{blob}",
@@ -20977,7 +21285,7 @@ const deleteImmutabilityPolicyOperationSpec = {
         accept1
     ],
     isXML: true,
-    serializer: xmlSerializer$2
+    serializer: xmlSerializer$3
 };
 const setLegalHoldOperationSpec = {
     path: "/{containerName}/{blob}",
@@ -21000,9 +21308,9 @@ const setLegalHoldOperationSpec = {
         legalHold
     ],
     isXML: true,
-    serializer: xmlSerializer$2
+    serializer: xmlSerializer$3
 };
-const setMetadataOperationSpec$1 = {
+const setMetadataOperationSpec = {
     path: "/{containerName}/{blob}",
     httpMethod: "PUT",
     responses: {
@@ -21033,9 +21341,9 @@ const setMetadataOperationSpec$1 = {
         encryptionScope
     ],
     isXML: true,
-    serializer: xmlSerializer$2
+    serializer: xmlSerializer$3
 };
-const acquireLeaseOperationSpec$1 = {
+const acquireLeaseOperationSpec = {
     path: "/{containerName}/{blob}",
     httpMethod: "PUT",
     responses: {
@@ -21063,9 +21371,9 @@ const acquireLeaseOperationSpec$1 = {
         ifTags
     ],
     isXML: true,
-    serializer: xmlSerializer$2
+    serializer: xmlSerializer$3
 };
-const releaseLeaseOperationSpec$1 = {
+const releaseLeaseOperationSpec = {
     path: "/{containerName}/{blob}",
     httpMethod: "PUT",
     responses: {
@@ -21092,9 +21400,9 @@ const releaseLeaseOperationSpec$1 = {
         ifTags
     ],
     isXML: true,
-    serializer: xmlSerializer$2
+    serializer: xmlSerializer$3
 };
-const renewLeaseOperationSpec$1 = {
+const renewLeaseOperationSpec = {
     path: "/{containerName}/{blob}",
     httpMethod: "PUT",
     responses: {
@@ -21121,9 +21429,9 @@ const renewLeaseOperationSpec$1 = {
         ifTags
     ],
     isXML: true,
-    serializer: xmlSerializer$2
+    serializer: xmlSerializer$3
 };
-const changeLeaseOperationSpec$1 = {
+const changeLeaseOperationSpec = {
     path: "/{containerName}/{blob}",
     httpMethod: "PUT",
     responses: {
@@ -21151,9 +21459,9 @@ const changeLeaseOperationSpec$1 = {
         ifTags
     ],
     isXML: true,
-    serializer: xmlSerializer$2
+    serializer: xmlSerializer$3
 };
-const breakLeaseOperationSpec$1 = {
+const breakLeaseOperationSpec = {
     path: "/{containerName}/{blob}",
     httpMethod: "PUT",
     responses: {
@@ -21180,7 +21488,7 @@ const breakLeaseOperationSpec$1 = {
         ifTags
     ],
     isXML: true,
-    serializer: xmlSerializer$2
+    serializer: xmlSerializer$3
 };
 const createSnapshotOperationSpec = {
     path: "/{containerName}/{blob}",
@@ -21213,7 +21521,7 @@ const createSnapshotOperationSpec = {
         encryptionScope
     ],
     isXML: true,
-    serializer: xmlSerializer$2
+    serializer: xmlSerializer$3
 };
 const startCopyFromURLOperationSpec = {
     path: "/{containerName}/{blob}",
@@ -21255,7 +21563,7 @@ const startCopyFromURLOperationSpec = {
         legalHold1
     ],
     isXML: true,
-    serializer: xmlSerializer$2
+    serializer: xmlSerializer$3
 };
 const copyFromURLOperationSpec = {
     path: "/{containerName}/{blob}",
@@ -21284,6 +21592,7 @@ const copyFromURLOperationSpec = {
         ifTags,
         immutabilityPolicyExpiry,
         immutabilityPolicyMode,
+        encryptionScope,
         tier,
         sourceIfModifiedSince,
         sourceIfUnmodifiedSince,
@@ -21297,7 +21606,7 @@ const copyFromURLOperationSpec = {
         copySourceAuthorization
     ],
     isXML: true,
-    serializer: xmlSerializer$2
+    serializer: xmlSerializer$3
 };
 const abortCopyFromURLOperationSpec = {
     path: "/{containerName}/{blob}",
@@ -21325,7 +21634,7 @@ const abortCopyFromURLOperationSpec = {
         copyActionAbortConstant
     ],
     isXML: true,
-    serializer: xmlSerializer$2
+    serializer: xmlSerializer$3
 };
 const setTierOperationSpec = {
     path: "/{containerName}/{blob}",
@@ -21359,9 +21668,9 @@ const setTierOperationSpec = {
         tier1
     ],
     isXML: true,
-    serializer: xmlSerializer$2
+    serializer: xmlSerializer$3
 };
-const getAccountInfoOperationSpec$2 = {
+const getAccountInfoOperationSpec = {
     path: "/{containerName}/{blob}",
     httpMethod: "GET",
     responses: {
@@ -21377,7 +21686,7 @@ const getAccountInfoOperationSpec$2 = {
     urlParameters: [url],
     headerParameters: [version, accept1],
     isXML: true,
-    serializer: xmlSerializer$2
+    serializer: xmlSerializer$3
 };
 const queryOperationSpec = {
     path: "/{containerName}/{blob}",
@@ -21427,7 +21736,7 @@ const queryOperationSpec = {
     isXML: true,
     contentType: "application/xml; charset=utf-8",
     mediaType: "xml",
-    serializer: xmlSerializer$2
+    serializer: xmlSerializer$3
 };
 const getTagsOperationSpec = {
     path: "/{containerName}/{blob}",
@@ -21457,7 +21766,7 @@ const getTagsOperationSpec = {
         ifTags
     ],
     isXML: true,
-    serializer: xmlSerializer$2
+    serializer: xmlSerializer$3
 };
 const setTagsOperationSpec = {
     path: "/{containerName}/{blob}",
@@ -21491,7 +21800,7 @@ const setTagsOperationSpec = {
     isXML: true,
     contentType: "application/xml; charset=utf-8",
     mediaType: "xml",
-    serializer: xmlSerializer$2
+    serializer: xmlSerializer$3
 };
 
 /*
@@ -21521,7 +21830,7 @@ class PageBlob {
         const operationArguments = {
             contentLength,
             blobContentLength,
-            options: coreHttp.operationOptionsToRequestOptionsBase(options || {})
+            options: coreHttp__namespace.operationOptionsToRequestOptionsBase(options || {})
         };
         return this.client.sendOperationRequest(operationArguments, createOperationSpec$1);
     }
@@ -21535,7 +21844,7 @@ class PageBlob {
         const operationArguments = {
             contentLength,
             body,
-            options: coreHttp.operationOptionsToRequestOptionsBase(options || {})
+            options: coreHttp__namespace.operationOptionsToRequestOptionsBase(options || {})
         };
         return this.client.sendOperationRequest(operationArguments, uploadPagesOperationSpec);
     }
@@ -21547,7 +21856,7 @@ class PageBlob {
     clearPages(contentLength, options) {
         const operationArguments = {
             contentLength,
-            options: coreHttp.operationOptionsToRequestOptionsBase(options || {})
+            options: coreHttp__namespace.operationOptionsToRequestOptionsBase(options || {})
         };
         return this.client.sendOperationRequest(operationArguments, clearPagesOperationSpec);
     }
@@ -21568,7 +21877,7 @@ class PageBlob {
             sourceRange,
             contentLength,
             range,
-            options: coreHttp.operationOptionsToRequestOptionsBase(options || {})
+            options: coreHttp__namespace.operationOptionsToRequestOptionsBase(options || {})
         };
         return this.client.sendOperationRequest(operationArguments, uploadPagesFromURLOperationSpec);
     }
@@ -21579,7 +21888,7 @@ class PageBlob {
      */
     getPageRanges(options) {
         const operationArguments = {
-            options: coreHttp.operationOptionsToRequestOptionsBase(options || {})
+            options: coreHttp__namespace.operationOptionsToRequestOptionsBase(options || {})
         };
         return this.client.sendOperationRequest(operationArguments, getPageRangesOperationSpec);
     }
@@ -21590,7 +21899,7 @@ class PageBlob {
      */
     getPageRangesDiff(options) {
         const operationArguments = {
-            options: coreHttp.operationOptionsToRequestOptionsBase(options || {})
+            options: coreHttp__namespace.operationOptionsToRequestOptionsBase(options || {})
         };
         return this.client.sendOperationRequest(operationArguments, getPageRangesDiffOperationSpec);
     }
@@ -21603,7 +21912,7 @@ class PageBlob {
     resize(blobContentLength, options) {
         const operationArguments = {
             blobContentLength,
-            options: coreHttp.operationOptionsToRequestOptionsBase(options || {})
+            options: coreHttp__namespace.operationOptionsToRequestOptionsBase(options || {})
         };
         return this.client.sendOperationRequest(operationArguments, resizeOperationSpec);
     }
@@ -21617,7 +21926,7 @@ class PageBlob {
     updateSequenceNumber(sequenceNumberAction, options) {
         const operationArguments = {
             sequenceNumberAction,
-            options: coreHttp.operationOptionsToRequestOptionsBase(options || {})
+            options: coreHttp__namespace.operationOptionsToRequestOptionsBase(options || {})
         };
         return this.client.sendOperationRequest(operationArguments, updateSequenceNumberOperationSpec);
     }
@@ -21636,14 +21945,14 @@ class PageBlob {
     copyIncremental(copySource, options) {
         const operationArguments = {
             copySource,
-            options: coreHttp.operationOptionsToRequestOptionsBase(options || {})
+            options: coreHttp__namespace.operationOptionsToRequestOptionsBase(options || {})
         };
         return this.client.sendOperationRequest(operationArguments, copyIncrementalOperationSpec);
     }
 }
 // Operation Specifications
-const xmlSerializer$3 = new coreHttp.Serializer(Mappers, /* isXml */ true);
-const serializer = new coreHttp.Serializer(Mappers, /* isXml */ false);
+const xmlSerializer$2 = new coreHttp__namespace.Serializer(Mappers, /* isXml */ true);
+const serializer$2 = new coreHttp__namespace.Serializer(Mappers, /* isXml */ false);
 const createOperationSpec$1 = {
     path: "/{containerName}/{blob}",
     httpMethod: "PUT",
@@ -21690,7 +21999,7 @@ const createOperationSpec$1 = {
         blobSequenceNumber
     ],
     isXML: true,
-    serializer: xmlSerializer$3
+    serializer: xmlSerializer$2
 };
 const uploadPagesOperationSpec = {
     path: "/{containerName}/{blob}",
@@ -21732,7 +22041,7 @@ const uploadPagesOperationSpec = {
         ifSequenceNumberEqualTo
     ],
     mediaType: "binary",
-    serializer
+    serializer: serializer$2
 };
 const clearPagesOperationSpec = {
     path: "/{containerName}/{blob}",
@@ -21770,7 +22079,7 @@ const clearPagesOperationSpec = {
         pageWrite1
     ],
     isXML: true,
-    serializer: xmlSerializer$3
+    serializer: xmlSerializer$2
 };
 const uploadPagesFromURLOperationSpec = {
     path: "/{containerName}/{blob}",
@@ -21817,7 +22126,7 @@ const uploadPagesFromURLOperationSpec = {
         range1
     ],
     isXML: true,
-    serializer: xmlSerializer$3
+    serializer: xmlSerializer$2
 };
 const getPageRangesOperationSpec = {
     path: "/{containerName}/{blob}",
@@ -21851,7 +22160,7 @@ const getPageRangesOperationSpec = {
         ifTags
     ],
     isXML: true,
-    serializer: xmlSerializer$3
+    serializer: xmlSerializer$2
 };
 const getPageRangesDiffOperationSpec = {
     path: "/{containerName}/{blob}",
@@ -21887,7 +22196,7 @@ const getPageRangesDiffOperationSpec = {
         prevSnapshotUrl
     ],
     isXML: true,
-    serializer: xmlSerializer$3
+    serializer: xmlSerializer$2
 };
 const resizeOperationSpec = {
     path: "/{containerName}/{blob}",
@@ -21920,7 +22229,7 @@ const resizeOperationSpec = {
         blobContentLength
     ],
     isXML: true,
-    serializer: xmlSerializer$3
+    serializer: xmlSerializer$2
 };
 const updateSequenceNumberOperationSpec = {
     path: "/{containerName}/{blob}",
@@ -21950,7 +22259,7 @@ const updateSequenceNumberOperationSpec = {
         sequenceNumberAction
     ],
     isXML: true,
-    serializer: xmlSerializer$3
+    serializer: xmlSerializer$2
 };
 const copyIncrementalOperationSpec = {
     path: "/{containerName}/{blob}",
@@ -21978,7 +22287,7 @@ const copyIncrementalOperationSpec = {
         copySource
     ],
     isXML: true,
-    serializer: xmlSerializer$3
+    serializer: xmlSerializer$2
 };
 
 /*
@@ -22005,9 +22314,9 @@ class AppendBlob {
     create(contentLength, options) {
         const operationArguments = {
             contentLength,
-            options: coreHttp.operationOptionsToRequestOptionsBase(options || {})
+            options: coreHttp__namespace.operationOptionsToRequestOptionsBase(options || {})
         };
-        return this.client.sendOperationRequest(operationArguments, createOperationSpec$2);
+        return this.client.sendOperationRequest(operationArguments, createOperationSpec);
     }
     /**
      * The Append Block operation commits a new block of data to the end of an existing append blob. The
@@ -22021,7 +22330,7 @@ class AppendBlob {
         const operationArguments = {
             contentLength,
             body,
-            options: coreHttp.operationOptionsToRequestOptionsBase(options || {})
+            options: coreHttp__namespace.operationOptionsToRequestOptionsBase(options || {})
         };
         return this.client.sendOperationRequest(operationArguments, appendBlockOperationSpec);
     }
@@ -22038,7 +22347,7 @@ class AppendBlob {
         const operationArguments = {
             sourceUrl,
             contentLength,
-            options: coreHttp.operationOptionsToRequestOptionsBase(options || {})
+            options: coreHttp__namespace.operationOptionsToRequestOptionsBase(options || {})
         };
         return this.client.sendOperationRequest(operationArguments, appendBlockFromUrlOperationSpec);
     }
@@ -22049,15 +22358,15 @@ class AppendBlob {
      */
     seal(options) {
         const operationArguments = {
-            options: coreHttp.operationOptionsToRequestOptionsBase(options || {})
+            options: coreHttp__namespace.operationOptionsToRequestOptionsBase(options || {})
         };
         return this.client.sendOperationRequest(operationArguments, sealOperationSpec);
     }
 }
 // Operation Specifications
-const xmlSerializer$4 = new coreHttp.Serializer(Mappers, /* isXml */ true);
-const serializer$1 = new coreHttp.Serializer(Mappers, /* isXml */ false);
-const createOperationSpec$2 = {
+const xmlSerializer$1 = new coreHttp__namespace.Serializer(Mappers, /* isXml */ true);
+const serializer$1 = new coreHttp__namespace.Serializer(Mappers, /* isXml */ false);
+const createOperationSpec = {
     path: "/{containerName}/{blob}",
     httpMethod: "PUT",
     responses: {
@@ -22100,7 +22409,7 @@ const createOperationSpec$2 = {
         blobType1
     ],
     isXML: true,
-    serializer: xmlSerializer$4
+    serializer: xmlSerializer$1
 };
 const appendBlockOperationSpec = {
     path: "/{containerName}/{blob}",
@@ -22184,7 +22493,7 @@ const appendBlockFromUrlOperationSpec = {
         sourceRange1
     ],
     isXML: true,
-    serializer: xmlSerializer$4
+    serializer: xmlSerializer$1
 };
 const sealOperationSpec = {
     path: "/{containerName}/{blob}",
@@ -22212,7 +22521,7 @@ const sealOperationSpec = {
         appendPosition
     ],
     isXML: true,
-    serializer: xmlSerializer$4
+    serializer: xmlSerializer$1
 };
 
 /*
@@ -22244,7 +22553,7 @@ class BlockBlob {
         const operationArguments = {
             contentLength,
             body,
-            options: coreHttp.operationOptionsToRequestOptionsBase(options || {})
+            options: coreHttp__namespace.operationOptionsToRequestOptionsBase(options || {})
         };
         return this.client.sendOperationRequest(operationArguments, uploadOperationSpec);
     }
@@ -22265,7 +22574,7 @@ class BlockBlob {
         const operationArguments = {
             contentLength,
             copySource,
-            options: coreHttp.operationOptionsToRequestOptionsBase(options || {})
+            options: coreHttp__namespace.operationOptionsToRequestOptionsBase(options || {})
         };
         return this.client.sendOperationRequest(operationArguments, putBlobFromUrlOperationSpec);
     }
@@ -22283,7 +22592,7 @@ class BlockBlob {
             blockId,
             contentLength,
             body,
-            options: coreHttp.operationOptionsToRequestOptionsBase(options || {})
+            options: coreHttp__namespace.operationOptionsToRequestOptionsBase(options || {})
         };
         return this.client.sendOperationRequest(operationArguments, stageBlockOperationSpec);
     }
@@ -22302,7 +22611,7 @@ class BlockBlob {
             blockId,
             contentLength,
             sourceUrl,
-            options: coreHttp.operationOptionsToRequestOptionsBase(options || {})
+            options: coreHttp__namespace.operationOptionsToRequestOptionsBase(options || {})
         };
         return this.client.sendOperationRequest(operationArguments, stageBlockFromURLOperationSpec);
     }
@@ -22320,7 +22629,7 @@ class BlockBlob {
     commitBlockList(blocks, options) {
         const operationArguments = {
             blocks,
-            options: coreHttp.operationOptionsToRequestOptionsBase(options || {})
+            options: coreHttp__namespace.operationOptionsToRequestOptionsBase(options || {})
         };
         return this.client.sendOperationRequest(operationArguments, commitBlockListOperationSpec);
     }
@@ -22334,14 +22643,14 @@ class BlockBlob {
     getBlockList(listType, options) {
         const operationArguments = {
             listType,
-            options: coreHttp.operationOptionsToRequestOptionsBase(options || {})
+            options: coreHttp__namespace.operationOptionsToRequestOptionsBase(options || {})
         };
         return this.client.sendOperationRequest(operationArguments, getBlockListOperationSpec);
     }
 }
 // Operation Specifications
-const xmlSerializer$5 = new coreHttp.Serializer(Mappers, /* isXml */ true);
-const serializer$2 = new coreHttp.Serializer(Mappers, /* isXml */ false);
+const xmlSerializer = new coreHttp__namespace.Serializer(Mappers, /* isXml */ true);
+const serializer = new coreHttp__namespace.Serializer(Mappers, /* isXml */ false);
 const uploadOperationSpec = {
     path: "/{containerName}/{blob}",
     httpMethod: "PUT",
@@ -22389,7 +22698,7 @@ const uploadOperationSpec = {
         blobType2
     ],
     mediaType: "binary",
-    serializer: serializer$2
+    serializer
 };
 const putBlobFromUrlOperationSpec = {
     path: "/{containerName}/{blob}",
@@ -22442,7 +22751,7 @@ const putBlobFromUrlOperationSpec = {
         copySourceBlobProperties
     ],
     isXML: true,
-    serializer: xmlSerializer$5
+    serializer: xmlSerializer
 };
 const stageBlockOperationSpec = {
     path: "/{containerName}/{blob}",
@@ -22478,7 +22787,7 @@ const stageBlockOperationSpec = {
         accept2
     ],
     mediaType: "binary",
-    serializer: serializer$2
+    serializer
 };
 const stageBlockFromURLOperationSpec = {
     path: "/{containerName}/{blob}",
@@ -22519,7 +22828,7 @@ const stageBlockFromURLOperationSpec = {
         sourceRange1
     ],
     isXML: true,
-    serializer: xmlSerializer$5
+    serializer: xmlSerializer
 };
 const commitBlockListOperationSpec = {
     path: "/{containerName}/{blob}",
@@ -22569,7 +22878,7 @@ const commitBlockListOperationSpec = {
     isXML: true,
     contentType: "application/xml; charset=utf-8",
     mediaType: "xml",
-    serializer: xmlSerializer$5
+    serializer: xmlSerializer
 };
 const getBlockListOperationSpec = {
     path: "/{containerName}/{blob}",
@@ -22599,7 +22908,7 @@ const getBlockListOperationSpec = {
         ifTags
     ],
     isXML: true,
-    serializer: xmlSerializer$5
+    serializer: xmlSerializer
 };
 
 // Copyright (c) Microsoft Corporation.
@@ -22610,8 +22919,8 @@ const logger = logger$1.createClientLogger("storage-blob");
 
 // Copyright (c) Microsoft Corporation.
 // Licensed under the MIT license.
-const SDK_VERSION = "12.8.0";
-const SERVICE_VERSION = "2020-10-02";
+const SDK_VERSION = "12.9.0";
+const SERVICE_VERSION = "2021-04-10";
 const BLOCK_BLOB_MAX_UPLOAD_BLOB_BYTES = 256 * 1024 * 1024; // 256MB
 const BLOCK_BLOB_MAX_STAGE_BLOCK_BYTES = 4000 * 1024 * 1024; // 4000MB
 const BLOCK_BLOB_MAX_BLOCKS = 50000;
@@ -22628,15 +22937,15 @@ const URLConstants = {
         SIGNATURE: "sig",
         SNAPSHOT: "snapshot",
         VERSIONID: "versionid",
-        TIMEOUT: "timeout"
-    }
+        TIMEOUT: "timeout",
+    },
 };
 const HTTPURLConnection = {
     HTTP_ACCEPTED: 202,
     HTTP_CONFLICT: 409,
     HTTP_NOT_FOUND: 404,
     HTTP_PRECON_FAILED: 412,
-    HTTP_RANGE_NOT_SATISFIABLE: 416
+    HTTP_RANGE_NOT_SATISFIABLE: 416,
 };
 const HeaderConstants = {
     AUTHORIZATION: "Authorization",
@@ -22661,7 +22970,7 @@ const HeaderConstants = {
     X_MS_COPY_SOURCE: "x-ms-copy-source",
     X_MS_DATE: "x-ms-date",
     X_MS_ERROR_CODE: "x-ms-error-code",
-    X_MS_VERSION: "x-ms-version"
+    X_MS_VERSION: "x-ms-version",
 };
 const ETagNone = "";
 const ETagAny = "*";
@@ -22766,7 +23075,7 @@ const StorageBlobLoggingAllowedHeaderNames = [
     "x-ms-tag-count",
     "x-ms-encryption-key-sha256",
     "x-ms-if-tags",
-    "x-ms-source-if-tags"
+    "x-ms-source-if-tags",
 ];
 const StorageBlobLoggingAllowedQueryParameters = [
     "comp",
@@ -22801,8 +23110,9 @@ const StorageBlobLoggingAllowedQueryParameters = [
     "skt",
     "sktid",
     "skv",
-    "snapshot"
+    "snapshot",
 ];
+const BlobUsesCustomerSpecifiedEncryptionMsg = "BlobUsesCustomerSpecifiedEncryption";
 
 // Copyright (c) Microsoft Corporation.
 /**
@@ -22942,7 +23252,7 @@ function extractConnectionStringParts(connectionString) {
             url: blobEndpoint,
             accountName,
             accountKey,
-            proxyUri
+            proxyUri,
         };
     }
     else {
@@ -23274,14 +23584,14 @@ function toBlobTags(tags) {
         return undefined;
     }
     const res = {
-        blobTagSet: []
+        blobTagSet: [],
     };
     for (const key in tags) {
         if (Object.prototype.hasOwnProperty.call(tags, key)) {
             const value = tags[key];
             res.blobTagSet.push({
                 key,
-                value
+                value,
             });
         }
     }
@@ -23321,33 +23631,33 @@ function toQuerySerialization(textConfiguration) {
                         fieldQuote: textConfiguration.fieldQuote || "",
                         recordSeparator: textConfiguration.recordSeparator,
                         escapeChar: textConfiguration.escapeCharacter || "",
-                        headersPresent: textConfiguration.hasHeaders || false
-                    }
-                }
+                        headersPresent: textConfiguration.hasHeaders || false,
+                    },
+                },
             };
         case "json":
             return {
                 format: {
                     type: "json",
                     jsonTextConfiguration: {
-                        recordSeparator: textConfiguration.recordSeparator
-                    }
-                }
+                        recordSeparator: textConfiguration.recordSeparator,
+                    },
+                },
             };
         case "arrow":
             return {
                 format: {
                     type: "arrow",
                     arrowConfiguration: {
-                        schema: textConfiguration.schema
-                    }
-                }
+                        schema: textConfiguration.schema,
+                    },
+                },
             };
         case "parquet":
             return {
                 format: {
-                    type: "parquet"
-                }
+                    type: "parquet",
+                },
             };
         default:
             throw Error("Invalid BlobQueryTextConfiguration.");
@@ -23371,7 +23681,7 @@ function parseObjectReplicationRecord(objectReplicationRecord) {
         }
         const rule = {
             ruleId: ids[1],
-            replicationStatus: objectReplicationRecord[key]
+            replicationStatus: objectReplicationRecord[key],
         };
         const policyIndex = orProperties.findIndex((policy) => policy.policyId === ids[0]);
         if (policyIndex > -1) {
@@ -23380,7 +23690,7 @@ function parseObjectReplicationRecord(objectReplicationRecord) {
         else {
             orProperties.push({
                 policyId: ids[0],
-                rules: [rule]
+                rules: [rule],
             });
         }
     }
@@ -23398,6 +23708,202 @@ function attachCredential(thing, credential) {
 }
 function httpAuthorizationToString(httpAuthorization) {
     return httpAuthorization ? httpAuthorization.scheme + " " + httpAuthorization.value : undefined;
+}
+function BlobNameToString(name) {
+    if (name.encoded) {
+        return decodeURIComponent(name.content);
+    }
+    else {
+        return name.content;
+    }
+}
+function ConvertInternalResponseOfListBlobFlat(internalResponse) {
+    return Object.assign(Object.assign({}, internalResponse), { segment: {
+            blobItems: internalResponse.segment.blobItems.map((blobItemInteral) => {
+                const blobItem = Object.assign(Object.assign({}, blobItemInteral), { name: BlobNameToString(blobItemInteral.name) });
+                return blobItem;
+            }),
+        } });
+}
+function ConvertInternalResponseOfListBlobHierarchy(internalResponse) {
+    var _a;
+    return Object.assign(Object.assign({}, internalResponse), { segment: {
+            blobPrefixes: (_a = internalResponse.segment.blobPrefixes) === null || _a === void 0 ? void 0 : _a.map((blobPrefixInternal) => {
+                const blobPrefix = {
+                    name: BlobNameToString(blobPrefixInternal.name),
+                };
+                return blobPrefix;
+            }),
+            blobItems: internalResponse.segment.blobItems.map((blobItemInteral) => {
+                const blobItem = Object.assign(Object.assign({}, blobItemInteral), { name: BlobNameToString(blobItemInteral.name) });
+                return blobItem;
+            }),
+        } });
+}
+function decodeBase64String(value) {
+    if (coreHttp.isNode) {
+        return Buffer.from(value, "base64");
+    }
+    else {
+        const byteString = atob(value);
+        const arr = new Uint8Array(byteString.length);
+        for (let i = 0; i < byteString.length; i++) {
+            arr[i] = byteString.charCodeAt(i);
+        }
+        return arr;
+    }
+}
+function ParseBoolean(content) {
+    if (content === undefined)
+        return undefined;
+    if (content === "true")
+        return true;
+    if (content === "false")
+        return false;
+    return undefined;
+}
+function ParseBlobName(blobNameInXML) {
+    if (blobNameInXML["$"] !== undefined && blobNameInXML["#"] !== undefined) {
+        return {
+            encoded: ParseBoolean(blobNameInXML["$"]["Encoded"]),
+            content: blobNameInXML["#"],
+        };
+    }
+    else {
+        return {
+            encoded: false,
+            content: blobNameInXML,
+        };
+    }
+}
+function ParseBlobItem(blobInXML) {
+    const blobPropertiesInXML = blobInXML["Properties"];
+    const blobProperties = {
+        createdOn: new Date(blobPropertiesInXML["Creation-Time"]),
+        lastModified: new Date(blobPropertiesInXML["Last-Modified"]),
+        etag: blobPropertiesInXML["Etag"],
+        contentLength: blobPropertiesInXML["Content-Length"] === undefined
+            ? undefined
+            : parseFloat(blobPropertiesInXML["Content-Length"]),
+        contentType: blobPropertiesInXML["Content-Type"],
+        contentEncoding: blobPropertiesInXML["Content-Encoding"],
+        contentLanguage: blobPropertiesInXML["Content-Language"],
+        contentMD5: decodeBase64String(blobPropertiesInXML["Content-MD5"]),
+        contentDisposition: blobPropertiesInXML["Content-Disposition"],
+        cacheControl: blobPropertiesInXML["Cache-Control"],
+        blobSequenceNumber: blobPropertiesInXML["x-ms-blob-sequence-number"] === undefined
+            ? undefined
+            : parseFloat(blobPropertiesInXML["x-ms-blob-sequence-number"]),
+        blobType: blobPropertiesInXML["BlobType"],
+        leaseStatus: blobPropertiesInXML["LeaseStatus"],
+        leaseState: blobPropertiesInXML["LeaseState"],
+        leaseDuration: blobPropertiesInXML["LeaseDuration"],
+        copyId: blobPropertiesInXML["CopyId"],
+        copyStatus: blobPropertiesInXML["CopyStatus"],
+        copySource: blobPropertiesInXML["CopySource"],
+        copyProgress: blobPropertiesInXML["CopyProgress"],
+        copyCompletedOn: blobPropertiesInXML["CopyCompletionTime"] === undefined
+            ? undefined
+            : new Date(blobPropertiesInXML["CopyCompletionTime"]),
+        copyStatusDescription: blobPropertiesInXML["CopyStatusDescription"],
+        serverEncrypted: ParseBoolean(blobPropertiesInXML["ServerEncrypted"]),
+        incrementalCopy: ParseBoolean(blobPropertiesInXML["IncrementalCopy"]),
+        destinationSnapshot: blobPropertiesInXML["DestinationSnapshot"],
+        deletedOn: blobPropertiesInXML["DeletedTime"] === undefined
+            ? undefined
+            : new Date(blobPropertiesInXML["DeletedTime"]),
+        remainingRetentionDays: blobPropertiesInXML["RemainingRetentionDays"] === undefined
+            ? undefined
+            : parseFloat(blobPropertiesInXML["RemainingRetentionDays"]),
+        accessTier: blobPropertiesInXML["AccessTier"],
+        accessTierInferred: ParseBoolean(blobPropertiesInXML["AccessTierInferred"]),
+        archiveStatus: blobPropertiesInXML["ArchiveStatus"],
+        customerProvidedKeySha256: blobPropertiesInXML["CustomerProvidedKeySha256"],
+        encryptionScope: blobPropertiesInXML["EncryptionScope"],
+        accessTierChangedOn: blobPropertiesInXML["AccessTierChangeTime"] === undefined
+            ? undefined
+            : new Date(blobPropertiesInXML["AccessTierChangeTime"]),
+        tagCount: blobPropertiesInXML["TagCount"] === undefined
+            ? undefined
+            : parseFloat(blobPropertiesInXML["TagCount"]),
+        expiresOn: blobPropertiesInXML["Expiry-Time"] === undefined
+            ? undefined
+            : new Date(blobPropertiesInXML["Expiry-Time"]),
+        isSealed: ParseBoolean(blobPropertiesInXML["Sealed"]),
+        rehydratePriority: blobPropertiesInXML["RehydratePriority"],
+        lastAccessedOn: blobPropertiesInXML["LastAccessTime"] === undefined
+            ? undefined
+            : new Date(blobPropertiesInXML["LastAccessTime"]),
+        immutabilityPolicyExpiresOn: blobPropertiesInXML["ImmutabilityPolicyUntilDate"] === undefined
+            ? undefined
+            : new Date(blobPropertiesInXML["ImmutabilityPolicyUntilDate"]),
+        immutabilityPolicyMode: blobPropertiesInXML["ImmutabilityPolicyMode"],
+        legalHold: ParseBoolean(blobPropertiesInXML["LegalHold"]),
+    };
+    return {
+        name: ParseBlobName(blobInXML["Name"]),
+        deleted: ParseBoolean(blobInXML["Deleted"]),
+        snapshot: blobInXML["Snapshot"],
+        versionId: blobInXML["VersionId"],
+        isCurrentVersion: ParseBoolean(blobInXML["IsCurrentVersion"]),
+        properties: blobProperties,
+        metadata: blobInXML["Metadata"],
+        blobTags: ParseBlobTags(blobInXML["Tags"]),
+        objectReplicationMetadata: blobInXML["OrMetadata"],
+        hasVersionsOnly: ParseBoolean(blobInXML["HasVersionsOnly"]),
+    };
+}
+function ParseBlobPrefix(blobPrefixInXML) {
+    return {
+        name: ParseBlobName(blobPrefixInXML["Name"]),
+    };
+}
+function ParseBlobTag(blobTagInXML) {
+    return {
+        key: blobTagInXML["Key"],
+        value: blobTagInXML["Value"],
+    };
+}
+function ParseBlobTags(blobTagsInXML) {
+    if (blobTagsInXML === undefined ||
+        blobTagsInXML["TagSet"] === undefined ||
+        blobTagsInXML["TagSet"]["Tag"] === undefined) {
+        return undefined;
+    }
+    const blobTagSet = [];
+    if (blobTagsInXML["TagSet"]["Tag"] instanceof Array) {
+        blobTagsInXML["TagSet"]["Tag"].forEach((blobTagInXML) => {
+            blobTagSet.push(ParseBlobTag(blobTagInXML));
+        });
+    }
+    else {
+        blobTagSet.push(ParseBlobTag(blobTagsInXML["TagSet"]["Tag"]));
+    }
+    return { blobTagSet: blobTagSet };
+}
+function ProcessBlobItems(blobArrayInXML) {
+    const blobItems = [];
+    if (blobArrayInXML instanceof Array) {
+        blobArrayInXML.forEach((blobInXML) => {
+            blobItems.push(ParseBlobItem(blobInXML));
+        });
+    }
+    else {
+        blobItems.push(ParseBlobItem(blobArrayInXML));
+    }
+    return blobItems;
+}
+function ProcessBlobPrefixes(blobPrefixesInXML) {
+    const blobPrefixes = [];
+    if (blobPrefixesInXML instanceof Array) {
+        blobPrefixesInXML.forEach((blobPrefixInXML) => {
+            blobPrefixes.push(ParseBlobPrefix(blobPrefixInXML));
+        });
+    }
+    else {
+        blobPrefixes.push(ParseBlobPrefix(blobPrefixesInXML));
+    }
+    return blobPrefixes;
 }
 
 // Copyright (c) Microsoft Corporation.
@@ -23429,9 +23935,16 @@ class StorageBrowserPolicy extends coreHttp.BaseRequestPolicy {
      * @param request -
      */
     async sendRequest(request) {
-        {
+        if (coreHttp.isNode) {
             return this._nextPolicy.sendRequest(request);
         }
+        if (request.method.toUpperCase() === "GET" || request.method.toUpperCase() === "HEAD") {
+            request.url = setURLParameter(request.url, URLConstants.Parameters.FORCE_BROWSER_NO_CACHE, new Date().getTime().toString());
+        }
+        request.headers.remove(HeaderConstants.COOKIE);
+        // According to XHR standards, content-length should be fully controlled by browsers
+        request.headers.remove(HeaderConstants.CONTENT_LENGTH);
+        return this._nextPolicy.sendRequest(request);
     }
 }
 
@@ -23452,6 +23965,10 @@ class StorageBrowserPolicyFactory {
 }
 
 // Copyright (c) Microsoft Corporation.
+/**
+ * RetryPolicy types.
+ */
+exports.StorageRetryPolicyType = void 0;
 (function (StorageRetryPolicyType) {
     /**
      * Exponential retry. Retry time delay grows exponentially.
@@ -23469,7 +23986,7 @@ const DEFAULT_RETRY_OPTIONS = {
     retryDelayInMs: 4 * 1000,
     retryPolicyType: exports.StorageRetryPolicyType.EXPONENTIAL,
     secondaryHost: "",
-    tryTimeoutInMs: undefined // Use server side default timeout strategy
+    tryTimeoutInMs: undefined, // Use server side default timeout strategy
 };
 const RETRY_ABORT_ERROR = new abortController.AbortError("The operation was aborted.");
 /**
@@ -23506,7 +24023,7 @@ class StorageRetryPolicy extends coreHttp.BaseRequestPolicy {
                 : DEFAULT_RETRY_OPTIONS.maxRetryDelayInMs,
             secondaryHost: retryOptions.secondaryHost
                 ? retryOptions.secondaryHost
-                : DEFAULT_RETRY_OPTIONS.secondaryHost
+                : DEFAULT_RETRY_OPTIONS.secondaryHost,
         };
     }
     /**
@@ -23583,7 +24100,7 @@ class StorageRetryPolicy extends coreHttp.BaseRequestPolicy {
             "ENOTFOUND",
             "TIMEOUT",
             "EPIPE",
-            "REQUEST_SEND_ERROR" // For default xhr based http client provided in ms-rest-js
+            "REQUEST_SEND_ERROR", // For default xhr based http client provided in ms-rest-js
         ];
         if (err) {
             for (const retriableError of retriableErrors) {
@@ -23769,7 +24286,7 @@ class TelemetryPolicy extends coreHttp.BaseRequestPolicy {
      * @param request -
      */
     async sendRequest(request) {
-        {
+        if (coreHttp.isNode) {
             if (!request.headers) {
                 request.headers = new coreHttp.HttpHeaders();
             }
@@ -23792,7 +24309,7 @@ class TelemetryPolicyFactory {
      */
     constructor(telemetry) {
         const userAgentInfo = [];
-        {
+        if (coreHttp.isNode) {
             if (telemetry) {
                 const telemetryString = telemetry.userAgentPrefix || "";
                 if (telemetryString.length > 0 && userAgentInfo.indexOf(telemetryString) === -1) {
@@ -23805,7 +24322,7 @@ class TelemetryPolicyFactory {
                 userAgentInfo.push(libInfo);
             }
             // e.g. (NODE-VERSION 4.9.1; Windows_NT 10.0.16299)
-            const runtimeInfo = `(NODE-VERSION ${process.version}; ${os.type()} ${os.release()})`;
+            const runtimeInfo = `(NODE-VERSION ${process.version}; ${os__namespace.type()} ${os__namespace.release()})`;
             if (userAgentInfo.indexOf(runtimeInfo) === -1) {
                 userAgentInfo.push(runtimeInfo);
             }
@@ -23827,6 +24344,247 @@ class TelemetryPolicyFactory {
 const _defaultHttpClient = new coreHttp.DefaultHttpClient();
 function getCachedDefaultHttpClient() {
     return _defaultHttpClient;
+}
+
+// Copyright (c) Microsoft Corporation.
+/**
+ * A set of constants used internally when processing requests.
+ */
+const Constants = {
+    DefaultScope: "/.default",
+    /**
+     * Defines constants for use with HTTP headers.
+     */
+    HeaderConstants: {
+        /**
+         * The Authorization header.
+         */
+        AUTHORIZATION: "authorization",
+    },
+};
+// Default options for the cycler if none are provided
+const DEFAULT_CYCLER_OPTIONS = {
+    forcedRefreshWindowInMs: 1000,
+    retryIntervalInMs: 3000,
+    refreshWindowInMs: 1000 * 60 * 2, // Start refreshing 2m before expiry
+};
+/**
+ * Converts an an unreliable access token getter (which may resolve with null)
+ * into an AccessTokenGetter by retrying the unreliable getter in a regular
+ * interval.
+ *
+ * @param getAccessToken - a function that produces a promise of an access
+ * token that may fail by returning null
+ * @param retryIntervalInMs - the time (in milliseconds) to wait between retry
+ * attempts
+ * @param timeoutInMs - the timestamp after which the refresh attempt will fail,
+ * throwing an exception
+ * @returns - a promise that, if it resolves, will resolve with an access token
+ */
+async function beginRefresh(getAccessToken, retryIntervalInMs, timeoutInMs) {
+    // This wrapper handles exceptions gracefully as long as we haven't exceeded
+    // the timeout.
+    async function tryGetAccessToken() {
+        if (Date.now() < timeoutInMs) {
+            try {
+                return await getAccessToken();
+            }
+            catch (_a) {
+                return null;
+            }
+        }
+        else {
+            const finalToken = await getAccessToken();
+            // Timeout is up, so throw if it's still null
+            if (finalToken === null) {
+                throw new Error("Failed to refresh access token.");
+            }
+            return finalToken;
+        }
+    }
+    let token = await tryGetAccessToken();
+    while (token === null) {
+        await coreHttp.delay(retryIntervalInMs);
+        token = await tryGetAccessToken();
+    }
+    return token;
+}
+/**
+ * Creates a token cycler from a credential, scopes, and optional settings.
+ *
+ * A token cycler represents a way to reliably retrieve a valid access token
+ * from a TokenCredential. It will handle initializing the token, refreshing it
+ * when it nears expiration, and synchronizes refresh attempts to avoid
+ * concurrency hazards.
+ *
+ * @param credential - the underlying TokenCredential that provides the access
+ * token
+ * @param scopes - the scopes to request authorization for
+ * @param tokenCyclerOptions - optionally override default settings for the cycler
+ *
+ * @returns - a function that reliably produces a valid access token
+ */
+function createTokenCycler(credential, scopes, tokenCyclerOptions) {
+    let refreshWorker = null;
+    let token = null;
+    const options = Object.assign(Object.assign({}, DEFAULT_CYCLER_OPTIONS), tokenCyclerOptions);
+    /**
+     * This little holder defines several predicates that we use to construct
+     * the rules of refreshing the token.
+     */
+    const cycler = {
+        /**
+         * Produces true if a refresh job is currently in progress.
+         */
+        get isRefreshing() {
+            return refreshWorker !== null;
+        },
+        /**
+         * Produces true if the cycler SHOULD refresh (we are within the refresh
+         * window and not already refreshing)
+         */
+        get shouldRefresh() {
+            var _a;
+            return (!cycler.isRefreshing &&
+                ((_a = token === null || token === void 0 ? void 0 : token.expiresOnTimestamp) !== null && _a !== void 0 ? _a : 0) - options.refreshWindowInMs < Date.now());
+        },
+        /**
+         * Produces true if the cycler MUST refresh (null or nearly-expired
+         * token).
+         */
+        get mustRefresh() {
+            return (token === null || token.expiresOnTimestamp - options.forcedRefreshWindowInMs < Date.now());
+        },
+    };
+    /**
+     * Starts a refresh job or returns the existing job if one is already
+     * running.
+     */
+    function refresh(getTokenOptions) {
+        var _a;
+        if (!cycler.isRefreshing) {
+            // We bind `scopes` here to avoid passing it around a lot
+            const tryGetAccessToken = () => credential.getToken(scopes, getTokenOptions);
+            // Take advantage of promise chaining to insert an assignment to `token`
+            // before the refresh can be considered done.
+            refreshWorker = beginRefresh(tryGetAccessToken, options.retryIntervalInMs, 
+            // If we don't have a token, then we should timeout immediately
+            (_a = token === null || token === void 0 ? void 0 : token.expiresOnTimestamp) !== null && _a !== void 0 ? _a : Date.now())
+                .then((_token) => {
+                refreshWorker = null;
+                token = _token;
+                return token;
+            })
+                .catch((reason) => {
+                // We also should reset the refresher if we enter a failed state.  All
+                // existing awaiters will throw, but subsequent requests will start a
+                // new retry chain.
+                refreshWorker = null;
+                token = null;
+                throw reason;
+            });
+        }
+        return refreshWorker;
+    }
+    return async (tokenOptions) => {
+        //
+        // Simple rules:
+        // - If we MUST refresh, then return the refresh task, blocking
+        //   the pipeline until a token is available.
+        // - If we SHOULD refresh, then run refresh but don't return it
+        //   (we can still use the cached token).
+        // - Return the token, since it's fine if we didn't return in
+        //   step 1.
+        //
+        if (cycler.mustRefresh)
+            return refresh(tokenOptions);
+        if (cycler.shouldRefresh) {
+            refresh(tokenOptions);
+        }
+        return token;
+    };
+}
+/**
+ * We will retrieve the challenge only if the response status code was 401,
+ * and if the response contained the header "WWW-Authenticate" with a non-empty value.
+ */
+function getChallenge(response) {
+    const challenge = response.headers.get("WWW-Authenticate");
+    if (response.status === 401 && challenge) {
+        return challenge;
+    }
+    return;
+}
+/**
+ * Converts: `Bearer a="b" c="d"`.
+ * Into: `[ { a: 'b', c: 'd' }]`.
+ *
+ * @internal
+ */
+function parseChallenge(challenge) {
+    const bearerChallenge = challenge.slice("Bearer ".length);
+    const challengeParts = `${bearerChallenge.trim()} `.split(" ").filter((x) => x);
+    const keyValuePairs = challengeParts.map((keyValue) => (([key, value]) => ({ [key]: value }))(keyValue.trim().split("=")));
+    // Key-value pairs to plain object:
+    return keyValuePairs.reduce((a, b) => (Object.assign(Object.assign({}, a), b)), {});
+}
+// #endregion
+/**
+ * Creates a new factory for a RequestPolicy that applies a bearer token to
+ * the requests' `Authorization` headers.
+ *
+ * @param credential - The TokenCredential implementation that can supply the bearer token.
+ * @param scopes - The scopes for which the bearer token applies.
+ */
+function storageBearerTokenChallengeAuthenticationPolicy(credential, scopes) {
+    // This simple function encapsulates the entire process of reliably retrieving the token
+    let getToken = createTokenCycler(credential, scopes);
+    class StorageBearerTokenChallengeAuthenticationPolicy extends coreHttp.BaseRequestPolicy {
+        constructor(nextPolicy, options) {
+            super(nextPolicy, options);
+        }
+        async sendRequest(webResource) {
+            if (!webResource.url.toLowerCase().startsWith("https://")) {
+                throw new Error("Bearer token authentication is not permitted for non-TLS protected (non-https) URLs.");
+            }
+            const getTokenInternal = getToken;
+            const token = (await getTokenInternal({
+                abortSignal: webResource.abortSignal,
+                tracingOptions: {
+                    tracingContext: webResource.tracingContext,
+                },
+            })).token;
+            webResource.headers.set(Constants.HeaderConstants.AUTHORIZATION, `Bearer ${token}`);
+            const response = await this._nextPolicy.sendRequest(webResource);
+            if ((response === null || response === void 0 ? void 0 : response.status) === 401) {
+                const challenge = getChallenge(response);
+                if (challenge) {
+                    const challengeInfo = parseChallenge(challenge);
+                    const challengeScopes = challengeInfo.resource_id + Constants.DefaultScope;
+                    const parsedAuthUri = coreHttp.URLBuilder.parse(challengeInfo.authorization_uri);
+                    const pathSegments = parsedAuthUri.getPath().split("/");
+                    const tenantId = pathSegments[1];
+                    const getTokenForChallenge = createTokenCycler(credential, challengeScopes);
+                    const tokenForChallenge = (await getTokenForChallenge({
+                        abortSignal: webResource.abortSignal,
+                        tracingOptions: {
+                            tracingContext: webResource.tracingContext,
+                        },
+                        tenantId: tenantId,
+                    })).token;
+                    getToken = getTokenForChallenge;
+                    webResource.headers.set(Constants.HeaderConstants.AUTHORIZATION, `Bearer ${tokenForChallenge}`);
+                    return this._nextPolicy.sendRequest(webResource);
+                }
+            }
+            return response;
+        }
+    }
+    return {
+        create: (nextPolicy, options) => {
+            return new StorageBearerTokenChallengeAuthenticationPolicy(nextPolicy, options);
+        },
+    };
 }
 
 // Copyright (c) Microsoft Corporation.
@@ -23874,7 +24632,7 @@ class Pipeline {
     toServiceClientOptions() {
         return {
             httpClient: this.options.httpClient,
-            requestPolicyFactories: this.factories
+            requestPolicyFactories: this.factories,
         };
     }
 }
@@ -23886,6 +24644,7 @@ class Pipeline {
  * @returns A new Pipeline object.
  */
 function newPipeline(credential, pipelineOptions = {}) {
+    var _a;
     if (credential === undefined) {
         credential = new AnonymousCredential();
     }
@@ -23907,16 +24666,16 @@ function newPipeline(credential, pipelineOptions = {}) {
         coreHttp.logPolicy({
             logger: logger.info,
             allowedHeaderNames: StorageBlobLoggingAllowedHeaderNames,
-            allowedQueryParameters: StorageBlobLoggingAllowedQueryParameters
-        })
+            allowedQueryParameters: StorageBlobLoggingAllowedQueryParameters,
+        }),
     ];
-    {
+    if (coreHttp.isNode) {
         // policies only available in Node.js runtime, not in browsers
         factories.push(coreHttp.proxyPolicy(pipelineOptions.proxyOptions));
         factories.push(coreHttp.disableResponseDecompressionPolicy());
     }
     factories.push(coreHttp.isTokenCredential(credential)
-        ? attachCredential(coreHttp.bearerTokenAuthenticationPolicy(credential, StorageOAuthScopes), credential)
+        ? attachCredential(storageBearerTokenChallengeAuthenticationPolicy(credential, (_a = pipelineOptions.audience) !== null && _a !== void 0 ? _a : StorageOAuthScopes), credential)
         : credential);
     return new Pipeline(factories, pipelineOptions);
 }
@@ -23943,7 +24702,9 @@ class StorageSharedKeyCredentialPolicy extends CredentialPolicy {
      */
     signRequest(request) {
         request.headers.set(HeaderConstants.X_MS_DATE, new Date().toUTCString());
-        if (request.body && typeof request.body === "string" && request.body.length > 0) {
+        if (request.body &&
+            (typeof request.body === "string" || request.body !== undefined) &&
+            request.body.length > 0) {
             request.headers.set(HeaderConstants.CONTENT_LENGTH, Buffer.byteLength(request.body));
         }
         const stringToSign = [
@@ -23958,7 +24719,7 @@ class StorageSharedKeyCredentialPolicy extends CredentialPolicy {
             this.getHeaderValueToSign(request, HeaderConstants.IF_MATCH),
             this.getHeaderValueToSign(request, HeaderConstants.IF_NONE_MATCH),
             this.getHeaderValueToSign(request, HeaderConstants.IF_UNMODIFIED_SINCE),
-            this.getHeaderValueToSign(request, HeaderConstants.RANGE)
+            this.getHeaderValueToSign(request, HeaderConstants.RANGE),
         ].join("\n") +
             "\n" +
             this.getCanonicalizedHeadersString(request) +
@@ -24087,9 +24848,7 @@ class StorageSharedKeyCredential extends Credential {
      * @param stringToSign -
      */
     computeHMACSHA256(stringToSign) {
-        return crypto.createHmac("sha256", this.accountKey)
-            .update(stringToSign, "utf8")
-            .digest("base64");
+        return crypto.createHmac("sha256", this.accountKey).update(stringToSign, "utf8").digest("base64");
     }
 }
 
@@ -24101,8 +24860,8 @@ class StorageSharedKeyCredential extends Credential {
  * Changes may cause incorrect behavior and will be lost if the code is regenerated.
  */
 const packageName = "azure-storage-blob";
-const packageVersion = "12.8.0";
-class StorageClientContext extends coreHttp.ServiceClient {
+const packageVersion = "12.9.0";
+class StorageClientContext extends coreHttp__namespace.ServiceClient {
     /**
      * Initializes a new instance of the StorageClientContext class.
      * @param url The URL of the service account, container, or blob that is the target of the desired
@@ -24118,7 +24877,7 @@ class StorageClientContext extends coreHttp.ServiceClient {
             options = {};
         }
         if (!options.userAgent) {
-            const defaultUserAgent = coreHttp.getDefaultUserAgentValue();
+            const defaultUserAgent = coreHttp__namespace.getDefaultUserAgentValue();
             options.userAgent = `${packageName}/${packageVersion} ${defaultUserAgent}`;
         }
         super(undefined, options);
@@ -24127,7 +24886,7 @@ class StorageClientContext extends coreHttp.ServiceClient {
         // Parameter assignments
         this.url = url;
         // Assigning values to Constant parameters
-        this.version = options.version || "2020-10-02";
+        this.version = options.version || "2021-04-10";
     }
 }
 
@@ -24174,7 +24933,7 @@ class StorageClient {
  */
 const createSpan = coreTracing.createSpanFunction({
     packagePrefix: "Azure.Storage.Blob",
-    namespace: "Microsoft.Storage"
+    namespace: "Microsoft.Storage",
 });
 /**
  * @internal
@@ -24188,7 +24947,7 @@ function convertTracingToRequestOptionsBase(options) {
     return {
         // By passing spanOptions if they exist at runtime, we're backwards compatible with @azure/core-tracing@preview.13 and earlier.
         spanOptions: (_a = options === null || options === void 0 ? void 0 : options.tracingOptions) === null || _a === void 0 ? void 0 : _a.spanOptions,
-        tracingContext: (_b = options === null || options === void 0 ? void 0 : options.tracingOptions) === null || _b === void 0 ? void 0 : _b.tracingContext
+        tracingContext: (_b = options === null || options === void 0 ? void 0 : options.tracingOptions) === null || _b === void 0 ? void 0 : _b.tracingContext,
     };
 }
 
@@ -24245,6 +25004,10 @@ class BlobSASPermissions {
          * Specifies SetImmutabilityPolicy access granted.
          */
         this.setImmutabilityPolicy = false;
+        /**
+         * Specifies that Permanent Delete is permitted.
+         */
+        this.permanentDelete = false;
     }
     /**
      * Creates a {@link BlobSASPermissions} from the specified permissions string. This method will throw an
@@ -24285,6 +25048,9 @@ class BlobSASPermissions {
                     break;
                 case "i":
                     blobSASPermissions.setImmutabilityPolicy = true;
+                    break;
+                case "y":
+                    blobSASPermissions.permanentDelete = true;
                     break;
                 default:
                     throw new RangeError(`Invalid permission: ${char}`);
@@ -24330,6 +25096,9 @@ class BlobSASPermissions {
         if (permissionLike.setImmutabilityPolicy) {
             blobSASPermissions.setImmutabilityPolicy = true;
         }
+        if (permissionLike.permanentDelete) {
+            blobSASPermissions.permanentDelete = true;
+        }
         return blobSASPermissions;
     }
     /**
@@ -24369,6 +25138,9 @@ class BlobSASPermissions {
         }
         if (this.setImmutabilityPolicy) {
             permissions.push("i");
+        }
+        if (this.permanentDelete) {
+            permissions.push("y");
         }
         return permissions.join("");
     }
@@ -24429,6 +25201,14 @@ class ContainerSASPermissions {
          * Specifies SetImmutabilityPolicy access granted.
          */
         this.setImmutabilityPolicy = false;
+        /**
+         * Specifies that Permanent Delete is permitted.
+         */
+        this.permanentDelete = false;
+        /**
+         * Specifies that Filter Blobs by Tags is permitted.
+         */
+        this.filterByTags = false;
     }
     /**
      * Creates an {@link ContainerSASPermissions} from the specified permissions string. This method will throw an
@@ -24472,6 +25252,12 @@ class ContainerSASPermissions {
                     break;
                 case "i":
                     containerSASPermissions.setImmutabilityPolicy = true;
+                    break;
+                case "y":
+                    containerSASPermissions.permanentDelete = true;
+                    break;
+                case "f":
+                    containerSASPermissions.filterByTags = true;
                     break;
                 default:
                     throw new RangeError(`Invalid permission ${char}`);
@@ -24520,6 +25306,12 @@ class ContainerSASPermissions {
         if (permissionLike.setImmutabilityPolicy) {
             containerSASPermissions.setImmutabilityPolicy = true;
         }
+        if (permissionLike.permanentDelete) {
+            containerSASPermissions.permanentDelete = true;
+        }
+        if (permissionLike.filterByTags) {
+            containerSASPermissions.filterByTags = true;
+        }
         return containerSASPermissions;
     }
     /**
@@ -24565,6 +25357,12 @@ class ContainerSASPermissions {
         if (this.setImmutabilityPolicy) {
             permissions.push("i");
         }
+        if (this.permanentDelete) {
+            permissions.push("y");
+        }
+        if (this.filterByTags) {
+            permissions.push("f");
+        }
         return permissions.join("");
     }
 }
@@ -24594,9 +25392,7 @@ class UserDelegationKeyCredential {
      */
     computeHMACSHA256(stringToSign) {
         // console.log(`stringToSign: ${JSON.stringify(stringToSign)}`);
-        return crypto.createHmac("sha256", this.key)
-            .update(stringToSign, "utf8")
-            .digest("base64");
+        return crypto.createHmac("sha256", this.key).update(stringToSign, "utf8").digest("base64");
     }
 }
 
@@ -24614,6 +25410,10 @@ function ipRangeToString(ipRange) {
 }
 
 // Copyright (c) Microsoft Corporation.
+/**
+ * Protocols for generated SAS.
+ */
+exports.SASProtocol = void 0;
 (function (SASProtocol) {
     /**
      * Protocol that allows HTTPS only
@@ -24634,7 +25434,7 @@ function ipRangeToString(ipRange) {
  * NOTE: Instances of this class are immutable.
  */
 class SASQueryParameters {
-    constructor(version, signature, permissionsOrOptions, services, resourceTypes, protocol, startsOn, expiresOn, ipRange, identifier, resource, cacheControl, contentDisposition, contentEncoding, contentLanguage, contentType, userDelegationKey, preauthorizedAgentObjectId, correlationId) {
+    constructor(version, signature, permissionsOrOptions, services, resourceTypes, protocol, startsOn, expiresOn, ipRange, identifier, resource, cacheControl, contentDisposition, contentEncoding, contentLanguage, contentType, userDelegationKey, preauthorizedAgentObjectId, correlationId, encryptionScope) {
         this.version = version;
         this.signature = signature;
         if (permissionsOrOptions !== undefined && typeof permissionsOrOptions !== "string") {
@@ -24647,6 +25447,7 @@ class SASQueryParameters {
             this.expiresOn = permissionsOrOptions.expiresOn;
             this.ipRangeInner = permissionsOrOptions.ipRange;
             this.identifier = permissionsOrOptions.identifier;
+            this.encryptionScope = permissionsOrOptions.encryptionScope;
             this.resource = permissionsOrOptions.resource;
             this.cacheControl = permissionsOrOptions.cacheControl;
             this.contentDisposition = permissionsOrOptions.contentDisposition;
@@ -24672,6 +25473,7 @@ class SASQueryParameters {
             this.protocol = protocol;
             this.startsOn = startsOn;
             this.ipRangeInner = ipRange;
+            this.encryptionScope = encryptionScope;
             this.identifier = identifier;
             this.resource = resource;
             this.cacheControl = cacheControl;
@@ -24700,7 +25502,7 @@ class SASQueryParameters {
         if (this.ipRangeInner) {
             return {
                 end: this.ipRangeInner.end,
-                start: this.ipRangeInner.start
+                start: this.ipRangeInner.start,
             };
         }
         return undefined;
@@ -24719,6 +25521,7 @@ class SASQueryParameters {
             "se",
             "sip",
             "si",
+            "ses",
             "skoid",
             "sktid",
             "skt",
@@ -24734,7 +25537,7 @@ class SASQueryParameters {
             "rscl",
             "rsct",
             "saoid",
-            "scid"
+            "scid",
         ];
         const queries = [];
         for (const param of params) {
@@ -24762,6 +25565,9 @@ class SASQueryParameters {
                     break;
                 case "si":
                     this.tryAppendQueryParameter(queries, param, this.identifier);
+                    break;
+                case "ses":
+                    this.tryAppendQueryParameter(queries, param, this.encryptionScope);
                     break;
                 case "skoid": // Signed object ID
                     this.tryAppendQueryParameter(queries, param, this.signedOid);
@@ -24847,6 +25653,15 @@ function generateBlobSASQueryParameters(blobSASSignatureValues, sharedKeyCredent
     if (sharedKeyCredential === undefined && userDelegationKeyCredential === undefined) {
         throw TypeError("Invalid sharedKeyCredential, userDelegationKey or accountName.");
     }
+    // Version 2020-12-06 adds support for encryptionscope in SAS.
+    if (version >= "2020-12-06") {
+        if (sharedKeyCredential !== undefined) {
+            return generateBlobSASQueryParameters20201206(blobSASSignatureValues, sharedKeyCredential);
+        }
+        else {
+            return generateBlobSASQueryParametersUDK20201206(blobSASSignatureValues, userDelegationKeyCredential);
+        }
+    }
     // Version 2019-12-12 adds support for the blob tags permission.
     // Version 2018-11-09 adds support for the signed resource and signed blob snapshot time fields.
     // https://docs.microsoft.com/en-us/rest/api/storageservices/constructing-a-service-sas#constructing-the-signature-string
@@ -24928,7 +25743,7 @@ function generateBlobSASQueryParameters20150405(blobSASSignatureValues, sharedKe
         blobSASSignatureValues.contentDisposition ? blobSASSignatureValues.contentDisposition : "",
         blobSASSignatureValues.contentEncoding ? blobSASSignatureValues.contentEncoding : "",
         blobSASSignatureValues.contentLanguage ? blobSASSignatureValues.contentLanguage : "",
-        blobSASSignatureValues.contentType ? blobSASSignatureValues.contentType : ""
+        blobSASSignatureValues.contentType ? blobSASSignatureValues.contentType : "",
     ].join("\n");
     const signature = sharedKeyCredential.computeHMACSHA256(stringToSign);
     return new SASQueryParameters(blobSASSignatureValues.version, signature, verifiedPermissions, undefined, undefined, blobSASSignatureValues.protocol, blobSASSignatureValues.startsOn, blobSASSignatureValues.expiresOn, blobSASSignatureValues.ipRange, blobSASSignatureValues.identifier, resource, blobSASSignatureValues.cacheControl, blobSASSignatureValues.contentDisposition, blobSASSignatureValues.contentEncoding, blobSASSignatureValues.contentLanguage, blobSASSignatureValues.contentType);
@@ -24997,10 +25812,80 @@ function generateBlobSASQueryParameters20181109(blobSASSignatureValues, sharedKe
         blobSASSignatureValues.contentDisposition ? blobSASSignatureValues.contentDisposition : "",
         blobSASSignatureValues.contentEncoding ? blobSASSignatureValues.contentEncoding : "",
         blobSASSignatureValues.contentLanguage ? blobSASSignatureValues.contentLanguage : "",
-        blobSASSignatureValues.contentType ? blobSASSignatureValues.contentType : ""
+        blobSASSignatureValues.contentType ? blobSASSignatureValues.contentType : "",
     ].join("\n");
     const signature = sharedKeyCredential.computeHMACSHA256(stringToSign);
     return new SASQueryParameters(blobSASSignatureValues.version, signature, verifiedPermissions, undefined, undefined, blobSASSignatureValues.protocol, blobSASSignatureValues.startsOn, blobSASSignatureValues.expiresOn, blobSASSignatureValues.ipRange, blobSASSignatureValues.identifier, resource, blobSASSignatureValues.cacheControl, blobSASSignatureValues.contentDisposition, blobSASSignatureValues.contentEncoding, blobSASSignatureValues.contentLanguage, blobSASSignatureValues.contentType);
+}
+/**
+ * ONLY AVAILABLE IN NODE.JS RUNTIME.
+ * IMPLEMENTATION FOR API VERSION FROM 2020-12-06.
+ *
+ * Creates an instance of SASQueryParameters.
+ *
+ * Only accepts required settings needed to create a SAS. For optional settings please
+ * set corresponding properties directly, such as permissions, startsOn and identifier.
+ *
+ * WARNING: When identifier is not provided, permissions and expiresOn are required.
+ * You MUST assign value to identifier or expiresOn & permissions manually if you initial with
+ * this constructor.
+ *
+ * @param blobSASSignatureValues -
+ * @param sharedKeyCredential -
+ */
+function generateBlobSASQueryParameters20201206(blobSASSignatureValues, sharedKeyCredential) {
+    blobSASSignatureValues = SASSignatureValuesSanityCheckAndAutofill(blobSASSignatureValues);
+    if (!blobSASSignatureValues.identifier &&
+        !(blobSASSignatureValues.permissions && blobSASSignatureValues.expiresOn)) {
+        throw new RangeError("Must provide 'permissions' and 'expiresOn' for Blob SAS generation when 'identifier' is not provided.");
+    }
+    let resource = "c";
+    let timestamp = blobSASSignatureValues.snapshotTime;
+    if (blobSASSignatureValues.blobName) {
+        resource = "b";
+        if (blobSASSignatureValues.snapshotTime) {
+            resource = "bs";
+        }
+        else if (blobSASSignatureValues.versionId) {
+            resource = "bv";
+            timestamp = blobSASSignatureValues.versionId;
+        }
+    }
+    // Calling parse and toString guarantees the proper ordering and throws on invalid characters.
+    let verifiedPermissions;
+    if (blobSASSignatureValues.permissions) {
+        if (blobSASSignatureValues.blobName) {
+            verifiedPermissions = BlobSASPermissions.parse(blobSASSignatureValues.permissions.toString()).toString();
+        }
+        else {
+            verifiedPermissions = ContainerSASPermissions.parse(blobSASSignatureValues.permissions.toString()).toString();
+        }
+    }
+    // Signature is generated on the un-url-encoded values.
+    const stringToSign = [
+        verifiedPermissions ? verifiedPermissions : "",
+        blobSASSignatureValues.startsOn
+            ? truncatedISO8061Date(blobSASSignatureValues.startsOn, false)
+            : "",
+        blobSASSignatureValues.expiresOn
+            ? truncatedISO8061Date(blobSASSignatureValues.expiresOn, false)
+            : "",
+        getCanonicalName(sharedKeyCredential.accountName, blobSASSignatureValues.containerName, blobSASSignatureValues.blobName),
+        blobSASSignatureValues.identifier,
+        blobSASSignatureValues.ipRange ? ipRangeToString(blobSASSignatureValues.ipRange) : "",
+        blobSASSignatureValues.protocol ? blobSASSignatureValues.protocol : "",
+        blobSASSignatureValues.version,
+        resource,
+        timestamp,
+        blobSASSignatureValues.encryptionScope,
+        blobSASSignatureValues.cacheControl ? blobSASSignatureValues.cacheControl : "",
+        blobSASSignatureValues.contentDisposition ? blobSASSignatureValues.contentDisposition : "",
+        blobSASSignatureValues.contentEncoding ? blobSASSignatureValues.contentEncoding : "",
+        blobSASSignatureValues.contentLanguage ? blobSASSignatureValues.contentLanguage : "",
+        blobSASSignatureValues.contentType ? blobSASSignatureValues.contentType : "",
+    ].join("\n");
+    const signature = sharedKeyCredential.computeHMACSHA256(stringToSign);
+    return new SASQueryParameters(blobSASSignatureValues.version, signature, verifiedPermissions, undefined, undefined, blobSASSignatureValues.protocol, blobSASSignatureValues.startsOn, blobSASSignatureValues.expiresOn, blobSASSignatureValues.ipRange, blobSASSignatureValues.identifier, resource, blobSASSignatureValues.cacheControl, blobSASSignatureValues.contentDisposition, blobSASSignatureValues.contentEncoding, blobSASSignatureValues.contentLanguage, blobSASSignatureValues.contentType, undefined, undefined, undefined, blobSASSignatureValues.encryptionScope);
 }
 /**
  * ONLY AVAILABLE IN NODE.JS RUNTIME.
@@ -25073,7 +25958,7 @@ function generateBlobSASQueryParametersUDK20181109(blobSASSignatureValues, userD
         blobSASSignatureValues.contentDisposition,
         blobSASSignatureValues.contentEncoding,
         blobSASSignatureValues.contentLanguage,
-        blobSASSignatureValues.contentType
+        blobSASSignatureValues.contentType,
     ].join("\n");
     const signature = userDelegationKeyCredential.computeHMACSHA256(stringToSign);
     return new SASQueryParameters(blobSASSignatureValues.version, signature, verifiedPermissions, undefined, undefined, blobSASSignatureValues.protocol, blobSASSignatureValues.startsOn, blobSASSignatureValues.expiresOn, blobSASSignatureValues.ipRange, blobSASSignatureValues.identifier, resource, blobSASSignatureValues.cacheControl, blobSASSignatureValues.contentDisposition, blobSASSignatureValues.contentEncoding, blobSASSignatureValues.contentLanguage, blobSASSignatureValues.contentType, userDelegationKeyCredential.userDelegationKey);
@@ -25152,10 +26037,90 @@ function generateBlobSASQueryParametersUDK20200210(blobSASSignatureValues, userD
         blobSASSignatureValues.contentDisposition,
         blobSASSignatureValues.contentEncoding,
         blobSASSignatureValues.contentLanguage,
-        blobSASSignatureValues.contentType
+        blobSASSignatureValues.contentType,
     ].join("\n");
     const signature = userDelegationKeyCredential.computeHMACSHA256(stringToSign);
     return new SASQueryParameters(blobSASSignatureValues.version, signature, verifiedPermissions, undefined, undefined, blobSASSignatureValues.protocol, blobSASSignatureValues.startsOn, blobSASSignatureValues.expiresOn, blobSASSignatureValues.ipRange, blobSASSignatureValues.identifier, resource, blobSASSignatureValues.cacheControl, blobSASSignatureValues.contentDisposition, blobSASSignatureValues.contentEncoding, blobSASSignatureValues.contentLanguage, blobSASSignatureValues.contentType, userDelegationKeyCredential.userDelegationKey, blobSASSignatureValues.preauthorizedAgentObjectId, blobSASSignatureValues.correlationId);
+}
+/**
+ * ONLY AVAILABLE IN NODE.JS RUNTIME.
+ * IMPLEMENTATION FOR API VERSION FROM 2020-12-06.
+ *
+ * Creates an instance of SASQueryParameters.
+ *
+ * Only accepts required settings needed to create a SAS. For optional settings please
+ * set corresponding properties directly, such as permissions, startsOn.
+ *
+ * WARNING: identifier will be ignored, permissions and expiresOn are required.
+ *
+ * @param blobSASSignatureValues -
+ * @param userDelegationKeyCredential -
+ */
+function generateBlobSASQueryParametersUDK20201206(blobSASSignatureValues, userDelegationKeyCredential) {
+    blobSASSignatureValues = SASSignatureValuesSanityCheckAndAutofill(blobSASSignatureValues);
+    // Stored access policies are not supported for a user delegation SAS.
+    if (!blobSASSignatureValues.permissions || !blobSASSignatureValues.expiresOn) {
+        throw new RangeError("Must provide 'permissions' and 'expiresOn' for Blob SAS generation when generating user delegation SAS.");
+    }
+    let resource = "c";
+    let timestamp = blobSASSignatureValues.snapshotTime;
+    if (blobSASSignatureValues.blobName) {
+        resource = "b";
+        if (blobSASSignatureValues.snapshotTime) {
+            resource = "bs";
+        }
+        else if (blobSASSignatureValues.versionId) {
+            resource = "bv";
+            timestamp = blobSASSignatureValues.versionId;
+        }
+    }
+    // Calling parse and toString guarantees the proper ordering and throws on invalid characters.
+    let verifiedPermissions;
+    if (blobSASSignatureValues.permissions) {
+        if (blobSASSignatureValues.blobName) {
+            verifiedPermissions = BlobSASPermissions.parse(blobSASSignatureValues.permissions.toString()).toString();
+        }
+        else {
+            verifiedPermissions = ContainerSASPermissions.parse(blobSASSignatureValues.permissions.toString()).toString();
+        }
+    }
+    // Signature is generated on the un-url-encoded values.
+    const stringToSign = [
+        verifiedPermissions ? verifiedPermissions : "",
+        blobSASSignatureValues.startsOn
+            ? truncatedISO8061Date(blobSASSignatureValues.startsOn, false)
+            : "",
+        blobSASSignatureValues.expiresOn
+            ? truncatedISO8061Date(blobSASSignatureValues.expiresOn, false)
+            : "",
+        getCanonicalName(userDelegationKeyCredential.accountName, blobSASSignatureValues.containerName, blobSASSignatureValues.blobName),
+        userDelegationKeyCredential.userDelegationKey.signedObjectId,
+        userDelegationKeyCredential.userDelegationKey.signedTenantId,
+        userDelegationKeyCredential.userDelegationKey.signedStartsOn
+            ? truncatedISO8061Date(userDelegationKeyCredential.userDelegationKey.signedStartsOn, false)
+            : "",
+        userDelegationKeyCredential.userDelegationKey.signedExpiresOn
+            ? truncatedISO8061Date(userDelegationKeyCredential.userDelegationKey.signedExpiresOn, false)
+            : "",
+        userDelegationKeyCredential.userDelegationKey.signedService,
+        userDelegationKeyCredential.userDelegationKey.signedVersion,
+        blobSASSignatureValues.preauthorizedAgentObjectId,
+        undefined,
+        blobSASSignatureValues.correlationId,
+        blobSASSignatureValues.ipRange ? ipRangeToString(blobSASSignatureValues.ipRange) : "",
+        blobSASSignatureValues.protocol ? blobSASSignatureValues.protocol : "",
+        blobSASSignatureValues.version,
+        resource,
+        timestamp,
+        blobSASSignatureValues.encryptionScope,
+        blobSASSignatureValues.cacheControl,
+        blobSASSignatureValues.contentDisposition,
+        blobSASSignatureValues.contentEncoding,
+        blobSASSignatureValues.contentLanguage,
+        blobSASSignatureValues.contentType,
+    ].join("\n");
+    const signature = userDelegationKeyCredential.computeHMACSHA256(stringToSign);
+    return new SASQueryParameters(blobSASSignatureValues.version, signature, verifiedPermissions, undefined, undefined, blobSASSignatureValues.protocol, blobSASSignatureValues.startsOn, blobSASSignatureValues.expiresOn, blobSASSignatureValues.ipRange, blobSASSignatureValues.identifier, resource, blobSASSignatureValues.cacheControl, blobSASSignatureValues.contentDisposition, blobSASSignatureValues.contentEncoding, blobSASSignatureValues.contentLanguage, blobSASSignatureValues.contentType, userDelegationKeyCredential.userDelegationKey, blobSASSignatureValues.preauthorizedAgentObjectId, blobSASSignatureValues.correlationId, blobSASSignatureValues.encryptionScope);
 }
 function getCanonicalName(accountName, containerName, blobName) {
     // Container: "/blob/account/containerName"
@@ -25191,6 +26156,11 @@ function SASSignatureValuesSanityCheckAndAutofill(blobSASSignatureValues) {
         throw RangeError("'version' must be >= '2019-10-10' when providing 'x' permission.");
     }
     if (blobSASSignatureValues.permissions &&
+        blobSASSignatureValues.permissions.permanentDelete &&
+        version < "2019-10-10") {
+        throw RangeError("'version' must be >= '2019-10-10' when providing 'y' permission.");
+    }
+    if (blobSASSignatureValues.permissions &&
         blobSASSignatureValues.permissions.tag &&
         version < "2019-12-12") {
         throw RangeError("'version' must be >= '2019-12-12' when providing 't' permission.");
@@ -25200,9 +26170,17 @@ function SASSignatureValuesSanityCheckAndAutofill(blobSASSignatureValues) {
         (blobSASSignatureValues.permissions.move || blobSASSignatureValues.permissions.execute)) {
         throw RangeError("'version' must be >= '2020-02-10' when providing the 'm' or 'e' permission.");
     }
+    if (version < "2021-04-10" &&
+        blobSASSignatureValues.permissions &&
+        blobSASSignatureValues.permissions.filterByTags) {
+        throw RangeError("'version' must be >= '2021-04-10' when providing the 'f' permission.");
+    }
     if (version < "2020-02-10" &&
         (blobSASSignatureValues.preauthorizedAgentObjectId || blobSASSignatureValues.correlationId)) {
         throw RangeError("'version' must be >= '2020-02-10' when providing 'preauthorizedAgentObjectId' or 'correlationId'.");
+    }
+    if (blobSASSignatureValues.encryptionScope && version < "2020-12-06") {
+        throw RangeError("'version' must be >= '2020-12-06' when provided 'encryptionScope' in SAS.");
     }
     blobSASSignatureValues.version = version;
     return blobSASSignatureValues;
@@ -25277,7 +26255,7 @@ class BlobLeaseClient {
         catch (e) {
             span.setStatus({
                 code: coreTracing.SpanStatusCode.ERROR,
-                message: e.message
+                message: e.message,
             });
             throw e;
         }
@@ -25312,7 +26290,7 @@ class BlobLeaseClient {
         catch (e) {
             span.setStatus({
                 code: coreTracing.SpanStatusCode.ERROR,
-                message: e.message
+                message: e.message,
             });
             throw e;
         }
@@ -25345,7 +26323,7 @@ class BlobLeaseClient {
         catch (e) {
             span.setStatus({
                 code: coreTracing.SpanStatusCode.ERROR,
-                message: e.message
+                message: e.message,
             });
             throw e;
         }
@@ -25377,7 +26355,7 @@ class BlobLeaseClient {
         catch (e) {
             span.setStatus({
                 code: coreTracing.SpanStatusCode.ERROR,
-                message: e.message
+                message: e.message,
             });
             throw e;
         }
@@ -25412,7 +26390,7 @@ class BlobLeaseClient {
         catch (e) {
             span.setStatus({
                 code: coreTracing.SpanStatusCode.ERROR,
-                message: e.message
+                message: e.message,
             });
             throw e;
         }
@@ -25492,8 +26470,7 @@ class RetriableReadableStream extends stream.Readable {
                     });
                 }
                 else {
-                    this.destroy(new Error(`Data corruption failure: received less data than required and reached maxRetires limitation. Received data offset: ${this
-                        .offset - 1}, data needed offset: ${this.end}, retries: ${this.retries}, max retries: ${this.maxRetryRequests}`));
+                    this.destroy(new Error(`Data corruption failure: received less data than required and reached maxRetires limitation. Received data offset: ${this.offset - 1}, data needed offset: ${this.end}, retries: ${this.retries}, max retries: ${this.maxRetryRequests}`));
                 }
             }
             else {
@@ -26338,7 +27315,7 @@ class AvroReader {
     }
     async initialize(options = {}) {
         const header = await AvroParser.readFixedBytes(this._headerStream, AVRO_INIT_BYTES.length, {
-            abortSignal: options.abortSignal
+            abortSignal: options.abortSignal,
         });
         if (!arraysEqual(header, AVRO_INIT_BYTES)) {
             throw new Error("Stream is not an Avro file.");
@@ -26346,7 +27323,7 @@ class AvroReader {
         // File metadata is written as if defined by the following map schema:
         // { "type": "map", "values": "bytes"}
         this._metadata = await AvroParser.readMap(this._headerStream, AvroParser.readString, {
-            abortSignal: options.abortSignal
+            abortSignal: options.abortSignal,
         });
         // Validate codec
         const codec = this._metadata[AVRO_CODEC_KEY];
@@ -26355,7 +27332,7 @@ class AvroReader {
         }
         // The 16-byte, randomly-generated sync marker for this file.
         this._syncMarker = await AvroParser.readFixedBytes(this._headerStream, AVRO_SYNC_MARKER_SIZE, {
-            abortSignal: options.abortSignal
+            abortSignal: options.abortSignal,
         });
         // Parse the schema
         const schema = JSON.parse(this._metadata[AVRO_SCHEMA_KEY]);
@@ -26364,7 +27341,7 @@ class AvroReader {
             this._blockOffset = this._initialBlockOffset + this._dataStream.position;
         }
         this._itemsRemainingInBlock = await AvroParser.readLong(this._dataStream, {
-            abortSignal: options.abortSignal
+            abortSignal: options.abortSignal,
         });
         // skip block length
         await AvroParser.readLong(this._dataStream, { abortSignal: options.abortSignal });
@@ -26386,13 +27363,13 @@ class AvroReader {
             }
             while (this.hasNext()) {
                 const result = yield tslib.__await(this._itemType.read(this._dataStream, {
-                    abortSignal: options.abortSignal
+                    abortSignal: options.abortSignal,
                 }));
                 this._itemsRemainingInBlock--;
                 this._objectIndex++;
                 if (this._itemsRemainingInBlock == 0) {
                     const marker = yield tslib.__await(AvroParser.readFixedBytes(this._dataStream, AVRO_SYNC_MARKER_SIZE, {
-                        abortSignal: options.abortSignal
+                        abortSignal: options.abortSignal,
                     }));
                     this._blockOffset = this._initialBlockOffset + this._dataStream.position;
                     this._objectIndex = 0;
@@ -26401,7 +27378,7 @@ class AvroReader {
                     }
                     try {
                         this._itemsRemainingInBlock = yield tslib.__await(AvroParser.readLong(this._dataStream, {
-                            abortSignal: options.abortSignal
+                            abortSignal: options.abortSignal,
                         }));
                     }
                     catch (err) {
@@ -26600,7 +27577,7 @@ class BlobQuickQueryStream extends stream.Readable {
                             position,
                             name,
                             isFatal: fatal,
-                            description
+                            description,
                         });
                     }
                     break;
@@ -26976,6 +27953,11 @@ class BlobQueryResponse {
 }
 
 // Copyright (c) Microsoft Corporation.
+/**
+ * Represents the access tier on a blob.
+ * For detailed information about block blob level tiering see {@link https://docs.microsoft.com/azure/storage/blobs/storage-blob-storage-tiers|Hot, cool and archive storage tiers.}
+ */
+exports.BlockBlobTier = void 0;
 (function (BlockBlobTier) {
     /**
      * Optimized for storing data that is accessed frequently.
@@ -26991,6 +27973,12 @@ class BlobQueryResponse {
      */
     BlockBlobTier["Archive"] = "Archive";
 })(exports.BlockBlobTier || (exports.BlockBlobTier = {}));
+/**
+ * Specifies the page blob tier to set the blob to. This is only applicable to page blobs on premium storage accounts.
+ * Please see {@link https://docs.microsoft.com/azure/storage/storage-premium-storage#scalability-and-performance-targets|here}
+ * for detailed information on the corresponding IOPS and throughput per PageBlobTier.
+ */
+exports.PremiumPageBlobTier = void 0;
 (function (PremiumPageBlobTier) {
     /**
      * P4 Tier.
@@ -27051,6 +28039,20 @@ function ensureCpkIfSpecified(cpk, isHttps) {
         cpk.encryptionAlgorithm = EncryptionAlgorithmAES25;
     }
 }
+/**
+ * Defines the known cloud audiences for Storage.
+ */
+exports.StorageBlobAudience = void 0;
+(function (StorageBlobAudience) {
+    /**
+     * The OAuth scope to use to retrieve an AAD token for Azure Storage.
+     */
+    StorageBlobAudience["StorageOAuthScopes"] = "https://storage.azure.com/.default";
+    /**
+     * The OAuth scope to use to retrieve an AAD token for Azure Disk.
+     */
+    StorageBlobAudience["DiskComputeOAuthScopes"] = "https://disk.compute.azure.com/.default";
+})(exports.StorageBlobAudience || (exports.StorageBlobAudience = {}));
 
 // Copyright (c) Microsoft Corporation.
 // Licensed under the MIT license.
@@ -27063,16 +28065,16 @@ function ensureCpkIfSpecified(cpk, isHttps) {
 function rangeResponseFromModel(response) {
     const pageRange = (response._response.parsedBody.pageRange || []).map((x) => ({
         offset: x.start,
-        count: x.end - x.start
+        count: x.end - x.start,
     }));
     const clearRange = (response._response.parsedBody.clearRange || []).map((x) => ({
         offset: x.start,
-        count: x.end - x.start
+        count: x.end - x.start,
     }));
     return Object.assign(Object.assign({}, response), { pageRange,
         clearRange, _response: Object.assign(Object.assign({}, response._response), { parsedBody: {
                 pageRange,
-                clearRange
+                clearRange,
             } }) });
 }
 
@@ -27085,7 +28087,7 @@ function rangeResponseFromModel(response) {
  */
 class BlobBeginCopyFromUrlPoller extends coreLro.Poller {
     constructor(options) {
-        const { blobClient, copySource, intervalInMs = 15000, onProgress, resumeFrom, startCopyFromURLOptions } = options;
+        const { blobClient, copySource, intervalInMs = 15000, onProgress, resumeFrom, startCopyFromURLOptions, } = options;
         let state;
         if (resumeFrom) {
             state = JSON.parse(resumeFrom).state;
@@ -27121,7 +28123,7 @@ const cancel = async function cancel(options = {}) {
     }
     // if abortCopyFromURL throws, it will bubble up to user's poller.cancelOperation call
     await state.blobClient.abortCopyFromURL(copyId, {
-        abortSignal: options.abortSignal
+        abortSignal: options.abortSignal,
     });
     state.isCancelled = true;
     return makeBlobBeginCopyFromURLPollOperation(state);
@@ -27199,7 +28201,7 @@ function makeBlobBeginCopyFromURLPollOperation(state) {
         state: Object.assign({}, state),
         cancel,
         toString,
-        update
+        update,
     };
 }
 
@@ -27841,7 +28843,7 @@ async function streamToBuffer2(stream, buffer, encoding) {
  */
 async function readStreamToLocalFile(rs, file) {
     return new Promise((resolve, reject) => {
-        const ws = fs.createWriteStream(file);
+        const ws = fs__namespace.createWriteStream(file);
         rs.on("error", (err) => {
             reject(err);
         });
@@ -27857,8 +28859,8 @@ async function readStreamToLocalFile(rs, file) {
  *
  * Promisified version of fs.stat().
  */
-const fsStat = util.promisify(fs.stat);
-const fsCreateReadStream = fs.createReadStream;
+const fsStat = util__namespace.promisify(fs__namespace.stat);
+const fsCreateReadStream = fs__namespace.createReadStream;
 
 /**
  * A BlobClient represents a URL to an Azure Storage blob; the blob may be a block blob,
@@ -27901,11 +28903,16 @@ class BlobClient extends StorageClient {
             const blobName = blobNameOrOptions;
             const extractedCreds = extractConnectionStringParts(urlOrConnectionString);
             if (extractedCreds.kind === "AccountConnString") {
-                {
+                if (coreHttp.isNode) {
                     const sharedKeyCredential = new StorageSharedKeyCredential(extractedCreds.accountName, extractedCreds.accountKey);
                     url = appendToURLPath(appendToURLPath(extractedCreds.url, encodeURIComponent(containerName)), encodeURIComponent(blobName));
-                    options.proxyOptions = coreHttp.getDefaultProxySettings(extractedCreds.proxyUri);
+                    if (!options.proxyOptions) {
+                        options.proxyOptions = coreHttp.getDefaultProxySettings(extractedCreds.proxyUri);
+                    }
                     pipeline = newPipeline(sharedKeyCredential, options);
+                }
+                else {
+                    throw new Error("Account connection string is only supported in Node.js environment");
                 }
             }
             else if (extractedCreds.kind === "SASConnString") {
@@ -27923,10 +28930,8 @@ class BlobClient extends StorageClient {
             throw new Error("Expecting non-empty strings for containerName and blobName parameters");
         }
         super(url, pipeline);
-        ({
-            blobName: this._name,
-            containerName: this._containerName
-        } = this.getBlobAndContainerNamesFromUrl());
+        ({ blobName: this._name, containerName: this._containerName } =
+            this.getBlobAndContainerNamesFromUrl());
         this.blobContext = new Blob$1(this.storageClientContext);
         this._snapshot = getURLParameter(this.url, URLConstants.Parameters.SNAPSHOT);
         this._versionId = getURLParameter(this.url, URLConstants.Parameters.VERSIONID);
@@ -28051,11 +29056,13 @@ class BlobClient extends StorageClient {
         const { span, updatedOptions } = createSpan("BlobClient-download", options);
         try {
             const res = await this.blobContext.download(Object.assign({ abortSignal: options.abortSignal, leaseAccessConditions: options.conditions, modifiedAccessConditions: Object.assign(Object.assign({}, options.conditions), { ifTags: (_a = options.conditions) === null || _a === void 0 ? void 0 : _a.tagConditions }), requestOptions: {
-                    onDownloadProgress: coreHttp.isNode ? undefined : options.onProgress // for Node.js, progress is reported by RetriableReadableStream
+                    onDownloadProgress: coreHttp.isNode ? undefined : options.onProgress, // for Node.js, progress is reported by RetriableReadableStream
                 }, range: offset === 0 && !count ? undefined : rangeToString({ offset, count }), rangeGetContentMD5: options.rangeGetContentMD5, rangeGetContentCRC64: options.rangeGetContentCrc64, snapshot: options.snapshot, cpkInfo: options.customerProvidedKey }, convertTracingToRequestOptionsBase(updatedOptions)));
             const wrappedRes = Object.assign(Object.assign({}, res), { _response: res._response, objectReplicationDestinationPolicyId: res.objectReplicationPolicyId, objectReplicationSourceProperties: parseObjectReplicationRecord(res.objectReplicationRules) });
             // Return browser response immediately
-            if (false) {}
+            if (!coreHttp.isNode) {
+                return wrappedRes;
+            }
             // We support retrying when download stream unexpected ends in Node.js runtime
             // Following code shouldn't be bundled into browser build, however some
             // bundlers may try to bundle following code and "FileReadResponse.ts".
@@ -28080,16 +29087,16 @@ class BlobClient extends StorageClient {
                         ifModifiedSince: options.conditions.ifModifiedSince,
                         ifNoneMatch: options.conditions.ifNoneMatch,
                         ifUnmodifiedSince: options.conditions.ifUnmodifiedSince,
-                        ifTags: (_a = options.conditions) === null || _a === void 0 ? void 0 : _a.tagConditions
+                        ifTags: (_a = options.conditions) === null || _a === void 0 ? void 0 : _a.tagConditions,
                     },
                     range: rangeToString({
                         count: offset + res.contentLength - start,
-                        offset: start
+                        offset: start,
                     }),
                     rangeGetContentMD5: options.rangeGetContentMD5,
                     rangeGetContentCRC64: options.rangeGetContentCrc64,
                     snapshot: options.snapshot,
-                    cpkInfo: options.customerProvidedKey
+                    cpkInfo: options.customerProvidedKey,
                 };
                 // Debug purpose only
                 // console.log(
@@ -28100,13 +29107,13 @@ class BlobClient extends StorageClient {
                 return (await this.blobContext.download(Object.assign({ abortSignal: options.abortSignal }, updatedDownloadOptions))).readableStreamBody;
             }, offset, res.contentLength, {
                 maxRetryRequests: options.maxRetryRequests,
-                onProgress: options.onProgress
+                onProgress: options.onProgress,
             });
         }
         catch (e) {
             span.setStatus({
                 code: coreTracing.SpanStatusCode.ERROR,
-                message: e.message
+                message: e.message,
             });
             throw e;
         }
@@ -28131,21 +29138,23 @@ class BlobClient extends StorageClient {
                 abortSignal: options.abortSignal,
                 customerProvidedKey: options.customerProvidedKey,
                 conditions: options.conditions,
-                tracingOptions: updatedOptions.tracingOptions
+                tracingOptions: updatedOptions.tracingOptions,
             });
             return true;
         }
         catch (e) {
             if (e.statusCode === 404) {
-                span.setStatus({
-                    code: coreTracing.SpanStatusCode.ERROR,
-                    message: "Expected exception when checking blob existence"
-                });
+                // Expected exception when checking blob existence
                 return false;
+            }
+            else if (e.statusCode === 409 &&
+                e.details.errorCode === BlobUsesCustomerSpecifiedEncryptionMsg) {
+                // Expected exception when checking blob existence
+                return true;
             }
             span.setStatus({
                 code: coreTracing.SpanStatusCode.ERROR,
-                message: e.message
+                message: e.message,
             });
             throw e;
         }
@@ -28177,7 +29186,7 @@ class BlobClient extends StorageClient {
         catch (e) {
             span.setStatus({
                 code: coreTracing.SpanStatusCode.ERROR,
-                message: e.message
+                message: e.message,
             });
             throw e;
         }
@@ -28204,7 +29213,7 @@ class BlobClient extends StorageClient {
         catch (e) {
             span.setStatus({
                 code: coreTracing.SpanStatusCode.ERROR,
-                message: e.message
+                message: e.message,
             });
             throw e;
         }
@@ -28226,20 +29235,19 @@ class BlobClient extends StorageClient {
         const { span, updatedOptions } = createSpan("BlobClient-deleteIfExists", options);
         try {
             const res = await this.delete(updatedOptions);
-            return Object.assign(Object.assign({ succeeded: true }, res), { _response: res._response // _response is made non-enumerable
-             });
+            return Object.assign(Object.assign({ succeeded: true }, res), { _response: res._response });
         }
         catch (e) {
             if (((_a = e.details) === null || _a === void 0 ? void 0 : _a.errorCode) === "BlobNotFound") {
                 span.setStatus({
                     code: coreTracing.SpanStatusCode.ERROR,
-                    message: "Expected exception when deleting a blob or snapshot only if it exists."
+                    message: "Expected exception when deleting a blob or snapshot only if it exists.",
                 });
                 return Object.assign(Object.assign({ succeeded: false }, (_b = e.response) === null || _b === void 0 ? void 0 : _b.parsedHeaders), { _response: e.response });
             }
             span.setStatus({
                 code: coreTracing.SpanStatusCode.ERROR,
-                message: e.message
+                message: e.message,
             });
             throw e;
         }
@@ -28263,7 +29271,7 @@ class BlobClient extends StorageClient {
         catch (e) {
             span.setStatus({
                 code: coreTracing.SpanStatusCode.ERROR,
-                message: e.message
+                message: e.message,
             });
             throw e;
         }
@@ -28297,7 +29305,7 @@ class BlobClient extends StorageClient {
         catch (e) {
             span.setStatus({
                 code: coreTracing.SpanStatusCode.ERROR,
-                message: e.message
+                message: e.message,
             });
             throw e;
         }
@@ -28327,7 +29335,7 @@ class BlobClient extends StorageClient {
         catch (e) {
             span.setStatus({
                 code: coreTracing.SpanStatusCode.ERROR,
-                message: e.message
+                message: e.message,
             });
             throw e;
         }
@@ -28353,7 +29361,7 @@ class BlobClient extends StorageClient {
         catch (e) {
             span.setStatus({
                 code: coreTracing.SpanStatusCode.ERROR,
-                message: e.message
+                message: e.message,
             });
             throw e;
         }
@@ -28377,7 +29385,7 @@ class BlobClient extends StorageClient {
         catch (e) {
             span.setStatus({
                 code: coreTracing.SpanStatusCode.ERROR,
-                message: e.message
+                message: e.message,
             });
             throw e;
         }
@@ -28411,7 +29419,7 @@ class BlobClient extends StorageClient {
         catch (e) {
             span.setStatus({
                 code: coreTracing.SpanStatusCode.ERROR,
-                message: e.message
+                message: e.message,
             });
             throw e;
         }
@@ -28495,7 +29503,7 @@ class BlobClient extends StorageClient {
         const client = {
             abortCopyFromURL: (...args) => this.abortCopyFromURL(...args),
             getProperties: (...args) => this.getProperties(...args),
-            startCopyFromURL: (...args) => this.startCopyFromURL(...args)
+            startCopyFromURL: (...args) => this.startCopyFromURL(...args),
         };
         const poller = new BlobBeginCopyFromUrlPoller({
             blobClient: client,
@@ -28503,7 +29511,7 @@ class BlobClient extends StorageClient {
             intervalInMs: options.intervalInMs,
             onProgress: options.onProgress,
             resumeFrom: options.resumeFrom,
-            startCopyFromURLOptions: options
+            startCopyFromURLOptions: options,
         });
         // Trigger the startCopyFromURL call by calling poll.
         // Any errors from this method should be surfaced to the user.
@@ -28526,7 +29534,7 @@ class BlobClient extends StorageClient {
         catch (e) {
             span.setStatus({
                 code: coreTracing.SpanStatusCode.ERROR,
-                message: e.message
+                message: e.message,
             });
             throw e;
         }
@@ -28552,13 +29560,13 @@ class BlobClient extends StorageClient {
                     sourceIfMatch: options.sourceConditions.ifMatch,
                     sourceIfModifiedSince: options.sourceConditions.ifModifiedSince,
                     sourceIfNoneMatch: options.sourceConditions.ifNoneMatch,
-                    sourceIfUnmodifiedSince: options.sourceConditions.ifUnmodifiedSince
-                }, sourceContentMD5: options.sourceContentMD5, copySourceAuthorization: httpAuthorizationToString(options.sourceAuthorization), blobTagsString: toBlobTagsString(options.tags), immutabilityPolicyExpiry: (_b = options.immutabilityPolicy) === null || _b === void 0 ? void 0 : _b.expiriesOn, immutabilityPolicyMode: (_c = options.immutabilityPolicy) === null || _c === void 0 ? void 0 : _c.policyMode, legalHold: options.legalHold }, convertTracingToRequestOptionsBase(updatedOptions)));
+                    sourceIfUnmodifiedSince: options.sourceConditions.ifUnmodifiedSince,
+                }, sourceContentMD5: options.sourceContentMD5, copySourceAuthorization: httpAuthorizationToString(options.sourceAuthorization), blobTagsString: toBlobTagsString(options.tags), immutabilityPolicyExpiry: (_b = options.immutabilityPolicy) === null || _b === void 0 ? void 0 : _b.expiriesOn, immutabilityPolicyMode: (_c = options.immutabilityPolicy) === null || _c === void 0 ? void 0 : _c.policyMode, legalHold: options.legalHold, encryptionScope: options.encryptionScope }, convertTracingToRequestOptionsBase(updatedOptions)));
         }
         catch (e) {
             span.setStatus({
                 code: coreTracing.SpanStatusCode.ERROR,
-                message: e.message
+                message: e.message,
             });
             throw e;
         }
@@ -28586,7 +29594,7 @@ class BlobClient extends StorageClient {
         catch (e) {
             span.setStatus({
                 code: coreTracing.SpanStatusCode.ERROR,
-                message: e.message
+                message: e.message,
             });
             throw e;
         }
@@ -28663,7 +29671,7 @@ class BlobClient extends StorageClient {
                         conditions: options.conditions,
                         maxRetryRequests: options.maxRetryRequestsPerBlock,
                         customerProvidedKey: options.customerProvidedKey,
-                        tracingOptions: Object.assign(Object.assign({}, options.tracingOptions), convertTracingToRequestOptionsBase(updatedOptions))
+                        tracingOptions: Object.assign(Object.assign({}, options.tracingOptions), convertTracingToRequestOptionsBase(updatedOptions)),
                     });
                     const stream = response.readableStreamBody;
                     await streamToBuffer(stream, buffer, off - offset, chunkEnd - offset);
@@ -28682,7 +29690,7 @@ class BlobClient extends StorageClient {
         catch (e) {
             span.setStatus({
                 code: coreTracing.SpanStatusCode.ERROR,
-                message: e.message
+                message: e.message,
             });
             throw e;
         }
@@ -28720,7 +29728,7 @@ class BlobClient extends StorageClient {
         catch (e) {
             span.setStatus({
                 code: coreTracing.SpanStatusCode.ERROR,
-                message: e.message
+                message: e.message,
             });
             throw e;
         }
@@ -28801,13 +29809,13 @@ class BlobClient extends StorageClient {
                     sourceIfModifiedSince: options.sourceConditions.ifModifiedSince,
                     sourceIfNoneMatch: options.sourceConditions.ifNoneMatch,
                     sourceIfUnmodifiedSince: options.sourceConditions.ifUnmodifiedSince,
-                    sourceIfTags: options.sourceConditions.tagConditions
+                    sourceIfTags: options.sourceConditions.tagConditions,
                 }, immutabilityPolicyExpiry: (_b = options.immutabilityPolicy) === null || _b === void 0 ? void 0 : _b.expiriesOn, immutabilityPolicyMode: (_c = options.immutabilityPolicy) === null || _c === void 0 ? void 0 : _c.policyMode, legalHold: options.legalHold, rehydratePriority: options.rehydratePriority, tier: toAccessTier(options.tier), blobTagsString: toBlobTagsString(options.tags), sealBlob: options.sealBlob }, convertTracingToRequestOptionsBase(updatedOptions)));
         }
         catch (e) {
             span.setStatus({
                 code: coreTracing.SpanStatusCode.ERROR,
-                message: e.message
+                message: e.message,
             });
             throw e;
         }
@@ -28848,7 +29856,7 @@ class BlobClient extends StorageClient {
         catch (e) {
             span.setStatus({
                 code: coreTracing.SpanStatusCode.ERROR,
-                message: e.message
+                message: e.message,
             });
             throw e;
         }
@@ -28869,7 +29877,7 @@ class BlobClient extends StorageClient {
         catch (e) {
             span.setStatus({
                 code: coreTracing.SpanStatusCode.ERROR,
-                message: e.message
+                message: e.message,
             });
             throw e;
         }
@@ -28890,7 +29898,7 @@ class BlobClient extends StorageClient {
         catch (e) {
             span.setStatus({
                 code: coreTracing.SpanStatusCode.ERROR,
-                message: e.message
+                message: e.message,
             });
             throw e;
         }
@@ -28941,11 +29949,16 @@ class AppendBlobClient extends BlobClient {
             const blobName = blobNameOrOptions;
             const extractedCreds = extractConnectionStringParts(urlOrConnectionString);
             if (extractedCreds.kind === "AccountConnString") {
-                {
+                if (coreHttp.isNode) {
                     const sharedKeyCredential = new StorageSharedKeyCredential(extractedCreds.accountName, extractedCreds.accountKey);
                     url = appendToURLPath(appendToURLPath(extractedCreds.url, encodeURIComponent(containerName)), encodeURIComponent(blobName));
-                    options.proxyOptions = coreHttp.getDefaultProxySettings(extractedCreds.proxyUri);
+                    if (!options.proxyOptions) {
+                        options.proxyOptions = coreHttp.getDefaultProxySettings(extractedCreds.proxyUri);
+                    }
                     pipeline = newPipeline(sharedKeyCredential, options);
+                }
+                else {
+                    throw new Error("Account connection string is only supported in Node.js environment");
                 }
             }
             else if (extractedCreds.kind === "SASConnString") {
@@ -29001,7 +30014,7 @@ class AppendBlobClient extends BlobClient {
         catch (e) {
             span.setStatus({
                 code: coreTracing.SpanStatusCode.ERROR,
-                message: e.message
+                message: e.message,
             });
             throw e;
         }
@@ -29022,20 +30035,19 @@ class AppendBlobClient extends BlobClient {
         const conditions = { ifNoneMatch: ETagAny };
         try {
             const res = await this.create(Object.assign(Object.assign({}, updatedOptions), { conditions }));
-            return Object.assign(Object.assign({ succeeded: true }, res), { _response: res._response // _response is made non-enumerable
-             });
+            return Object.assign(Object.assign({ succeeded: true }, res), { _response: res._response });
         }
         catch (e) {
             if (((_a = e.details) === null || _a === void 0 ? void 0 : _a.errorCode) === "BlobAlreadyExists") {
                 span.setStatus({
                     code: coreTracing.SpanStatusCode.ERROR,
-                    message: "Expected exception when creating a blob only if it does not already exist."
+                    message: "Expected exception when creating a blob only if it does not already exist.",
                 });
                 return Object.assign(Object.assign({ succeeded: false }, (_b = e.response) === null || _b === void 0 ? void 0 : _b.parsedHeaders), { _response: e.response });
             }
             span.setStatus({
                 code: coreTracing.SpanStatusCode.ERROR,
-                message: e.message
+                message: e.message,
             });
             throw e;
         }
@@ -29058,7 +30070,7 @@ class AppendBlobClient extends BlobClient {
         catch (e) {
             span.setStatus({
                 code: coreTracing.SpanStatusCode.ERROR,
-                message: e.message
+                message: e.message,
             });
             throw e;
         }
@@ -29097,13 +30109,13 @@ class AppendBlobClient extends BlobClient {
         try {
             ensureCpkIfSpecified(options.customerProvidedKey, this.isHttps);
             return await this.appendBlobContext.appendBlock(contentLength, body, Object.assign({ abortSignal: options.abortSignal, appendPositionAccessConditions: options.conditions, leaseAccessConditions: options.conditions, modifiedAccessConditions: Object.assign(Object.assign({}, options.conditions), { ifTags: (_a = options.conditions) === null || _a === void 0 ? void 0 : _a.tagConditions }), requestOptions: {
-                    onUploadProgress: options.onProgress
+                    onUploadProgress: options.onProgress,
                 }, transactionalContentMD5: options.transactionalContentMD5, transactionalContentCrc64: options.transactionalContentCrc64, cpkInfo: options.customerProvidedKey, encryptionScope: options.encryptionScope }, convertTracingToRequestOptionsBase(updatedOptions)));
         }
         catch (e) {
             span.setStatus({
                 code: coreTracing.SpanStatusCode.ERROR,
-                message: e.message
+                message: e.message,
             });
             throw e;
         }
@@ -29136,13 +30148,13 @@ class AppendBlobClient extends BlobClient {
                     sourceIfMatch: options.sourceConditions.ifMatch,
                     sourceIfModifiedSince: options.sourceConditions.ifModifiedSince,
                     sourceIfNoneMatch: options.sourceConditions.ifNoneMatch,
-                    sourceIfUnmodifiedSince: options.sourceConditions.ifUnmodifiedSince
+                    sourceIfUnmodifiedSince: options.sourceConditions.ifUnmodifiedSince,
                 }, copySourceAuthorization: httpAuthorizationToString(options.sourceAuthorization), cpkInfo: options.customerProvidedKey, encryptionScope: options.encryptionScope }, convertTracingToRequestOptionsBase(updatedOptions)));
         }
         catch (e) {
             span.setStatus({
                 code: coreTracing.SpanStatusCode.ERROR,
-                message: e.message
+                message: e.message,
             });
             throw e;
         }
@@ -29193,11 +30205,16 @@ class BlockBlobClient extends BlobClient {
             const blobName = blobNameOrOptions;
             const extractedCreds = extractConnectionStringParts(urlOrConnectionString);
             if (extractedCreds.kind === "AccountConnString") {
-                {
+                if (coreHttp.isNode) {
                     const sharedKeyCredential = new StorageSharedKeyCredential(extractedCreds.accountName, extractedCreds.accountKey);
                     url = appendToURLPath(appendToURLPath(extractedCreds.url, encodeURIComponent(containerName)), encodeURIComponent(blobName));
-                    options.proxyOptions = coreHttp.getDefaultProxySettings(extractedCreds.proxyUri);
+                    if (!options.proxyOptions) {
+                        options.proxyOptions = coreHttp.getDefaultProxySettings(extractedCreds.proxyUri);
+                    }
                     pipeline = newPipeline(sharedKeyCredential, options);
+                }
+                else {
+                    throw new Error("Account connection string is only supported in Node.js environment");
                 }
             }
             else if (extractedCreds.kind === "SASConnString") {
@@ -29264,23 +30281,25 @@ class BlockBlobClient extends BlobClient {
         ensureCpkIfSpecified(options.customerProvidedKey, this.isHttps);
         const { span, updatedOptions } = createSpan("BlockBlobClient-query", options);
         try {
-            if (false) {}
+            if (!coreHttp.isNode) {
+                throw new Error("This operation currently is only supported in Node.js.");
+            }
             const response = await this._blobContext.query(Object.assign({ abortSignal: options.abortSignal, queryRequest: {
                     queryType: "SQL",
                     expression: query,
                     inputSerialization: toQuerySerialization(options.inputTextConfiguration),
-                    outputSerialization: toQuerySerialization(options.outputTextConfiguration)
+                    outputSerialization: toQuerySerialization(options.outputTextConfiguration),
                 }, leaseAccessConditions: options.conditions, modifiedAccessConditions: Object.assign(Object.assign({}, options.conditions), { ifTags: (_a = options.conditions) === null || _a === void 0 ? void 0 : _a.tagConditions }) }, convertTracingToRequestOptionsBase(updatedOptions)));
             return new BlobQueryResponse(response, {
                 abortSignal: options.abortSignal,
                 onProgress: options.onProgress,
-                onError: options.onError
+                onError: options.onError,
             });
         }
         catch (e) {
             span.setStatus({
                 code: coreTracing.SpanStatusCode.ERROR,
-                message: e.message
+                message: e.message,
             });
             throw e;
         }
@@ -29322,13 +30341,13 @@ class BlockBlobClient extends BlobClient {
         try {
             ensureCpkIfSpecified(options.customerProvidedKey, this.isHttps);
             return await this.blockBlobContext.upload(contentLength, body, Object.assign({ abortSignal: options.abortSignal, blobHttpHeaders: options.blobHTTPHeaders, leaseAccessConditions: options.conditions, metadata: options.metadata, modifiedAccessConditions: Object.assign(Object.assign({}, options.conditions), { ifTags: (_a = options.conditions) === null || _a === void 0 ? void 0 : _a.tagConditions }), requestOptions: {
-                    onUploadProgress: options.onProgress
+                    onUploadProgress: options.onProgress,
                 }, cpkInfo: options.customerProvidedKey, encryptionScope: options.encryptionScope, immutabilityPolicyExpiry: (_b = options.immutabilityPolicy) === null || _b === void 0 ? void 0 : _b.expiriesOn, immutabilityPolicyMode: (_c = options.immutabilityPolicy) === null || _c === void 0 ? void 0 : _c.policyMode, legalHold: options.legalHold, tier: toAccessTier(options.tier), blobTagsString: toBlobTagsString(options.tags) }, convertTracingToRequestOptionsBase(updatedOptions)));
         }
         catch (e) {
             span.setStatus({
                 code: coreTracing.SpanStatusCode.ERROR,
-                message: e.message
+                message: e.message,
             });
             throw e;
         }
@@ -29365,13 +30384,13 @@ class BlockBlobClient extends BlobClient {
                     sourceIfModifiedSince: (_b = options.sourceConditions) === null || _b === void 0 ? void 0 : _b.ifModifiedSince,
                     sourceIfNoneMatch: (_c = options.sourceConditions) === null || _c === void 0 ? void 0 : _c.ifNoneMatch,
                     sourceIfUnmodifiedSince: (_d = options.sourceConditions) === null || _d === void 0 ? void 0 : _d.ifUnmodifiedSince,
-                    sourceIfTags: (_e = options.sourceConditions) === null || _e === void 0 ? void 0 : _e.tagConditions
+                    sourceIfTags: (_e = options.sourceConditions) === null || _e === void 0 ? void 0 : _e.tagConditions,
                 }, cpkInfo: options.customerProvidedKey, copySourceAuthorization: httpAuthorizationToString(options.sourceAuthorization), tier: toAccessTier(options.tier), blobTagsString: toBlobTagsString(options.tags) }), convertTracingToRequestOptionsBase(updatedOptions)));
         }
         catch (e) {
             span.setStatus({
                 code: coreTracing.SpanStatusCode.ERROR,
-                message: e.message
+                message: e.message,
             });
             throw e;
         }
@@ -29395,13 +30414,13 @@ class BlockBlobClient extends BlobClient {
         try {
             ensureCpkIfSpecified(options.customerProvidedKey, this.isHttps);
             return await this.blockBlobContext.stageBlock(blockId, contentLength, body, Object.assign({ abortSignal: options.abortSignal, leaseAccessConditions: options.conditions, requestOptions: {
-                    onUploadProgress: options.onProgress
+                    onUploadProgress: options.onProgress,
                 }, transactionalContentMD5: options.transactionalContentMD5, transactionalContentCrc64: options.transactionalContentCrc64, cpkInfo: options.customerProvidedKey, encryptionScope: options.encryptionScope }, convertTracingToRequestOptionsBase(updatedOptions)));
         }
         catch (e) {
             span.setStatus({
                 code: coreTracing.SpanStatusCode.ERROR,
-                message: e.message
+                message: e.message,
             });
             throw e;
         }
@@ -29439,7 +30458,7 @@ class BlockBlobClient extends BlobClient {
         catch (e) {
             span.setStatus({
                 code: coreTracing.SpanStatusCode.ERROR,
-                message: e.message
+                message: e.message,
             });
             throw e;
         }
@@ -29470,7 +30489,7 @@ class BlockBlobClient extends BlobClient {
         catch (e) {
             span.setStatus({
                 code: coreTracing.SpanStatusCode.ERROR,
-                message: e.message
+                message: e.message,
             });
             throw e;
         }
@@ -29504,7 +30523,7 @@ class BlockBlobClient extends BlobClient {
         catch (e) {
             span.setStatus({
                 code: coreTracing.SpanStatusCode.ERROR,
-                message: e.message
+                message: e.message,
             });
             throw e;
         }
@@ -29531,7 +30550,7 @@ class BlockBlobClient extends BlobClient {
     async uploadData(data, options = {}) {
         const { span, updatedOptions } = createSpan("BlockBlobClient-uploadData", options);
         try {
-            if (true) {
+            if (coreHttp.isNode) {
                 let buffer;
                 if (data instanceof Buffer) {
                     buffer = data;
@@ -29545,12 +30564,15 @@ class BlockBlobClient extends BlobClient {
                 }
                 return this.uploadSeekableInternal((offset, size) => buffer.slice(offset, offset + size), buffer.byteLength, updatedOptions);
             }
-            else {}
+            else {
+                const browserBlob = new Blob([data]);
+                return this.uploadSeekableInternal((offset, size) => browserBlob.slice(offset, offset + size), browserBlob.size, updatedOptions);
+            }
         }
         catch (e) {
             span.setStatus({
                 code: coreTracing.SpanStatusCode.ERROR,
-                message: e.message
+                message: e.message,
             });
             throw e;
         }
@@ -29586,7 +30608,7 @@ class BlockBlobClient extends BlobClient {
         catch (e) {
             span.setStatus({
                 code: coreTracing.SpanStatusCode.ERROR,
-                message: e.message
+                message: e.message,
             });
             throw e;
         }
@@ -29599,7 +30621,7 @@ class BlockBlobClient extends BlobClient {
      * Uploads data to block blob. Requires a bodyFactory as the data source,
      * which need to return a {@link HttpRequestBody} object with the offset and size provided.
      *
-     * When data length is no more than the specifiled {@link BlockBlobParallelUploadOptions.maxSingleShotSize} (default is
+     * When data length is no more than the specified {@link BlockBlobParallelUploadOptions.maxSingleShotSize} (default is
      * {@link BLOCK_BLOB_MAX_UPLOAD_BLOB_BYTES}), this method will use 1 {@link upload} call to finish the upload.
      * Otherwise, this method will call {@link stageBlock} to upload blocks, and finally call {@link commitBlockList}
      * to commit the block list.
@@ -29665,14 +30687,14 @@ class BlockBlobClient extends BlobClient {
                         abortSignal: options.abortSignal,
                         conditions: options.conditions,
                         encryptionScope: options.encryptionScope,
-                        tracingOptions: updatedOptions.tracingOptions
+                        tracingOptions: updatedOptions.tracingOptions,
                     });
                     // Update progress after block is successfully uploaded to server, in case of block trying
                     // TODO: Hook with convenience layer progress event in finer level
                     transferProgress += contentLength;
                     if (options.onProgress) {
                         options.onProgress({
-                            loadedBytes: transferProgress
+                            loadedBytes: transferProgress,
                         });
                     }
                 });
@@ -29683,7 +30705,7 @@ class BlockBlobClient extends BlobClient {
         catch (e) {
             span.setStatus({
                 code: coreTracing.SpanStatusCode.ERROR,
-                message: e.message
+                message: e.message,
             });
             throw e;
         }
@@ -29712,14 +30734,14 @@ class BlockBlobClient extends BlobClient {
                 return () => fsCreateReadStream(filePath, {
                     autoClose: true,
                     end: count ? offset + count - 1 : Infinity,
-                    start: offset
+                    start: offset,
                 });
             }, size, Object.assign(Object.assign({}, options), { tracingOptions: Object.assign(Object.assign({}, options.tracingOptions), convertTracingToRequestOptionsBase(updatedOptions)) }));
         }
         catch (e) {
             span.setStatus({
                 code: coreTracing.SpanStatusCode.ERROR,
-                message: e.message
+                message: e.message,
             });
             throw e;
         }
@@ -29763,7 +30785,7 @@ class BlockBlobClient extends BlobClient {
                 await this.stageBlock(blockID, body, length, {
                     conditions: options.conditions,
                     encryptionScope: options.encryptionScope,
-                    tracingOptions: updatedOptions.tracingOptions
+                    tracingOptions: updatedOptions.tracingOptions,
                 });
                 // Update progress after block is successfully uploaded to server, in case of block trying
                 transferProgress += length;
@@ -29782,7 +30804,7 @@ class BlockBlobClient extends BlobClient {
         catch (e) {
             span.setStatus({
                 code: coreTracing.SpanStatusCode.ERROR,
-                message: e.message
+                message: e.message,
             });
             throw e;
         }
@@ -29833,11 +30855,16 @@ class PageBlobClient extends BlobClient {
             const blobName = blobNameOrOptions;
             const extractedCreds = extractConnectionStringParts(urlOrConnectionString);
             if (extractedCreds.kind === "AccountConnString") {
-                {
+                if (coreHttp.isNode) {
                     const sharedKeyCredential = new StorageSharedKeyCredential(extractedCreds.accountName, extractedCreds.accountKey);
                     url = appendToURLPath(appendToURLPath(extractedCreds.url, encodeURIComponent(containerName)), encodeURIComponent(blobName));
-                    options.proxyOptions = coreHttp.getDefaultProxySettings(extractedCreds.proxyUri);
+                    if (!options.proxyOptions) {
+                        options.proxyOptions = coreHttp.getDefaultProxySettings(extractedCreds.proxyUri);
+                    }
                     pipeline = newPipeline(sharedKeyCredential, options);
+                }
+                else {
+                    throw new Error("Account connection string is only supported in Node.js environment");
                 }
             }
             else if (extractedCreds.kind === "SASConnString") {
@@ -29888,7 +30915,7 @@ class PageBlobClient extends BlobClient {
         catch (e) {
             span.setStatus({
                 code: coreTracing.SpanStatusCode.ERROR,
-                message: e.message
+                message: e.message,
             });
             throw e;
         }
@@ -29911,20 +30938,19 @@ class PageBlobClient extends BlobClient {
         try {
             const conditions = { ifNoneMatch: ETagAny };
             const res = await this.create(size, Object.assign(Object.assign({}, options), { conditions, tracingOptions: updatedOptions.tracingOptions }));
-            return Object.assign(Object.assign({ succeeded: true }, res), { _response: res._response // _response is made non-enumerable
-             });
+            return Object.assign(Object.assign({ succeeded: true }, res), { _response: res._response });
         }
         catch (e) {
             if (((_a = e.details) === null || _a === void 0 ? void 0 : _a.errorCode) === "BlobAlreadyExists") {
                 span.setStatus({
                     code: coreTracing.SpanStatusCode.ERROR,
-                    message: "Expected exception when creating a blob only if it does not already exist."
+                    message: "Expected exception when creating a blob only if it does not already exist.",
                 });
                 return Object.assign(Object.assign({ succeeded: false }, (_b = e.response) === null || _b === void 0 ? void 0 : _b.parsedHeaders), { _response: e.response });
             }
             span.setStatus({
                 code: coreTracing.SpanStatusCode.ERROR,
-                message: e.message
+                message: e.message,
             });
             throw e;
         }
@@ -29949,13 +30975,13 @@ class PageBlobClient extends BlobClient {
         try {
             ensureCpkIfSpecified(options.customerProvidedKey, this.isHttps);
             return await this.pageBlobContext.uploadPages(count, body, Object.assign({ abortSignal: options.abortSignal, leaseAccessConditions: options.conditions, modifiedAccessConditions: Object.assign(Object.assign({}, options.conditions), { ifTags: (_a = options.conditions) === null || _a === void 0 ? void 0 : _a.tagConditions }), requestOptions: {
-                    onUploadProgress: options.onProgress
+                    onUploadProgress: options.onProgress,
                 }, range: rangeToString({ offset, count }), sequenceNumberAccessConditions: options.conditions, transactionalContentMD5: options.transactionalContentMD5, transactionalContentCrc64: options.transactionalContentCrc64, cpkInfo: options.customerProvidedKey, encryptionScope: options.encryptionScope }, convertTracingToRequestOptionsBase(updatedOptions)));
         }
         catch (e) {
             span.setStatus({
                 code: coreTracing.SpanStatusCode.ERROR,
-                message: e.message
+                message: e.message,
             });
             throw e;
         }
@@ -29985,13 +31011,13 @@ class PageBlobClient extends BlobClient {
                     sourceIfMatch: options.sourceConditions.ifMatch,
                     sourceIfModifiedSince: options.sourceConditions.ifModifiedSince,
                     sourceIfNoneMatch: options.sourceConditions.ifNoneMatch,
-                    sourceIfUnmodifiedSince: options.sourceConditions.ifUnmodifiedSince
+                    sourceIfUnmodifiedSince: options.sourceConditions.ifUnmodifiedSince,
                 }, cpkInfo: options.customerProvidedKey, encryptionScope: options.encryptionScope, copySourceAuthorization: httpAuthorizationToString(options.sourceAuthorization) }, convertTracingToRequestOptionsBase(updatedOptions)));
         }
         catch (e) {
             span.setStatus({
                 code: coreTracing.SpanStatusCode.ERROR,
-                message: e.message
+                message: e.message,
             });
             throw e;
         }
@@ -30018,7 +31044,7 @@ class PageBlobClient extends BlobClient {
         catch (e) {
             span.setStatus({
                 code: coreTracing.SpanStatusCode.ERROR,
-                message: e.message
+                message: e.message,
             });
             throw e;
         }
@@ -30047,7 +31073,7 @@ class PageBlobClient extends BlobClient {
         catch (e) {
             span.setStatus({
                 code: coreTracing.SpanStatusCode.ERROR,
-                message: e.message
+                message: e.message,
             });
             throw e;
         }
@@ -30077,7 +31103,7 @@ class PageBlobClient extends BlobClient {
         catch (e) {
             span.setStatus({
                 code: coreTracing.SpanStatusCode.ERROR,
-                message: e.message
+                message: e.message,
             });
             throw e;
         }
@@ -30107,7 +31133,7 @@ class PageBlobClient extends BlobClient {
         catch (e) {
             span.setStatus({
                 code: coreTracing.SpanStatusCode.ERROR,
-                message: e.message
+                message: e.message,
             });
             throw e;
         }
@@ -30133,7 +31159,7 @@ class PageBlobClient extends BlobClient {
         catch (e) {
             span.setStatus({
                 code: coreTracing.SpanStatusCode.ERROR,
-                message: e.message
+                message: e.message,
             });
             throw e;
         }
@@ -30160,7 +31186,7 @@ class PageBlobClient extends BlobClient {
         catch (e) {
             span.setStatus({
                 code: coreTracing.SpanStatusCode.ERROR,
-                message: e.message
+                message: e.message,
             });
             throw e;
         }
@@ -30190,7 +31216,7 @@ class PageBlobClient extends BlobClient {
         catch (e) {
             span.setStatus({
                 code: coreTracing.SpanStatusCode.ERROR,
-                message: e.message
+                message: e.message,
             });
             throw e;
         }
@@ -30338,7 +31364,7 @@ class BatchResponseParser {
         return {
             subResponses: deserializedSubResponses,
             subResponsesSucceededCount: subResponsesSucceededCount,
-            subResponsesFailedCount: subResponsesFailedCount
+            subResponsesFailedCount: subResponsesFailedCount,
         };
     }
 }
@@ -30485,7 +31511,7 @@ class BlobBatch {
             this.setBatchType("delete");
             await this.addSubRequestInternal({
                 url: url,
-                credential: credential
+                credential: credential,
             }, async () => {
                 await new BlobClient(url, this.batchRequest.createPipeline(credential)).delete(updatedOptions);
             });
@@ -30493,7 +31519,7 @@ class BlobBatch {
         catch (e) {
             span.setStatus({
                 code: coreTracing.SpanStatusCode.ERROR,
-                message: e.message
+                message: e.message,
             });
             throw e;
         }
@@ -30532,7 +31558,7 @@ class BlobBatch {
             this.setBatchType("setAccessTier");
             await this.addSubRequestInternal({
                 url: url,
-                credential: credential
+                credential: credential,
             }, async () => {
                 await new BlobClient(url, this.batchRequest.createPipeline(credential)).setAccessTier(tier, updatedOptions);
             });
@@ -30540,7 +31566,7 @@ class BlobBatch {
         catch (e) {
             span.setStatus({
                 code: coreTracing.SpanStatusCode.ERROR,
-                message: e.message
+                message: e.message,
             });
             throw e;
         }
@@ -30597,7 +31623,7 @@ class InnerBatchRequest {
             this.subRequestPrefix,
             `${HeaderConstants.CONTENT_ID}: ${this.operationCount}`,
             "",
-            `${request.method.toString()} ${getURLPathAndQuery(request.url)} ${HTTP_VERSION_1_1}${HTTP_LINE_ENDING}` // sub request start line with method
+            `${request.method.toString()} ${getURLPathAndQuery(request.url)} ${HTTP_VERSION_1_1}${HTTP_LINE_ENDING}`, // sub request start line with method
         ].join(HTTP_LINE_ENDING);
         for (const header of request.headers.headersArray()) {
             this.body += `${header.name}: ${header.value}${HTTP_LINE_ENDING}`;
@@ -30637,7 +31663,7 @@ class BatchRequestAssemblePolicy extends coreHttp.BaseRequestPolicy {
         this.dummyResponse = {
             request: new coreHttp.WebResource(),
             status: 200,
-            headers: new coreHttp.HttpHeaders()
+            headers: new coreHttp.HttpHeaders(),
         };
         this.batchRequest = batchRequest;
     }
@@ -30804,14 +31830,14 @@ class BlobBatchClient {
                 version: rawBatchResponse.version,
                 subResponses: responseSummary.subResponses,
                 subResponsesSucceededCount: responseSummary.subResponsesSucceededCount,
-                subResponsesFailedCount: responseSummary.subResponsesFailedCount
+                subResponsesFailedCount: responseSummary.subResponsesFailedCount,
             };
             return res;
         }
         catch (e) {
             span.setStatus({
                 code: coreTracing.SpanStatusCode.ERROR,
-                message: e.message
+                message: e.message,
             });
             throw e;
         }
@@ -30857,11 +31883,16 @@ class ContainerClient extends StorageClient {
             const containerName = credentialOrPipelineOrContainerName;
             const extractedCreds = extractConnectionStringParts(urlOrConnectionString);
             if (extractedCreds.kind === "AccountConnString") {
-                {
+                if (coreHttp.isNode) {
                     const sharedKeyCredential = new StorageSharedKeyCredential(extractedCreds.accountName, extractedCreds.accountKey);
                     url = appendToURLPath(extractedCreds.url, encodeURIComponent(containerName));
-                    options.proxyOptions = coreHttp.getDefaultProxySettings(extractedCreds.proxyUri);
+                    if (!options.proxyOptions) {
+                        options.proxyOptions = coreHttp.getDefaultProxySettings(extractedCreds.proxyUri);
+                    }
                     pipeline = newPipeline(sharedKeyCredential, options);
+                }
+                else {
+                    throw new Error("Account connection string is only supported in Node.js environment");
                 }
             }
             else if (extractedCreds.kind === "SASConnString") {
@@ -30914,7 +31945,7 @@ class ContainerClient extends StorageClient {
         catch (e) {
             span.setStatus({
                 code: coreTracing.SpanStatusCode.ERROR,
-                message: e.message
+                message: e.message,
             });
             throw e;
         }
@@ -30934,20 +31965,19 @@ class ContainerClient extends StorageClient {
         const { span, updatedOptions } = createSpan("ContainerClient-createIfNotExists", options);
         try {
             const res = await this.create(updatedOptions);
-            return Object.assign(Object.assign({ succeeded: true }, res), { _response: res._response // _response is made non-enumerable
-             });
+            return Object.assign(Object.assign({ succeeded: true }, res), { _response: res._response });
         }
         catch (e) {
             if (((_a = e.details) === null || _a === void 0 ? void 0 : _a.errorCode) === "ContainerAlreadyExists") {
                 span.setStatus({
                     code: coreTracing.SpanStatusCode.ERROR,
-                    message: "Expected exception when creating a container only if it does not already exist."
+                    message: "Expected exception when creating a container only if it does not already exist.",
                 });
                 return Object.assign(Object.assign({ succeeded: false }, (_b = e.response) === null || _b === void 0 ? void 0 : _b.parsedHeaders), { _response: e.response });
             }
             span.setStatus({
                 code: coreTracing.SpanStatusCode.ERROR,
-                message: e.message
+                message: e.message,
             });
             throw e;
         }
@@ -30969,7 +31999,7 @@ class ContainerClient extends StorageClient {
         try {
             await this.getProperties({
                 abortSignal: options.abortSignal,
-                tracingOptions: updatedOptions.tracingOptions
+                tracingOptions: updatedOptions.tracingOptions,
             });
             return true;
         }
@@ -30977,13 +32007,13 @@ class ContainerClient extends StorageClient {
             if (e.statusCode === 404) {
                 span.setStatus({
                     code: coreTracing.SpanStatusCode.ERROR,
-                    message: "Expected exception when checking container existence"
+                    message: "Expected exception when checking container existence",
                 });
                 return false;
             }
             span.setStatus({
                 code: coreTracing.SpanStatusCode.ERROR,
-                message: e.message
+                message: e.message,
             });
             throw e;
         }
@@ -31057,7 +32087,7 @@ class ContainerClient extends StorageClient {
         catch (e) {
             span.setStatus({
                 code: coreTracing.SpanStatusCode.ERROR,
-                message: e.message
+                message: e.message,
             });
             throw e;
         }
@@ -31083,7 +32113,7 @@ class ContainerClient extends StorageClient {
         catch (e) {
             span.setStatus({
                 code: coreTracing.SpanStatusCode.ERROR,
-                message: e.message
+                message: e.message,
             });
             throw e;
         }
@@ -31103,20 +32133,19 @@ class ContainerClient extends StorageClient {
         const { span, updatedOptions } = createSpan("ContainerClient-deleteIfExists", options);
         try {
             const res = await this.delete(updatedOptions);
-            return Object.assign(Object.assign({ succeeded: true }, res), { _response: res._response // _response is made non-enumerable
-             });
+            return Object.assign(Object.assign({ succeeded: true }, res), { _response: res._response });
         }
         catch (e) {
             if (((_a = e.details) === null || _a === void 0 ? void 0 : _a.errorCode) === "ContainerNotFound") {
                 span.setStatus({
                     code: coreTracing.SpanStatusCode.ERROR,
-                    message: "Expected exception when deleting a container only if it exists."
+                    message: "Expected exception when deleting a container only if it exists.",
                 });
                 return Object.assign(Object.assign({ succeeded: false }, (_b = e.response) === null || _b === void 0 ? void 0 : _b.parsedHeaders), { _response: e.response });
             }
             span.setStatus({
                 code: coreTracing.SpanStatusCode.ERROR,
-                message: e.message
+                message: e.message,
             });
             throw e;
         }
@@ -31150,7 +32179,7 @@ class ContainerClient extends StorageClient {
         catch (e) {
             span.setStatus({
                 code: coreTracing.SpanStatusCode.ERROR,
-                message: e.message
+                message: e.message,
             });
             throw e;
         }
@@ -31186,13 +32215,13 @@ class ContainerClient extends StorageClient {
                 requestId: response.requestId,
                 clientRequestId: response.clientRequestId,
                 signedIdentifiers: [],
-                version: response.version
+                version: response.version,
             };
             for (const identifier of response) {
                 let accessPolicy = undefined;
                 if (identifier.accessPolicy) {
                     accessPolicy = {
-                        permissions: identifier.accessPolicy.permissions
+                        permissions: identifier.accessPolicy.permissions,
                     };
                     if (identifier.accessPolicy.expiresOn) {
                         accessPolicy.expiresOn = new Date(identifier.accessPolicy.expiresOn);
@@ -31203,7 +32232,7 @@ class ContainerClient extends StorageClient {
                 }
                 res.signedIdentifiers.push({
                     accessPolicy,
-                    id: identifier.id
+                    id: identifier.id,
                 });
             }
             return res;
@@ -31211,7 +32240,7 @@ class ContainerClient extends StorageClient {
         catch (e) {
             span.setStatus({
                 code: coreTracing.SpanStatusCode.ERROR,
-                message: e.message
+                message: e.message,
             });
             throw e;
         }
@@ -31250,9 +32279,9 @@ class ContainerClient extends StorageClient {
                         permissions: identifier.accessPolicy.permissions,
                         startsOn: identifier.accessPolicy.startsOn
                             ? truncatedISO8061Date(identifier.accessPolicy.startsOn)
-                            : ""
+                            : "",
                     },
-                    id: identifier.id
+                    id: identifier.id,
                 });
             }
             return await this.containerContext.setAccessPolicy(Object.assign({ abortSignal: options.abortSignal, access, containerAcl: acl, leaseAccessConditions: options.conditions, modifiedAccessConditions: options.conditions }, convertTracingToRequestOptionsBase(updatedOptions)));
@@ -31260,7 +32289,7 @@ class ContainerClient extends StorageClient {
         catch (e) {
             span.setStatus({
                 code: coreTracing.SpanStatusCode.ERROR,
-                message: e.message
+                message: e.message,
             });
             throw e;
         }
@@ -31306,13 +32335,13 @@ class ContainerClient extends StorageClient {
             const response = await blockBlobClient.upload(body, contentLength, updatedOptions);
             return {
                 blockBlobClient,
-                response
+                response,
             };
         }
         catch (e) {
             span.setStatus({
                 code: coreTracing.SpanStatusCode.ERROR,
-                message: e.message
+                message: e.message,
             });
             throw e;
         }
@@ -31343,7 +32372,7 @@ class ContainerClient extends StorageClient {
         catch (e) {
             span.setStatus({
                 code: coreTracing.SpanStatusCode.ERROR,
-                message: e.message
+                message: e.message,
             });
             throw e;
         }
@@ -31365,8 +32394,12 @@ class ContainerClient extends StorageClient {
         const { span, updatedOptions } = createSpan("ContainerClient-listBlobFlatSegment", options);
         try {
             const response = await this.containerContext.listBlobFlatSegment(Object.assign(Object.assign({ marker }, options), convertTracingToRequestOptionsBase(updatedOptions)));
-            const wrappedResponse = Object.assign(Object.assign({}, response), { _response: response._response, segment: Object.assign(Object.assign({}, response.segment), { blobItems: response.segment.blobItems.map((blobItemInteral) => {
-                        const blobItem = Object.assign(Object.assign({}, blobItemInteral), { tags: toTags(blobItemInteral.blobTags), objectReplicationSourceProperties: parseObjectReplicationRecord(blobItemInteral.objectReplicationMetadata) });
+            response.segment.blobItems = [];
+            if (response.segment["Blob"] !== undefined) {
+                response.segment.blobItems = ProcessBlobItems(response.segment["Blob"]);
+            }
+            const wrappedResponse = Object.assign(Object.assign({}, response), { _response: Object.assign(Object.assign({}, response._response), { parsedBody: ConvertInternalResponseOfListBlobFlat(response._response.parsedBody) }), segment: Object.assign(Object.assign({}, response.segment), { blobItems: response.segment.blobItems.map((blobItemInteral) => {
+                        const blobItem = Object.assign(Object.assign({}, blobItemInteral), { name: BlobNameToString(blobItemInteral.name), tags: toTags(blobItemInteral.blobTags), objectReplicationSourceProperties: parseObjectReplicationRecord(blobItemInteral.objectReplicationMetadata) });
                         return blobItem;
                     }) }) });
             return wrappedResponse;
@@ -31374,7 +32407,7 @@ class ContainerClient extends StorageClient {
         catch (e) {
             span.setStatus({
                 code: coreTracing.SpanStatusCode.ERROR,
-                message: e.message
+                message: e.message,
             });
             throw e;
         }
@@ -31394,19 +32427,33 @@ class ContainerClient extends StorageClient {
      * @param options - Options to Container List Blob Hierarchy Segment operation.
      */
     async listBlobHierarchySegment(delimiter, marker, options = {}) {
+        var _a;
         const { span, updatedOptions } = createSpan("ContainerClient-listBlobHierarchySegment", options);
         try {
             const response = await this.containerContext.listBlobHierarchySegment(delimiter, Object.assign(Object.assign({ marker }, options), convertTracingToRequestOptionsBase(updatedOptions)));
-            const wrappedResponse = Object.assign(Object.assign({}, response), { _response: response._response, segment: Object.assign(Object.assign({}, response.segment), { blobItems: response.segment.blobItems.map((blobItemInteral) => {
-                        const blobItem = Object.assign(Object.assign({}, blobItemInteral), { tags: toTags(blobItemInteral.blobTags), objectReplicationSourceProperties: parseObjectReplicationRecord(blobItemInteral.objectReplicationMetadata) });
+            response.segment.blobItems = [];
+            if (response.segment["Blob"] !== undefined) {
+                response.segment.blobItems = ProcessBlobItems(response.segment["Blob"]);
+            }
+            response.segment.blobPrefixes = [];
+            if (response.segment["BlobPrefix"] !== undefined) {
+                response.segment.blobPrefixes = ProcessBlobPrefixes(response.segment["BlobPrefix"]);
+            }
+            const wrappedResponse = Object.assign(Object.assign({}, response), { _response: Object.assign(Object.assign({}, response._response), { parsedBody: ConvertInternalResponseOfListBlobHierarchy(response._response.parsedBody) }), segment: Object.assign(Object.assign({}, response.segment), { blobItems: response.segment.blobItems.map((blobItemInteral) => {
+                        const blobItem = Object.assign(Object.assign({}, blobItemInteral), { name: BlobNameToString(blobItemInteral.name), tags: toTags(blobItemInteral.blobTags), objectReplicationSourceProperties: parseObjectReplicationRecord(blobItemInteral.objectReplicationMetadata) });
                         return blobItem;
+                    }), blobPrefixes: (_a = response.segment.blobPrefixes) === null || _a === void 0 ? void 0 : _a.map((blobPrefixInternal) => {
+                        const blobPrefix = {
+                            name: BlobNameToString(blobPrefixInternal.name),
+                        };
+                        return blobPrefix;
                     }) }) });
             return wrappedResponse;
         }
         catch (e) {
             span.setStatus({
                 code: coreTracing.SpanStatusCode.ERROR,
-                message: e.message
+                message: e.message,
             });
             throw e;
         }
@@ -31588,7 +32635,7 @@ class ContainerClient extends StorageClient {
              */
             byPage: (settings = {}) => {
                 return this.listSegments(settings.continuationToken, Object.assign({ maxPageSize: settings.maxPageSize }, updatedOptions));
-            }
+            },
         };
     }
     /**
@@ -31662,7 +32709,7 @@ class ContainerClient extends StorageClient {
      *   if (item.kind === "prefix") {
      *     console.log(`\tBlobPrefix: ${item.name}`);
      *   } else {
-     *     console.log(`\tBlobItem: name - ${item.name}, last modified - ${item.properties.lastModified}`);
+     *     console.log(`\tBlobItem: name - ${item.name}`);
      *   }
      * }
      * ```
@@ -31677,7 +32724,7 @@ class ContainerClient extends StorageClient {
      *   if (item.kind === "prefix") {
      *     console.log(`\tBlobPrefix: ${item.name}`);
      *   } else {
-     *     console.log(`\tBlobItem: name - ${item.name}, last modified - ${item.properties.lastModified}`);
+     *     console.log(`\tBlobItem: name - ${item.name}`);
      *   }
      *   entity = await iter.next();
      * }
@@ -31695,7 +32742,7 @@ class ContainerClient extends StorageClient {
      *     }
      *   }
      *   for (const blob of response.segment.blobItems) {
-     *     console.log(`\tBlobItem: name - ${blob.name}, last modified - ${blob.properties.lastModified}`);
+     *     console.log(`\tBlobItem: name - ${blob.name}`);
      *   }
      * }
      * ```
@@ -31706,7 +32753,9 @@ class ContainerClient extends StorageClient {
      * console.log("Listing blobs by hierarchy by page, specifying a prefix and a max page size");
      *
      * let i = 1;
-     * for await (const response of containerClient.listBlobsByHierarchy("/", { prefix: "prefix2/sub1/"}).byPage({ maxPageSize: 2 })) {
+     * for await (const response of containerClient
+     *   .listBlobsByHierarchy("/", { prefix: "prefix2/sub1/" })
+     *   .byPage({ maxPageSize: 2 })) {
      *   console.log(`Page ${i++}`);
      *   const segment = response.segment;
      *
@@ -31717,7 +32766,7 @@ class ContainerClient extends StorageClient {
      *   }
      *
      *   for (const blob of response.segment.blobItems) {
-     *     console.log(`\tBlobItem: name - ${blob.name}, last modified - ${blob.properties.lastModified}`);
+     *     console.log(`\tBlobItem: name - ${blob.name}`);
      *   }
      * }
      * ```
@@ -31784,7 +32833,208 @@ class ContainerClient extends StorageClient {
              */
             byPage: (settings = {}) => {
                 return this.listHierarchySegments(delimiter, settings.continuationToken, Object.assign({ maxPageSize: settings.maxPageSize }, updatedOptions));
+            },
+        };
+    }
+    /**
+     * The Filter Blobs operation enables callers to list blobs in the container whose tags
+     * match a given search expression.
+     *
+     * @param tagFilterSqlExpression - The where parameter enables the caller to query blobs whose tags match a given expression.
+     *                                        The given expression must evaluate to true for a blob to be returned in the results.
+     *                                        The[OData - ABNF] filter syntax rule defines the formal grammar for the value of the where query parameter;
+     *                                        however, only a subset of the OData filter syntax is supported in the Blob service.
+     * @param marker - A string value that identifies the portion of
+     *                          the list of blobs to be returned with the next listing operation. The
+     *                          operation returns the continuationToken value within the response body if the
+     *                          listing operation did not return all blobs remaining to be listed
+     *                          with the current page. The continuationToken value can be used as the value for
+     *                          the marker parameter in a subsequent call to request the next page of list
+     *                          items. The marker value is opaque to the client.
+     * @param options - Options to find blobs by tags.
+     */
+    async findBlobsByTagsSegment(tagFilterSqlExpression, marker, options = {}) {
+        const { span, updatedOptions } = createSpan("ContainerClient-findBlobsByTagsSegment", options);
+        try {
+            const response = await this.containerContext.filterBlobs(Object.assign({ abortSignal: options.abortSignal, where: tagFilterSqlExpression, marker, maxPageSize: options.maxPageSize }, convertTracingToRequestOptionsBase(updatedOptions)));
+            const wrappedResponse = Object.assign(Object.assign({}, response), { _response: response._response, blobs: response.blobs.map((blob) => {
+                    var _a;
+                    let tagValue = "";
+                    if (((_a = blob.tags) === null || _a === void 0 ? void 0 : _a.blobTagSet.length) === 1) {
+                        tagValue = blob.tags.blobTagSet[0].value;
+                    }
+                    return Object.assign(Object.assign({}, blob), { tags: toTags(blob.tags), tagValue });
+                }) });
+            return wrappedResponse;
+        }
+        catch (e) {
+            span.setStatus({
+                code: coreTracing.SpanStatusCode.ERROR,
+                message: e.message,
+            });
+            throw e;
+        }
+        finally {
+            span.end();
+        }
+    }
+    /**
+     * Returns an AsyncIterableIterator for ContainerFindBlobsByTagsSegmentResponse.
+     *
+     * @param tagFilterSqlExpression -  The where parameter enables the caller to query blobs whose tags match a given expression.
+     *                                         The given expression must evaluate to true for a blob to be returned in the results.
+     *                                         The[OData - ABNF] filter syntax rule defines the formal grammar for the value of the where query parameter;
+     *                                         however, only a subset of the OData filter syntax is supported in the Blob service.
+     * @param marker - A string value that identifies the portion of
+     *                          the list of blobs to be returned with the next listing operation. The
+     *                          operation returns the continuationToken value within the response body if the
+     *                          listing operation did not return all blobs remaining to be listed
+     *                          with the current page. The continuationToken value can be used as the value for
+     *                          the marker parameter in a subsequent call to request the next page of list
+     *                          items. The marker value is opaque to the client.
+     * @param options - Options to find blobs by tags.
+     */
+    findBlobsByTagsSegments(tagFilterSqlExpression, marker, options = {}) {
+        return tslib.__asyncGenerator(this, arguments, function* findBlobsByTagsSegments_1() {
+            let response;
+            if (!!marker || marker === undefined) {
+                do {
+                    response = yield tslib.__await(this.findBlobsByTagsSegment(tagFilterSqlExpression, marker, options));
+                    response.blobs = response.blobs || [];
+                    marker = response.continuationToken;
+                    yield yield tslib.__await(response);
+                } while (marker);
             }
+        });
+    }
+    /**
+     * Returns an AsyncIterableIterator for blobs.
+     *
+     * @param tagFilterSqlExpression -  The where parameter enables the caller to query blobs whose tags match a given expression.
+     *                                         The given expression must evaluate to true for a blob to be returned in the results.
+     *                                         The[OData - ABNF] filter syntax rule defines the formal grammar for the value of the where query parameter;
+     *                                         however, only a subset of the OData filter syntax is supported in the Blob service.
+     * @param options - Options to findBlobsByTagsItems.
+     */
+    findBlobsByTagsItems(tagFilterSqlExpression, options = {}) {
+        return tslib.__asyncGenerator(this, arguments, function* findBlobsByTagsItems_1() {
+            var e_3, _a;
+            let marker;
+            try {
+                for (var _b = tslib.__asyncValues(this.findBlobsByTagsSegments(tagFilterSqlExpression, marker, options)), _c; _c = yield tslib.__await(_b.next()), !_c.done;) {
+                    const segment = _c.value;
+                    yield tslib.__await(yield* tslib.__asyncDelegator(tslib.__asyncValues(segment.blobs)));
+                }
+            }
+            catch (e_3_1) { e_3 = { error: e_3_1 }; }
+            finally {
+                try {
+                    if (_c && !_c.done && (_a = _b.return)) yield tslib.__await(_a.call(_b));
+                }
+                finally { if (e_3) throw e_3.error; }
+            }
+        });
+    }
+    /**
+     * Returns an async iterable iterator to find all blobs with specified tag
+     * under the specified container.
+     *
+     * .byPage() returns an async iterable iterator to list the blobs in pages.
+     *
+     * Example using `for await` syntax:
+     *
+     * ```js
+     * let i = 1;
+     * for await (const blob of containerClient.findBlobsByTags("tagkey='tagvalue'")) {
+     *   console.log(`Blob ${i++}: ${blob.name}`);
+     * }
+     * ```
+     *
+     * Example using `iter.next()`:
+     *
+     * ```js
+     * let i = 1;
+     * const iter = containerClient.findBlobsByTags("tagkey='tagvalue'");
+     * let blobItem = await iter.next();
+     * while (!blobItem.done) {
+     *   console.log(`Blob ${i++}: ${blobItem.value.name}`);
+     *   blobItem = await iter.next();
+     * }
+     * ```
+     *
+     * Example using `byPage()`:
+     *
+     * ```js
+     * // passing optional maxPageSize in the page settings
+     * let i = 1;
+     * for await (const response of containerClient.findBlobsByTags("tagkey='tagvalue'").byPage({ maxPageSize: 20 })) {
+     *   if (response.blobs) {
+     *     for (const blob of response.blobs) {
+     *       console.log(`Blob ${i++}: ${blob.name}`);
+     *     }
+     *   }
+     * }
+     * ```
+     *
+     * Example using paging with a marker:
+     *
+     * ```js
+     * let i = 1;
+     * let iterator = containerClient.findBlobsByTags("tagkey='tagvalue'").byPage({ maxPageSize: 2 });
+     * let response = (await iterator.next()).value;
+     *
+     * // Prints 2 blob names
+     * if (response.blobs) {
+     *   for (const blob of response.blobs) {
+     *     console.log(`Blob ${i++}: ${blob.name}`);
+     *   }
+     * }
+     *
+     * // Gets next marker
+     * let marker = response.continuationToken;
+     * // Passing next marker as continuationToken
+     * iterator = containerClient
+     *   .findBlobsByTags("tagkey='tagvalue'")
+     *   .byPage({ continuationToken: marker, maxPageSize: 10 });
+     * response = (await iterator.next()).value;
+     *
+     * // Prints blob names
+     * if (response.blobs) {
+     *   for (const blob of response.blobs) {
+     *      console.log(`Blob ${i++}: ${blob.name}`);
+     *   }
+     * }
+     * ```
+     *
+     * @param tagFilterSqlExpression -  The where parameter enables the caller to query blobs whose tags match a given expression.
+     *                                         The given expression must evaluate to true for a blob to be returned in the results.
+     *                                         The[OData - ABNF] filter syntax rule defines the formal grammar for the value of the where query parameter;
+     *                                         however, only a subset of the OData filter syntax is supported in the Blob service.
+     * @param options - Options to find blobs by tags.
+     */
+    findBlobsByTags(tagFilterSqlExpression, options = {}) {
+        // AsyncIterableIterator to iterate over blobs
+        const listSegmentOptions = Object.assign({}, options);
+        const iter = this.findBlobsByTagsItems(tagFilterSqlExpression, listSegmentOptions);
+        return {
+            /**
+             * The next method, part of the iteration protocol
+             */
+            next() {
+                return iter.next();
+            },
+            /**
+             * The connection to the async iterator, part of the iteration protocol
+             */
+            [Symbol.asyncIterator]() {
+                return this;
+            },
+            /**
+             * Return an AsyncIterableIterator that works a page at a time
+             */
+            byPage: (settings = {}) => {
+                return this.findBlobsByTagsSegments(tagFilterSqlExpression, settings.continuationToken, Object.assign({ maxPageSize: settings.maxPageSize }, listSegmentOptions));
+            },
         };
     }
     getContainerNameFromUrl() {
@@ -31917,6 +33167,10 @@ class AccountSASPermissions {
          * Permission to set immutability policy.
          */
         this.setImmutabilityPolicy = false;
+        /**
+         * Specifies that Permanent Delete is permitted.
+         */
+        this.permanentDelete = false;
     }
     /**
      * Parse initializes the AccountSASPermissions fields from a string.
@@ -31962,6 +33216,9 @@ class AccountSASPermissions {
                     break;
                 case "i":
                     accountSASPermissions.setImmutabilityPolicy = true;
+                    break;
+                case "y":
+                    accountSASPermissions.permanentDelete = true;
                     break;
                 default:
                     throw new RangeError(`Invalid permission character: ${c}`);
@@ -32012,6 +33269,9 @@ class AccountSASPermissions {
         }
         if (permissionLike.setImmutabilityPolicy) {
             accountSASPermissions.setImmutabilityPolicy = true;
+        }
+        if (permissionLike.permanentDelete) {
+            accountSASPermissions.permanentDelete = true;
         }
         return accountSASPermissions;
     }
@@ -32065,6 +33325,9 @@ class AccountSASPermissions {
         }
         if (this.setImmutabilityPolicy) {
             permissions.push("i");
+        }
+        if (this.permanentDelete) {
+            permissions.push("y");
         }
         return permissions.join("");
     }
@@ -32249,6 +33512,11 @@ function generateAccountSASQueryParameters(accountSASSignatureValues, sharedKeyC
         throw RangeError("'version' must be >= '2019-10-10' when provided 'x' permission.");
     }
     if (accountSASSignatureValues.permissions &&
+        accountSASSignatureValues.permissions.permanentDelete &&
+        version < "2019-10-10") {
+        throw RangeError("'version' must be >= '2019-10-10' when provided 'y' permission.");
+    }
+    if (accountSASSignatureValues.permissions &&
         accountSASSignatureValues.permissions.tag &&
         version < "2019-12-12") {
         throw RangeError("'version' must be >= '2019-12-12' when provided 't' permission.");
@@ -32258,25 +33526,48 @@ function generateAccountSASQueryParameters(accountSASSignatureValues, sharedKeyC
         version < "2019-12-12") {
         throw RangeError("'version' must be >= '2019-12-12' when provided 'f' permission.");
     }
+    if (accountSASSignatureValues.encryptionScope && version < "2020-12-06") {
+        throw RangeError("'version' must be >= '2020-12-06' when provided 'encryptionScope' in SAS.");
+    }
     const parsedPermissions = AccountSASPermissions.parse(accountSASSignatureValues.permissions.toString());
     const parsedServices = AccountSASServices.parse(accountSASSignatureValues.services).toString();
     const parsedResourceTypes = AccountSASResourceTypes.parse(accountSASSignatureValues.resourceTypes).toString();
-    const stringToSign = [
-        sharedKeyCredential.accountName,
-        parsedPermissions,
-        parsedServices,
-        parsedResourceTypes,
-        accountSASSignatureValues.startsOn
-            ? truncatedISO8061Date(accountSASSignatureValues.startsOn, false)
-            : "",
-        truncatedISO8061Date(accountSASSignatureValues.expiresOn, false),
-        accountSASSignatureValues.ipRange ? ipRangeToString(accountSASSignatureValues.ipRange) : "",
-        accountSASSignatureValues.protocol ? accountSASSignatureValues.protocol : "",
-        version,
-        "" // Account SAS requires an additional newline character
-    ].join("\n");
+    let stringToSign;
+    if (version >= "2020-12-06") {
+        stringToSign = [
+            sharedKeyCredential.accountName,
+            parsedPermissions,
+            parsedServices,
+            parsedResourceTypes,
+            accountSASSignatureValues.startsOn
+                ? truncatedISO8061Date(accountSASSignatureValues.startsOn, false)
+                : "",
+            truncatedISO8061Date(accountSASSignatureValues.expiresOn, false),
+            accountSASSignatureValues.ipRange ? ipRangeToString(accountSASSignatureValues.ipRange) : "",
+            accountSASSignatureValues.protocol ? accountSASSignatureValues.protocol : "",
+            version,
+            accountSASSignatureValues.encryptionScope ? accountSASSignatureValues.encryptionScope : "",
+            "", // Account SAS requires an additional newline character
+        ].join("\n");
+    }
+    else {
+        stringToSign = [
+            sharedKeyCredential.accountName,
+            parsedPermissions,
+            parsedServices,
+            parsedResourceTypes,
+            accountSASSignatureValues.startsOn
+                ? truncatedISO8061Date(accountSASSignatureValues.startsOn, false)
+                : "",
+            truncatedISO8061Date(accountSASSignatureValues.expiresOn, false),
+            accountSASSignatureValues.ipRange ? ipRangeToString(accountSASSignatureValues.ipRange) : "",
+            accountSASSignatureValues.protocol ? accountSASSignatureValues.protocol : "",
+            version,
+            "", // Account SAS requires an additional newline character
+        ].join("\n");
+    }
     const signature = sharedKeyCredential.computeHMACSHA256(stringToSign);
-    return new SASQueryParameters(version, signature, parsedPermissions.toString(), parsedServices, parsedResourceTypes, accountSASSignatureValues.protocol, accountSASSignatureValues.startsOn, accountSASSignatureValues.expiresOn, accountSASSignatureValues.ipRange);
+    return new SASQueryParameters(version, signature, parsedPermissions.toString(), parsedServices, parsedResourceTypes, accountSASSignatureValues.protocol, accountSASSignatureValues.startsOn, accountSASSignatureValues.expiresOn, accountSASSignatureValues.ipRange, undefined, undefined, undefined, undefined, undefined, undefined, undefined, undefined, undefined, undefined, accountSASSignatureValues.encryptionScope);
 }
 
 /**
@@ -32323,11 +33614,16 @@ class BlobServiceClient extends StorageClient {
         options = options || {};
         const extractedCreds = extractConnectionStringParts(connectionString);
         if (extractedCreds.kind === "AccountConnString") {
-            {
+            if (coreHttp.isNode) {
                 const sharedKeyCredential = new StorageSharedKeyCredential(extractedCreds.accountName, extractedCreds.accountKey);
-                options.proxyOptions = coreHttp.getDefaultProxySettings(extractedCreds.proxyUri);
+                if (!options.proxyOptions) {
+                    options.proxyOptions = coreHttp.getDefaultProxySettings(extractedCreds.proxyUri);
+                }
                 const pipeline = newPipeline(sharedKeyCredential, options);
                 return new BlobServiceClient(extractedCreds.url, pipeline);
+            }
+            else {
+                throw new Error("Account connection string is only supported in Node.js environment");
             }
         }
         else if (extractedCreds.kind === "SASConnString") {
@@ -32367,13 +33663,13 @@ class BlobServiceClient extends StorageClient {
             const containerCreateResponse = await containerClient.create(updatedOptions);
             return {
                 containerClient,
-                containerCreateResponse
+                containerCreateResponse,
             };
         }
         catch (e) {
             span.setStatus({
                 code: coreTracing.SpanStatusCode.ERROR,
-                message: e.message
+                message: e.message,
             });
             throw e;
         }
@@ -32397,7 +33693,7 @@ class BlobServiceClient extends StorageClient {
         catch (e) {
             span.setStatus({
                 code: coreTracing.SpanStatusCode.ERROR,
-                message: e.message
+                message: e.message,
             });
             throw e;
         }
@@ -32427,7 +33723,7 @@ class BlobServiceClient extends StorageClient {
         catch (e) {
             span.setStatus({
                 code: coreTracing.SpanStatusCode.ERROR,
-                message: e.message
+                message: e.message,
             });
             throw e;
         }
@@ -32457,7 +33753,7 @@ class BlobServiceClient extends StorageClient {
         catch (e) {
             span.setStatus({
                 code: coreTracing.SpanStatusCode.ERROR,
-                message: e.message
+                message: e.message,
             });
             throw e;
         }
@@ -32481,7 +33777,7 @@ class BlobServiceClient extends StorageClient {
         catch (e) {
             span.setStatus({
                 code: coreTracing.SpanStatusCode.ERROR,
-                message: e.message
+                message: e.message,
             });
             throw e;
         }
@@ -32506,7 +33802,7 @@ class BlobServiceClient extends StorageClient {
         catch (e) {
             span.setStatus({
                 code: coreTracing.SpanStatusCode.ERROR,
-                message: e.message
+                message: e.message,
             });
             throw e;
         }
@@ -32531,7 +33827,7 @@ class BlobServiceClient extends StorageClient {
         catch (e) {
             span.setStatus({
                 code: coreTracing.SpanStatusCode.ERROR,
-                message: e.message
+                message: e.message,
             });
             throw e;
         }
@@ -32557,7 +33853,7 @@ class BlobServiceClient extends StorageClient {
         catch (e) {
             span.setStatus({
                 code: coreTracing.SpanStatusCode.ERROR,
-                message: e.message
+                message: e.message,
             });
             throw e;
         }
@@ -32587,7 +33883,7 @@ class BlobServiceClient extends StorageClient {
         catch (e) {
             span.setStatus({
                 code: coreTracing.SpanStatusCode.ERROR,
-                message: e.message
+                message: e.message,
             });
             throw e;
         }
@@ -32630,7 +33926,7 @@ class BlobServiceClient extends StorageClient {
         catch (e) {
             span.setStatus({
                 code: coreTracing.SpanStatusCode.ERROR,
-                message: e.message
+                message: e.message,
             });
             throw e;
         }
@@ -32796,7 +34092,7 @@ class BlobServiceClient extends StorageClient {
              */
             byPage: (settings = {}) => {
                 return this.findBlobsByTagsSegments(tagFilterSqlExpression, settings.continuationToken, Object.assign({ maxPageSize: settings.maxPageSize }, listSegmentOptions));
-            }
+            },
         };
     }
     /**
@@ -32934,6 +34230,9 @@ class BlobServiceClient extends StorageClient {
         if (options.includeMetadata) {
             include.push("metadata");
         }
+        if (options.includeSystem) {
+            include.push("system");
+        }
         // AsyncIterableIterator to iterate over containers
         const listSegmentOptions = Object.assign(Object.assign({}, options), (include.length > 0 ? { include } : {}));
         const iter = this.listItems(listSegmentOptions);
@@ -32955,7 +34254,7 @@ class BlobServiceClient extends StorageClient {
              */
             byPage: (settings = {}) => {
                 return this.listSegments(settings.continuationToken, Object.assign({ maxPageSize: settings.maxPageSize }, listSegmentOptions));
-            }
+            },
         };
     }
     /**
@@ -32974,7 +34273,7 @@ class BlobServiceClient extends StorageClient {
         try {
             const response = await this.serviceContext.getUserDelegationKey({
                 startsOn: truncatedISO8061Date(startsOn, false),
-                expiresOn: truncatedISO8061Date(expiresOn, false)
+                expiresOn: truncatedISO8061Date(expiresOn, false),
             }, Object.assign({ abortSignal: options.abortSignal }, convertTracingToRequestOptionsBase(updatedOptions)));
             const userDelegationKey = {
                 signedObjectId: response.signedObjectId,
@@ -32983,7 +34282,7 @@ class BlobServiceClient extends StorageClient {
                 signedExpiresOn: new Date(response.signedExpiresOn),
                 signedService: response.signedService,
                 signedVersion: response.signedVersion,
-                value: response.value
+                value: response.value,
             };
             const res = Object.assign({ _response: response._response, requestId: response.requestId, clientRequestId: response.clientRequestId, version: response.version, date: response.date, errorCode: response.errorCode }, userDelegationKey);
             return res;
@@ -32991,7 +34290,7 @@ class BlobServiceClient extends StorageClient {
         catch (e) {
             span.setStatus({
                 code: coreTracing.SpanStatusCode.ERROR,
-                message: e.message
+                message: e.message,
             });
             throw e;
         }
@@ -33040,39 +34339,27 @@ class BlobServiceClient extends StorageClient {
 
 Object.defineProperty(exports, 'BaseRequestPolicy', {
     enumerable: true,
-    get: function () {
-        return coreHttp.BaseRequestPolicy;
-    }
+    get: function () { return coreHttp.BaseRequestPolicy; }
 });
 Object.defineProperty(exports, 'HttpHeaders', {
     enumerable: true,
-    get: function () {
-        return coreHttp.HttpHeaders;
-    }
+    get: function () { return coreHttp.HttpHeaders; }
 });
 Object.defineProperty(exports, 'RequestPolicyOptions', {
     enumerable: true,
-    get: function () {
-        return coreHttp.RequestPolicyOptions;
-    }
+    get: function () { return coreHttp.RequestPolicyOptions; }
 });
 Object.defineProperty(exports, 'RestError', {
     enumerable: true,
-    get: function () {
-        return coreHttp.RestError;
-    }
+    get: function () { return coreHttp.RestError; }
 });
 Object.defineProperty(exports, 'WebResource', {
     enumerable: true,
-    get: function () {
-        return coreHttp.WebResource;
-    }
+    get: function () { return coreHttp.WebResource; }
 });
 Object.defineProperty(exports, 'deserializationPolicy', {
     enumerable: true,
-    get: function () {
-        return coreHttp.deserializationPolicy;
-    }
+    get: function () { return coreHttp.deserializationPolicy; }
 });
 exports.AccountSASPermissions = AccountSASPermissions;
 exports.AccountSASResourceTypes = AccountSASResourceTypes;
@@ -33119,7 +34406,33 @@ exports.newPipeline = newPipeline;
 /* 380 */,
 /* 381 */,
 /* 382 */,
-/* 383 */
+/* 383 */,
+/* 384 */
+/***/ (function(__unusedmodule, exports) {
+
+"use strict";
+
+Object.defineProperty(exports, "__esModule", { value: true });
+exports.SearchState = void 0;
+class SearchState {
+    constructor(path, level) {
+        this.path = path;
+        this.level = level;
+    }
+}
+exports.SearchState = SearchState;
+//# sourceMappingURL=internal-search-state.js.map
+
+/***/ }),
+/* 385 */,
+/* 386 */,
+/* 387 */,
+/* 388 */,
+/* 389 */,
+/* 390 */,
+/* 391 */,
+/* 392 */,
+/* 393 */
 /***/ (function(__unusedmodule, exports, __webpack_require__) {
 
 "use strict";
@@ -33154,74 +34467,1649 @@ exports.newPipeline = newPipeline;
  * POSSIBILITY OF SUCH DAMAGE.
  */
 
-const pubsuffix = __webpack_require__(519);
+const punycode = __webpack_require__(815);
+const urlParse = __webpack_require__(835).parse;
+const util = __webpack_require__(669);
+const pubsuffix = __webpack_require__(562);
+const Store = __webpack_require__(338).Store;
+const MemoryCookieStore = __webpack_require__(332).MemoryCookieStore;
+const pathMatch = __webpack_require__(348).pathMatch;
+const VERSION = __webpack_require__(460);
+const { fromCallback } = __webpack_require__(147);
 
-// Gives the permutation of all possible domainMatch()es of a given domain. The
-// array is in shortest-to-longest order.  Handy for indexing.
-const SPECIAL_USE_DOMAINS = ["local"]; // RFC 6761
-function permuteDomain(domain, allowSpecialUseDomain) {
-  let pubSuf = null;
-  if (allowSpecialUseDomain) {
-    const domainParts = domain.split(".");
-    if (SPECIAL_USE_DOMAINS.includes(domainParts[domainParts.length - 1])) {
-      pubSuf = `${domainParts[domainParts.length - 2]}.${
-        domainParts[domainParts.length - 1]
-      }`;
-    } else {
-      pubSuf = pubsuffix.getPublicSuffix(domain);
-    }
+// From RFC6265 S4.1.1
+// note that it excludes \x3B ";"
+const COOKIE_OCTETS = /^[\x21\x23-\x2B\x2D-\x3A\x3C-\x5B\x5D-\x7E]+$/;
+
+const CONTROL_CHARS = /[\x00-\x1F]/;
+
+// From Chromium // '\r', '\n' and '\0' should be treated as a terminator in
+// the "relaxed" mode, see:
+// https://github.com/ChromiumWebApps/chromium/blob/b3d3b4da8bb94c1b2e061600df106d590fda3620/net/cookies/parsed_cookie.cc#L60
+const TERMINATORS = ["\n", "\r", "\0"];
+
+// RFC6265 S4.1.1 defines path value as 'any CHAR except CTLs or ";"'
+// Note ';' is \x3B
+const PATH_VALUE = /[\x20-\x3A\x3C-\x7E]+/;
+
+// date-time parsing constants (RFC6265 S5.1.1)
+
+const DATE_DELIM = /[\x09\x20-\x2F\x3B-\x40\x5B-\x60\x7B-\x7E]/;
+
+const MONTH_TO_NUM = {
+  jan: 0,
+  feb: 1,
+  mar: 2,
+  apr: 3,
+  may: 4,
+  jun: 5,
+  jul: 6,
+  aug: 7,
+  sep: 8,
+  oct: 9,
+  nov: 10,
+  dec: 11
+};
+
+const MAX_TIME = 2147483647000; // 31-bit max
+const MIN_TIME = 0; // 31-bit min
+const SAME_SITE_CONTEXT_VAL_ERR =
+  'Invalid sameSiteContext option for getCookies(); expected one of "strict", "lax", or "none"';
+
+function checkSameSiteContext(value) {
+  const context = String(value).toLowerCase();
+  if (context === "none" || context === "lax" || context === "strict") {
+    return context;
   } else {
-    pubSuf = pubsuffix.getPublicSuffix(domain);
-  }
-
-  if (!pubSuf) {
     return null;
   }
-  if (pubSuf == domain) {
-    return [domain];
+}
+
+const PrefixSecurityEnum = Object.freeze({
+  SILENT: "silent",
+  STRICT: "strict",
+  DISABLED: "unsafe-disabled"
+});
+
+// Dumped from ip-regex@4.0.0, with the following changes:
+// * all capturing groups converted to non-capturing -- "(?:)"
+// * support for IPv6 Scoped Literal ("%eth1") removed
+// * lowercase hexadecimal only
+var IP_REGEX_LOWERCASE =/(?:^(?:25[0-5]|2[0-4]\d|1\d\d|[1-9]\d|\d)(?:\.(?:25[0-5]|2[0-4]\d|1\d\d|[1-9]\d|\d)){3}$)|(?:^(?:(?:[a-f\d]{1,4}:){7}(?:[a-f\d]{1,4}|:)|(?:[a-f\d]{1,4}:){6}(?:(?:25[0-5]|2[0-4]\d|1\d\d|[1-9]\d|\d)(?:\.(?:25[0-5]|2[0-4]\d|1\d\d|[1-9]\d|\d)){3}|:[a-f\d]{1,4}|:)|(?:[a-f\d]{1,4}:){5}(?::(?:25[0-5]|2[0-4]\d|1\d\d|[1-9]\d|\d)(?:\.(?:25[0-5]|2[0-4]\d|1\d\d|[1-9]\d|\d)){3}|(?::[a-f\d]{1,4}){1,2}|:)|(?:[a-f\d]{1,4}:){4}(?:(?::[a-f\d]{1,4}){0,1}:(?:25[0-5]|2[0-4]\d|1\d\d|[1-9]\d|\d)(?:\.(?:25[0-5]|2[0-4]\d|1\d\d|[1-9]\d|\d)){3}|(?::[a-f\d]{1,4}){1,3}|:)|(?:[a-f\d]{1,4}:){3}(?:(?::[a-f\d]{1,4}){0,2}:(?:25[0-5]|2[0-4]\d|1\d\d|[1-9]\d|\d)(?:\.(?:25[0-5]|2[0-4]\d|1\d\d|[1-9]\d|\d)){3}|(?::[a-f\d]{1,4}){1,4}|:)|(?:[a-f\d]{1,4}:){2}(?:(?::[a-f\d]{1,4}){0,3}:(?:25[0-5]|2[0-4]\d|1\d\d|[1-9]\d|\d)(?:\.(?:25[0-5]|2[0-4]\d|1\d\d|[1-9]\d|\d)){3}|(?::[a-f\d]{1,4}){1,5}|:)|(?:[a-f\d]{1,4}:){1}(?:(?::[a-f\d]{1,4}){0,4}:(?:25[0-5]|2[0-4]\d|1\d\d|[1-9]\d|\d)(?:\.(?:25[0-5]|2[0-4]\d|1\d\d|[1-9]\d|\d)){3}|(?::[a-f\d]{1,4}){1,6}|:)|(?::(?:(?::[a-f\d]{1,4}){0,5}:(?:25[0-5]|2[0-4]\d|1\d\d|[1-9]\d|\d)(?:\.(?:25[0-5]|2[0-4]\d|1\d\d|[1-9]\d|\d)){3}|(?::[a-f\d]{1,4}){1,7}|:)))$)/;
+
+/*
+ * Parses a Natural number (i.e., non-negative integer) with either the
+ *    <min>*<max>DIGIT ( non-digit *OCTET )
+ * or
+ *    <min>*<max>DIGIT
+ * grammar (RFC6265 S5.1.1).
+ *
+ * The "trailingOK" boolean controls if the grammar accepts a
+ * "( non-digit *OCTET )" trailer.
+ */
+function parseDigits(token, minDigits, maxDigits, trailingOK) {
+  let count = 0;
+  while (count < token.length) {
+    const c = token.charCodeAt(count);
+    // "non-digit = %x00-2F / %x3A-FF"
+    if (c <= 0x2f || c >= 0x3a) {
+      break;
+    }
+    count++;
   }
 
-  const prefix = domain.slice(0, -(pubSuf.length + 1)); // ".example.com"
-  const parts = prefix.split(".").reverse();
-  let cur = pubSuf;
-  const permutations = [cur];
-  while (parts.length) {
-    cur = `${parts.shift()}.${cur}`;
-    permutations.push(cur);
+  // constrain to a minimum and maximum number of digits.
+  if (count < minDigits || count > maxDigits) {
+    return null;
   }
+
+  if (!trailingOK && count != token.length) {
+    return null;
+  }
+
+  return parseInt(token.substr(0, count), 10);
+}
+
+function parseTime(token) {
+  const parts = token.split(":");
+  const result = [0, 0, 0];
+
+  /* RF6256 S5.1.1:
+   *      time            = hms-time ( non-digit *OCTET )
+   *      hms-time        = time-field ":" time-field ":" time-field
+   *      time-field      = 1*2DIGIT
+   */
+
+  if (parts.length !== 3) {
+    return null;
+  }
+
+  for (let i = 0; i < 3; i++) {
+    // "time-field" must be strictly "1*2DIGIT", HOWEVER, "hms-time" can be
+    // followed by "( non-digit *OCTET )" so therefore the last time-field can
+    // have a trailer
+    const trailingOK = i == 2;
+    const num = parseDigits(parts[i], 1, 2, trailingOK);
+    if (num === null) {
+      return null;
+    }
+    result[i] = num;
+  }
+
+  return result;
+}
+
+function parseMonth(token) {
+  token = String(token)
+    .substr(0, 3)
+    .toLowerCase();
+  const num = MONTH_TO_NUM[token];
+  return num >= 0 ? num : null;
+}
+
+/*
+ * RFC6265 S5.1.1 date parser (see RFC for full grammar)
+ */
+function parseDate(str) {
+  if (!str) {
+    return;
+  }
+
+  /* RFC6265 S5.1.1:
+   * 2. Process each date-token sequentially in the order the date-tokens
+   * appear in the cookie-date
+   */
+  const tokens = str.split(DATE_DELIM);
+  if (!tokens) {
+    return;
+  }
+
+  let hour = null;
+  let minute = null;
+  let second = null;
+  let dayOfMonth = null;
+  let month = null;
+  let year = null;
+
+  for (let i = 0; i < tokens.length; i++) {
+    const token = tokens[i].trim();
+    if (!token.length) {
+      continue;
+    }
+
+    let result;
+
+    /* 2.1. If the found-time flag is not set and the token matches the time
+     * production, set the found-time flag and set the hour- value,
+     * minute-value, and second-value to the numbers denoted by the digits in
+     * the date-token, respectively.  Skip the remaining sub-steps and continue
+     * to the next date-token.
+     */
+    if (second === null) {
+      result = parseTime(token);
+      if (result) {
+        hour = result[0];
+        minute = result[1];
+        second = result[2];
+        continue;
+      }
+    }
+
+    /* 2.2. If the found-day-of-month flag is not set and the date-token matches
+     * the day-of-month production, set the found-day-of- month flag and set
+     * the day-of-month-value to the number denoted by the date-token.  Skip
+     * the remaining sub-steps and continue to the next date-token.
+     */
+    if (dayOfMonth === null) {
+      // "day-of-month = 1*2DIGIT ( non-digit *OCTET )"
+      result = parseDigits(token, 1, 2, true);
+      if (result !== null) {
+        dayOfMonth = result;
+        continue;
+      }
+    }
+
+    /* 2.3. If the found-month flag is not set and the date-token matches the
+     * month production, set the found-month flag and set the month-value to
+     * the month denoted by the date-token.  Skip the remaining sub-steps and
+     * continue to the next date-token.
+     */
+    if (month === null) {
+      result = parseMonth(token);
+      if (result !== null) {
+        month = result;
+        continue;
+      }
+    }
+
+    /* 2.4. If the found-year flag is not set and the date-token matches the
+     * year production, set the found-year flag and set the year-value to the
+     * number denoted by the date-token.  Skip the remaining sub-steps and
+     * continue to the next date-token.
+     */
+    if (year === null) {
+      // "year = 2*4DIGIT ( non-digit *OCTET )"
+      result = parseDigits(token, 2, 4, true);
+      if (result !== null) {
+        year = result;
+        /* From S5.1.1:
+         * 3.  If the year-value is greater than or equal to 70 and less
+         * than or equal to 99, increment the year-value by 1900.
+         * 4.  If the year-value is greater than or equal to 0 and less
+         * than or equal to 69, increment the year-value by 2000.
+         */
+        if (year >= 70 && year <= 99) {
+          year += 1900;
+        } else if (year >= 0 && year <= 69) {
+          year += 2000;
+        }
+      }
+    }
+  }
+
+  /* RFC 6265 S5.1.1
+   * "5. Abort these steps and fail to parse the cookie-date if:
+   *     *  at least one of the found-day-of-month, found-month, found-
+   *        year, or found-time flags is not set,
+   *     *  the day-of-month-value is less than 1 or greater than 31,
+   *     *  the year-value is less than 1601,
+   *     *  the hour-value is greater than 23,
+   *     *  the minute-value is greater than 59, or
+   *     *  the second-value is greater than 59.
+   *     (Note that leap seconds cannot be represented in this syntax.)"
+   *
+   * So, in order as above:
+   */
+  if (
+    dayOfMonth === null ||
+    month === null ||
+    year === null ||
+    second === null ||
+    dayOfMonth < 1 ||
+    dayOfMonth > 31 ||
+    year < 1601 ||
+    hour > 23 ||
+    minute > 59 ||
+    second > 59
+  ) {
+    return;
+  }
+
+  return new Date(Date.UTC(year, month, dayOfMonth, hour, minute, second));
+}
+
+function formatDate(date) {
+  return date.toUTCString();
+}
+
+// S5.1.2 Canonicalized Host Names
+function canonicalDomain(str) {
+  if (str == null) {
+    return null;
+  }
+  str = str.trim().replace(/^\./, ""); // S4.1.2.3 & S5.2.3: ignore leading .
+
+  // convert to IDN if any non-ASCII characters
+  if (punycode && /[^\u0001-\u007f]/.test(str)) {
+    str = punycode.toASCII(str);
+  }
+
+  return str.toLowerCase();
+}
+
+// S5.1.3 Domain Matching
+function domainMatch(str, domStr, canonicalize) {
+  if (str == null || domStr == null) {
+    return null;
+  }
+  if (canonicalize !== false) {
+    str = canonicalDomain(str);
+    domStr = canonicalDomain(domStr);
+  }
+
+  /*
+   * S5.1.3:
+   * "A string domain-matches a given domain string if at least one of the
+   * following conditions hold:"
+   *
+   * " o The domain string and the string are identical. (Note that both the
+   * domain string and the string will have been canonicalized to lower case at
+   * this point)"
+   */
+  if (str == domStr) {
+    return true;
+  }
+
+  /* " o All of the following [three] conditions hold:" */
+
+  /* "* The domain string is a suffix of the string" */
+  const idx = str.indexOf(domStr);
+  if (idx <= 0) {
+    return false; // it's a non-match (-1) or prefix (0)
+  }
+
+  // next, check it's a proper suffix
+  // e.g., "a.b.c".indexOf("b.c") === 2
+  // 5 === 3+2
+  if (str.length !== domStr.length + idx) {
+    return false; // it's not a suffix
+  }
+
+  /* "  * The last character of the string that is not included in the
+   * domain string is a %x2E (".") character." */
+  if (str.substr(idx-1,1) !== '.') {
+    return false; // doesn't align on "."
+  }
+
+  /* "  * The string is a host name (i.e., not an IP address)." */
+  if (IP_REGEX_LOWERCASE.test(str)) {
+    return false; // it's an IP address
+  }
+
+  return true;
+}
+
+// RFC6265 S5.1.4 Paths and Path-Match
+
+/*
+ * "The user agent MUST use an algorithm equivalent to the following algorithm
+ * to compute the default-path of a cookie:"
+ *
+ * Assumption: the path (and not query part or absolute uri) is passed in.
+ */
+function defaultPath(path) {
+  // "2. If the uri-path is empty or if the first character of the uri-path is not
+  // a %x2F ("/") character, output %x2F ("/") and skip the remaining steps.
+  if (!path || path.substr(0, 1) !== "/") {
+    return "/";
+  }
+
+  // "3. If the uri-path contains no more than one %x2F ("/") character, output
+  // %x2F ("/") and skip the remaining step."
+  if (path === "/") {
+    return path;
+  }
+
+  const rightSlash = path.lastIndexOf("/");
+  if (rightSlash === 0) {
+    return "/";
+  }
+
+  // "4. Output the characters of the uri-path from the first character up to,
+  // but not including, the right-most %x2F ("/")."
+  return path.slice(0, rightSlash);
+}
+
+function trimTerminator(str) {
+  for (let t = 0; t < TERMINATORS.length; t++) {
+    const terminatorIdx = str.indexOf(TERMINATORS[t]);
+    if (terminatorIdx !== -1) {
+      str = str.substr(0, terminatorIdx);
+    }
+  }
+
+  return str;
+}
+
+function parseCookiePair(cookiePair, looseMode) {
+  cookiePair = trimTerminator(cookiePair);
+
+  let firstEq = cookiePair.indexOf("=");
+  if (looseMode) {
+    if (firstEq === 0) {
+      // '=' is immediately at start
+      cookiePair = cookiePair.substr(1);
+      firstEq = cookiePair.indexOf("="); // might still need to split on '='
+    }
+  } else {
+    // non-loose mode
+    if (firstEq <= 0) {
+      // no '=' or is at start
+      return; // needs to have non-empty "cookie-name"
+    }
+  }
+
+  let cookieName, cookieValue;
+  if (firstEq <= 0) {
+    cookieName = "";
+    cookieValue = cookiePair.trim();
+  } else {
+    cookieName = cookiePair.substr(0, firstEq).trim();
+    cookieValue = cookiePair.substr(firstEq + 1).trim();
+  }
+
+  if (CONTROL_CHARS.test(cookieName) || CONTROL_CHARS.test(cookieValue)) {
+    return;
+  }
+
+  const c = new Cookie();
+  c.key = cookieName;
+  c.value = cookieValue;
+  return c;
+}
+
+function parse(str, options) {
+  if (!options || typeof options !== "object") {
+    options = {};
+  }
+  str = str.trim();
+
+  // We use a regex to parse the "name-value-pair" part of S5.2
+  const firstSemi = str.indexOf(";"); // S5.2 step 1
+  const cookiePair = firstSemi === -1 ? str : str.substr(0, firstSemi);
+  const c = parseCookiePair(cookiePair, !!options.loose);
+  if (!c) {
+    return;
+  }
+
+  if (firstSemi === -1) {
+    return c;
+  }
+
+  // S5.2.3 "unparsed-attributes consist of the remainder of the set-cookie-string
+  // (including the %x3B (";") in question)." plus later on in the same section
+  // "discard the first ";" and trim".
+  const unparsed = str.slice(firstSemi + 1).trim();
+
+  // "If the unparsed-attributes string is empty, skip the rest of these
+  // steps."
+  if (unparsed.length === 0) {
+    return c;
+  }
+
+  /*
+   * S5.2 says that when looping over the items "[p]rocess the attribute-name
+   * and attribute-value according to the requirements in the following
+   * subsections" for every item.  Plus, for many of the individual attributes
+   * in S5.3 it says to use the "attribute-value of the last attribute in the
+   * cookie-attribute-list".  Therefore, in this implementation, we overwrite
+   * the previous value.
+   */
+  const cookie_avs = unparsed.split(";");
+  while (cookie_avs.length) {
+    const av = cookie_avs.shift().trim();
+    if (av.length === 0) {
+      // happens if ";;" appears
+      continue;
+    }
+    const av_sep = av.indexOf("=");
+    let av_key, av_value;
+
+    if (av_sep === -1) {
+      av_key = av;
+      av_value = null;
+    } else {
+      av_key = av.substr(0, av_sep);
+      av_value = av.substr(av_sep + 1);
+    }
+
+    av_key = av_key.trim().toLowerCase();
+
+    if (av_value) {
+      av_value = av_value.trim();
+    }
+
+    switch (av_key) {
+      case "expires": // S5.2.1
+        if (av_value) {
+          const exp = parseDate(av_value);
+          // "If the attribute-value failed to parse as a cookie date, ignore the
+          // cookie-av."
+          if (exp) {
+            // over and underflow not realistically a concern: V8's getTime() seems to
+            // store something larger than a 32-bit time_t (even with 32-bit node)
+            c.expires = exp;
+          }
+        }
+        break;
+
+      case "max-age": // S5.2.2
+        if (av_value) {
+          // "If the first character of the attribute-value is not a DIGIT or a "-"
+          // character ...[or]... If the remainder of attribute-value contains a
+          // non-DIGIT character, ignore the cookie-av."
+          if (/^-?[0-9]+$/.test(av_value)) {
+            const delta = parseInt(av_value, 10);
+            // "If delta-seconds is less than or equal to zero (0), let expiry-time
+            // be the earliest representable date and time."
+            c.setMaxAge(delta);
+          }
+        }
+        break;
+
+      case "domain": // S5.2.3
+        // "If the attribute-value is empty, the behavior is undefined.  However,
+        // the user agent SHOULD ignore the cookie-av entirely."
+        if (av_value) {
+          // S5.2.3 "Let cookie-domain be the attribute-value without the leading %x2E
+          // (".") character."
+          const domain = av_value.trim().replace(/^\./, "");
+          if (domain) {
+            // "Convert the cookie-domain to lower case."
+            c.domain = domain.toLowerCase();
+          }
+        }
+        break;
+
+      case "path": // S5.2.4
+        /*
+         * "If the attribute-value is empty or if the first character of the
+         * attribute-value is not %x2F ("/"):
+         *   Let cookie-path be the default-path.
+         * Otherwise:
+         *   Let cookie-path be the attribute-value."
+         *
+         * We'll represent the default-path as null since it depends on the
+         * context of the parsing.
+         */
+        c.path = av_value && av_value[0] === "/" ? av_value : null;
+        break;
+
+      case "secure": // S5.2.5
+        /*
+         * "If the attribute-name case-insensitively matches the string "Secure",
+         * the user agent MUST append an attribute to the cookie-attribute-list
+         * with an attribute-name of Secure and an empty attribute-value."
+         */
+        c.secure = true;
+        break;
+
+      case "httponly": // S5.2.6 -- effectively the same as 'secure'
+        c.httpOnly = true;
+        break;
+
+      case "samesite": // RFC6265bis-02 S5.3.7
+        const enforcement = av_value ? av_value.toLowerCase() : "";
+        switch (enforcement) {
+          case "strict":
+            c.sameSite = "strict";
+            break;
+          case "lax":
+            c.sameSite = "lax";
+            break;
+          default:
+            // RFC6265bis-02 S5.3.7 step 1:
+            // "If cookie-av's attribute-value is not a case-insensitive match
+            //  for "Strict" or "Lax", ignore the "cookie-av"."
+            // This effectively sets it to 'none' from the prototype.
+            break;
+        }
+        break;
+
+      default:
+        c.extensions = c.extensions || [];
+        c.extensions.push(av);
+        break;
+    }
+  }
+
+  return c;
+}
+
+/**
+ *  If the cookie-name begins with a case-sensitive match for the
+ *  string "__Secure-", abort these steps and ignore the cookie
+ *  entirely unless the cookie's secure-only-flag is true.
+ * @param cookie
+ * @returns boolean
+ */
+function isSecurePrefixConditionMet(cookie) {
+  return !cookie.key.startsWith("__Secure-") || cookie.secure;
+}
+
+/**
+ *  If the cookie-name begins with a case-sensitive match for the
+ *  string "__Host-", abort these steps and ignore the cookie
+ *  entirely unless the cookie meets all the following criteria:
+ *    1.  The cookie's secure-only-flag is true.
+ *    2.  The cookie's host-only-flag is true.
+ *    3.  The cookie-attribute-list contains an attribute with an
+ *        attribute-name of "Path", and the cookie's path is "/".
+ * @param cookie
+ * @returns boolean
+ */
+function isHostPrefixConditionMet(cookie) {
+  return (
+    !cookie.key.startsWith("__Host-") ||
+    (cookie.secure &&
+      cookie.hostOnly &&
+      cookie.path != null &&
+      cookie.path === "/")
+  );
+}
+
+// avoid the V8 deoptimization monster!
+function jsonParse(str) {
+  let obj;
+  try {
+    obj = JSON.parse(str);
+  } catch (e) {
+    return e;
+  }
+  return obj;
+}
+
+function fromJSON(str) {
+  if (!str) {
+    return null;
+  }
+
+  let obj;
+  if (typeof str === "string") {
+    obj = jsonParse(str);
+    if (obj instanceof Error) {
+      return null;
+    }
+  } else {
+    // assume it's an Object
+    obj = str;
+  }
+
+  const c = new Cookie();
+  for (let i = 0; i < Cookie.serializableProperties.length; i++) {
+    const prop = Cookie.serializableProperties[i];
+    if (obj[prop] === undefined || obj[prop] === cookieDefaults[prop]) {
+      continue; // leave as prototype default
+    }
+
+    if (prop === "expires" || prop === "creation" || prop === "lastAccessed") {
+      if (obj[prop] === null) {
+        c[prop] = null;
+      } else {
+        c[prop] = obj[prop] == "Infinity" ? "Infinity" : new Date(obj[prop]);
+      }
+    } else {
+      c[prop] = obj[prop];
+    }
+  }
+
+  return c;
+}
+
+/* Section 5.4 part 2:
+ * "*  Cookies with longer paths are listed before cookies with
+ *     shorter paths.
+ *
+ *  *  Among cookies that have equal-length path fields, cookies with
+ *     earlier creation-times are listed before cookies with later
+ *     creation-times."
+ */
+
+function cookieCompare(a, b) {
+  let cmp = 0;
+
+  // descending for length: b CMP a
+  const aPathLen = a.path ? a.path.length : 0;
+  const bPathLen = b.path ? b.path.length : 0;
+  cmp = bPathLen - aPathLen;
+  if (cmp !== 0) {
+    return cmp;
+  }
+
+  // ascending for time: a CMP b
+  const aTime = a.creation ? a.creation.getTime() : MAX_TIME;
+  const bTime = b.creation ? b.creation.getTime() : MAX_TIME;
+  cmp = aTime - bTime;
+  if (cmp !== 0) {
+    return cmp;
+  }
+
+  // break ties for the same millisecond (precision of JavaScript's clock)
+  cmp = a.creationIndex - b.creationIndex;
+
+  return cmp;
+}
+
+// Gives the permutation of all possible pathMatch()es of a given path. The
+// array is in longest-to-shortest order.  Handy for indexing.
+function permutePath(path) {
+  if (path === "/") {
+    return ["/"];
+  }
+  const permutations = [path];
+  while (path.length > 1) {
+    const lindex = path.lastIndexOf("/");
+    if (lindex === 0) {
+      break;
+    }
+    path = path.substr(0, lindex);
+    permutations.push(path);
+  }
+  permutations.push("/");
   return permutations;
 }
 
-exports.permuteDomain = permuteDomain;
+function getCookieContext(url) {
+  if (url instanceof Object) {
+    return url;
+  }
+  // NOTE: decodeURI will throw on malformed URIs (see GH-32).
+  // Therefore, we will just skip decoding for such URIs.
+  try {
+    url = decodeURI(url);
+  } catch (err) {
+    // Silently swallow error
+  }
 
-
-/***/ }),
-/* 384 */
-/***/ (function(__unusedmodule, exports) {
-
-"use strict";
-
-Object.defineProperty(exports, "__esModule", { value: true });
-exports.SearchState = void 0;
-class SearchState {
-    constructor(path, level) {
-        this.path = path;
-        this.level = level;
-    }
+  return urlParse(url);
 }
-exports.SearchState = SearchState;
-//# sourceMappingURL=internal-search-state.js.map
+
+const cookieDefaults = {
+  // the order in which the RFC has them:
+  key: "",
+  value: "",
+  expires: "Infinity",
+  maxAge: null,
+  domain: null,
+  path: null,
+  secure: false,
+  httpOnly: false,
+  extensions: null,
+  // set by the CookieJar:
+  hostOnly: null,
+  pathIsDefault: null,
+  creation: null,
+  lastAccessed: null,
+  sameSite: "none"
+};
+
+class Cookie {
+  constructor(options = {}) {
+    if (util.inspect.custom) {
+      this[util.inspect.custom] = this.inspect;
+    }
+
+    Object.assign(this, cookieDefaults, options);
+    this.creation = this.creation || new Date();
+
+    // used to break creation ties in cookieCompare():
+    Object.defineProperty(this, "creationIndex", {
+      configurable: false,
+      enumerable: false, // important for assert.deepEqual checks
+      writable: true,
+      value: ++Cookie.cookiesCreated
+    });
+  }
+
+  inspect() {
+    const now = Date.now();
+    const hostOnly = this.hostOnly != null ? this.hostOnly : "?";
+    const createAge = this.creation
+      ? `${now - this.creation.getTime()}ms`
+      : "?";
+    const accessAge = this.lastAccessed
+      ? `${now - this.lastAccessed.getTime()}ms`
+      : "?";
+    return `Cookie="${this.toString()}; hostOnly=${hostOnly}; aAge=${accessAge}; cAge=${createAge}"`;
+  }
+
+  toJSON() {
+    const obj = {};
+
+    for (const prop of Cookie.serializableProperties) {
+      if (this[prop] === cookieDefaults[prop]) {
+        continue; // leave as prototype default
+      }
+
+      if (
+        prop === "expires" ||
+        prop === "creation" ||
+        prop === "lastAccessed"
+      ) {
+        if (this[prop] === null) {
+          obj[prop] = null;
+        } else {
+          obj[prop] =
+            this[prop] == "Infinity" // intentionally not ===
+              ? "Infinity"
+              : this[prop].toISOString();
+        }
+      } else if (prop === "maxAge") {
+        if (this[prop] !== null) {
+          // again, intentionally not ===
+          obj[prop] =
+            this[prop] == Infinity || this[prop] == -Infinity
+              ? this[prop].toString()
+              : this[prop];
+        }
+      } else {
+        if (this[prop] !== cookieDefaults[prop]) {
+          obj[prop] = this[prop];
+        }
+      }
+    }
+
+    return obj;
+  }
+
+  clone() {
+    return fromJSON(this.toJSON());
+  }
+
+  validate() {
+    if (!COOKIE_OCTETS.test(this.value)) {
+      return false;
+    }
+    if (
+      this.expires != Infinity &&
+      !(this.expires instanceof Date) &&
+      !parseDate(this.expires)
+    ) {
+      return false;
+    }
+    if (this.maxAge != null && this.maxAge <= 0) {
+      return false; // "Max-Age=" non-zero-digit *DIGIT
+    }
+    if (this.path != null && !PATH_VALUE.test(this.path)) {
+      return false;
+    }
+
+    const cdomain = this.cdomain();
+    if (cdomain) {
+      if (cdomain.match(/\.$/)) {
+        return false; // S4.1.2.3 suggests that this is bad. domainMatch() tests confirm this
+      }
+      const suffix = pubsuffix.getPublicSuffix(cdomain);
+      if (suffix == null) {
+        // it's a public suffix
+        return false;
+      }
+    }
+    return true;
+  }
+
+  setExpires(exp) {
+    if (exp instanceof Date) {
+      this.expires = exp;
+    } else {
+      this.expires = parseDate(exp) || "Infinity";
+    }
+  }
+
+  setMaxAge(age) {
+    if (age === Infinity || age === -Infinity) {
+      this.maxAge = age.toString(); // so JSON.stringify() works
+    } else {
+      this.maxAge = age;
+    }
+  }
+
+  cookieString() {
+    let val = this.value;
+    if (val == null) {
+      val = "";
+    }
+    if (this.key === "") {
+      return val;
+    }
+    return `${this.key}=${val}`;
+  }
+
+  // gives Set-Cookie header format
+  toString() {
+    let str = this.cookieString();
+
+    if (this.expires != Infinity) {
+      if (this.expires instanceof Date) {
+        str += `; Expires=${formatDate(this.expires)}`;
+      } else {
+        str += `; Expires=${this.expires}`;
+      }
+    }
+
+    if (this.maxAge != null && this.maxAge != Infinity) {
+      str += `; Max-Age=${this.maxAge}`;
+    }
+
+    if (this.domain && !this.hostOnly) {
+      str += `; Domain=${this.domain}`;
+    }
+    if (this.path) {
+      str += `; Path=${this.path}`;
+    }
+
+    if (this.secure) {
+      str += "; Secure";
+    }
+    if (this.httpOnly) {
+      str += "; HttpOnly";
+    }
+    if (this.sameSite && this.sameSite !== "none") {
+      const ssCanon = Cookie.sameSiteCanonical[this.sameSite.toLowerCase()];
+      str += `; SameSite=${ssCanon ? ssCanon : this.sameSite}`;
+    }
+    if (this.extensions) {
+      this.extensions.forEach(ext => {
+        str += `; ${ext}`;
+      });
+    }
+
+    return str;
+  }
+
+  // TTL() partially replaces the "expiry-time" parts of S5.3 step 3 (setCookie()
+  // elsewhere)
+  // S5.3 says to give the "latest representable date" for which we use Infinity
+  // For "expired" we use 0
+  TTL(now) {
+    /* RFC6265 S4.1.2.2 If a cookie has both the Max-Age and the Expires
+     * attribute, the Max-Age attribute has precedence and controls the
+     * expiration date of the cookie.
+     * (Concurs with S5.3 step 3)
+     */
+    if (this.maxAge != null) {
+      return this.maxAge <= 0 ? 0 : this.maxAge * 1000;
+    }
+
+    let expires = this.expires;
+    if (expires != Infinity) {
+      if (!(expires instanceof Date)) {
+        expires = parseDate(expires) || Infinity;
+      }
+
+      if (expires == Infinity) {
+        return Infinity;
+      }
+
+      return expires.getTime() - (now || Date.now());
+    }
+
+    return Infinity;
+  }
+
+  // expiryTime() replaces the "expiry-time" parts of S5.3 step 3 (setCookie()
+  // elsewhere)
+  expiryTime(now) {
+    if (this.maxAge != null) {
+      const relativeTo = now || this.creation || new Date();
+      const age = this.maxAge <= 0 ? -Infinity : this.maxAge * 1000;
+      return relativeTo.getTime() + age;
+    }
+
+    if (this.expires == Infinity) {
+      return Infinity;
+    }
+    return this.expires.getTime();
+  }
+
+  // expiryDate() replaces the "expiry-time" parts of S5.3 step 3 (setCookie()
+  // elsewhere), except it returns a Date
+  expiryDate(now) {
+    const millisec = this.expiryTime(now);
+    if (millisec == Infinity) {
+      return new Date(MAX_TIME);
+    } else if (millisec == -Infinity) {
+      return new Date(MIN_TIME);
+    } else {
+      return new Date(millisec);
+    }
+  }
+
+  // This replaces the "persistent-flag" parts of S5.3 step 3
+  isPersistent() {
+    return this.maxAge != null || this.expires != Infinity;
+  }
+
+  // Mostly S5.1.2 and S5.2.3:
+  canonicalizedDomain() {
+    if (this.domain == null) {
+      return null;
+    }
+    return canonicalDomain(this.domain);
+  }
+
+  cdomain() {
+    return this.canonicalizedDomain();
+  }
+}
+
+Cookie.cookiesCreated = 0;
+Cookie.parse = parse;
+Cookie.fromJSON = fromJSON;
+Cookie.serializableProperties = Object.keys(cookieDefaults);
+Cookie.sameSiteLevel = {
+  strict: 3,
+  lax: 2,
+  none: 1
+};
+
+Cookie.sameSiteCanonical = {
+  strict: "Strict",
+  lax: "Lax"
+};
+
+function getNormalizedPrefixSecurity(prefixSecurity) {
+  if (prefixSecurity != null) {
+    const normalizedPrefixSecurity = prefixSecurity.toLowerCase();
+    /* The three supported options */
+    switch (normalizedPrefixSecurity) {
+      case PrefixSecurityEnum.STRICT:
+      case PrefixSecurityEnum.SILENT:
+      case PrefixSecurityEnum.DISABLED:
+        return normalizedPrefixSecurity;
+    }
+  }
+  /* Default is SILENT */
+  return PrefixSecurityEnum.SILENT;
+}
+
+class CookieJar {
+  constructor(store, options = { rejectPublicSuffixes: true }) {
+    if (typeof options === "boolean") {
+      options = { rejectPublicSuffixes: options };
+    }
+    this.rejectPublicSuffixes = options.rejectPublicSuffixes;
+    this.enableLooseMode = !!options.looseMode;
+    this.allowSpecialUseDomain = !!options.allowSpecialUseDomain;
+    this.store = store || new MemoryCookieStore();
+    this.prefixSecurity = getNormalizedPrefixSecurity(options.prefixSecurity);
+    this._cloneSync = syncWrap("clone");
+    this._importCookiesSync = syncWrap("_importCookies");
+    this.getCookiesSync = syncWrap("getCookies");
+    this.getCookieStringSync = syncWrap("getCookieString");
+    this.getSetCookieStringsSync = syncWrap("getSetCookieStrings");
+    this.removeAllCookiesSync = syncWrap("removeAllCookies");
+    this.setCookieSync = syncWrap("setCookie");
+    this.serializeSync = syncWrap("serialize");
+  }
+
+  setCookie(cookie, url, options, cb) {
+    let err;
+    const context = getCookieContext(url);
+    if (typeof options === "function") {
+      cb = options;
+      options = {};
+    }
+
+    const host = canonicalDomain(context.hostname);
+    const loose = options.loose || this.enableLooseMode;
+
+    let sameSiteContext = null;
+    if (options.sameSiteContext) {
+      sameSiteContext = checkSameSiteContext(options.sameSiteContext);
+      if (!sameSiteContext) {
+        return cb(new Error(SAME_SITE_CONTEXT_VAL_ERR));
+      }
+    }
+
+    // S5.3 step 1
+    if (typeof cookie === "string" || cookie instanceof String) {
+      cookie = Cookie.parse(cookie, { loose: loose });
+      if (!cookie) {
+        err = new Error("Cookie failed to parse");
+        return cb(options.ignoreError ? null : err);
+      }
+    } else if (!(cookie instanceof Cookie)) {
+      // If you're seeing this error, and are passing in a Cookie object,
+      // it *might* be a Cookie object from another loaded version of tough-cookie.
+      err = new Error(
+        "First argument to setCookie must be a Cookie object or string"
+      );
+      return cb(options.ignoreError ? null : err);
+    }
+
+    // S5.3 step 2
+    const now = options.now || new Date(); // will assign later to save effort in the face of errors
+
+    // S5.3 step 3: NOOP; persistent-flag and expiry-time is handled by getCookie()
+
+    // S5.3 step 4: NOOP; domain is null by default
+
+    // S5.3 step 5: public suffixes
+    if (this.rejectPublicSuffixes && cookie.domain) {
+      const suffix = pubsuffix.getPublicSuffix(cookie.cdomain());
+      if (suffix == null) {
+        // e.g. "com"
+        err = new Error("Cookie has domain set to a public suffix");
+        return cb(options.ignoreError ? null : err);
+      }
+    }
+
+    // S5.3 step 6:
+    if (cookie.domain) {
+      if (!domainMatch(host, cookie.cdomain(), false)) {
+        err = new Error(
+          `Cookie not in this host's domain. Cookie:${cookie.cdomain()} Request:${host}`
+        );
+        return cb(options.ignoreError ? null : err);
+      }
+
+      if (cookie.hostOnly == null) {
+        // don't reset if already set
+        cookie.hostOnly = false;
+      }
+    } else {
+      cookie.hostOnly = true;
+      cookie.domain = host;
+    }
+
+    //S5.2.4 If the attribute-value is empty or if the first character of the
+    //attribute-value is not %x2F ("/"):
+    //Let cookie-path be the default-path.
+    if (!cookie.path || cookie.path[0] !== "/") {
+      cookie.path = defaultPath(context.pathname);
+      cookie.pathIsDefault = true;
+    }
+
+    // S5.3 step 8: NOOP; secure attribute
+    // S5.3 step 9: NOOP; httpOnly attribute
+
+    // S5.3 step 10
+    if (options.http === false && cookie.httpOnly) {
+      err = new Error("Cookie is HttpOnly and this isn't an HTTP API");
+      return cb(options.ignoreError ? null : err);
+    }
+
+    // 6252bis-02 S5.4 Step 13 & 14:
+    if (cookie.sameSite !== "none" && sameSiteContext) {
+      // "If the cookie's "same-site-flag" is not "None", and the cookie
+      //  is being set from a context whose "site for cookies" is not an
+      //  exact match for request-uri's host's registered domain, then
+      //  abort these steps and ignore the newly created cookie entirely."
+      if (sameSiteContext === "none") {
+        err = new Error(
+          "Cookie is SameSite but this is a cross-origin request"
+        );
+        return cb(options.ignoreError ? null : err);
+      }
+    }
+
+    /* 6265bis-02 S5.4 Steps 15 & 16 */
+    const ignoreErrorForPrefixSecurity =
+      this.prefixSecurity === PrefixSecurityEnum.SILENT;
+    const prefixSecurityDisabled =
+      this.prefixSecurity === PrefixSecurityEnum.DISABLED;
+    /* If prefix checking is not disabled ...*/
+    if (!prefixSecurityDisabled) {
+      let errorFound = false;
+      let errorMsg;
+      /* Check secure prefix condition */
+      if (!isSecurePrefixConditionMet(cookie)) {
+        errorFound = true;
+        errorMsg = "Cookie has __Secure prefix but Secure attribute is not set";
+      } else if (!isHostPrefixConditionMet(cookie)) {
+        /* Check host prefix condition */
+        errorFound = true;
+        errorMsg =
+          "Cookie has __Host prefix but either Secure or HostOnly attribute is not set or Path is not '/'";
+      }
+      if (errorFound) {
+        return cb(
+          options.ignoreError || ignoreErrorForPrefixSecurity
+            ? null
+            : new Error(errorMsg)
+        );
+      }
+    }
+
+    const store = this.store;
+
+    if (!store.updateCookie) {
+      store.updateCookie = function(oldCookie, newCookie, cb) {
+        this.putCookie(newCookie, cb);
+      };
+    }
+
+    function withCookie(err, oldCookie) {
+      if (err) {
+        return cb(err);
+      }
+
+      const next = function(err) {
+        if (err) {
+          return cb(err);
+        } else {
+          cb(null, cookie);
+        }
+      };
+
+      if (oldCookie) {
+        // S5.3 step 11 - "If the cookie store contains a cookie with the same name,
+        // domain, and path as the newly created cookie:"
+        if (options.http === false && oldCookie.httpOnly) {
+          // step 11.2
+          err = new Error("old Cookie is HttpOnly and this isn't an HTTP API");
+          return cb(options.ignoreError ? null : err);
+        }
+        cookie.creation = oldCookie.creation; // step 11.3
+        cookie.creationIndex = oldCookie.creationIndex; // preserve tie-breaker
+        cookie.lastAccessed = now;
+        // Step 11.4 (delete cookie) is implied by just setting the new one:
+        store.updateCookie(oldCookie, cookie, next); // step 12
+      } else {
+        cookie.creation = cookie.lastAccessed = now;
+        store.putCookie(cookie, next); // step 12
+      }
+    }
+
+    store.findCookie(cookie.domain, cookie.path, cookie.key, withCookie);
+  }
+
+  // RFC6365 S5.4
+  getCookies(url, options, cb) {
+    const context = getCookieContext(url);
+    if (typeof options === "function") {
+      cb = options;
+      options = {};
+    }
+
+    const host = canonicalDomain(context.hostname);
+    const path = context.pathname || "/";
+
+    let secure = options.secure;
+    if (
+      secure == null &&
+      context.protocol &&
+      (context.protocol == "https:" || context.protocol == "wss:")
+    ) {
+      secure = true;
+    }
+
+    let sameSiteLevel = 0;
+    if (options.sameSiteContext) {
+      const sameSiteContext = checkSameSiteContext(options.sameSiteContext);
+      sameSiteLevel = Cookie.sameSiteLevel[sameSiteContext];
+      if (!sameSiteLevel) {
+        return cb(new Error(SAME_SITE_CONTEXT_VAL_ERR));
+      }
+    }
+
+    let http = options.http;
+    if (http == null) {
+      http = true;
+    }
+
+    const now = options.now || Date.now();
+    const expireCheck = options.expire !== false;
+    const allPaths = !!options.allPaths;
+    const store = this.store;
+
+    function matchingCookie(c) {
+      // "Either:
+      //   The cookie's host-only-flag is true and the canonicalized
+      //   request-host is identical to the cookie's domain.
+      // Or:
+      //   The cookie's host-only-flag is false and the canonicalized
+      //   request-host domain-matches the cookie's domain."
+      if (c.hostOnly) {
+        if (c.domain != host) {
+          return false;
+        }
+      } else {
+        if (!domainMatch(host, c.domain, false)) {
+          return false;
+        }
+      }
+
+      // "The request-uri's path path-matches the cookie's path."
+      if (!allPaths && !pathMatch(path, c.path)) {
+        return false;
+      }
+
+      // "If the cookie's secure-only-flag is true, then the request-uri's
+      // scheme must denote a "secure" protocol"
+      if (c.secure && !secure) {
+        return false;
+      }
+
+      // "If the cookie's http-only-flag is true, then exclude the cookie if the
+      // cookie-string is being generated for a "non-HTTP" API"
+      if (c.httpOnly && !http) {
+        return false;
+      }
+
+      // RFC6265bis-02 S5.3.7
+      if (sameSiteLevel) {
+        const cookieLevel = Cookie.sameSiteLevel[c.sameSite || "none"];
+        if (cookieLevel > sameSiteLevel) {
+          // only allow cookies at or below the request level
+          return false;
+        }
+      }
+
+      // deferred from S5.3
+      // non-RFC: allow retention of expired cookies by choice
+      if (expireCheck && c.expiryTime() <= now) {
+        store.removeCookie(c.domain, c.path, c.key, () => {}); // result ignored
+        return false;
+      }
+
+      return true;
+    }
+
+    store.findCookies(
+      host,
+      allPaths ? null : path,
+      this.allowSpecialUseDomain,
+      (err, cookies) => {
+        if (err) {
+          return cb(err);
+        }
+
+        cookies = cookies.filter(matchingCookie);
+
+        // sorting of S5.4 part 2
+        if (options.sort !== false) {
+          cookies = cookies.sort(cookieCompare);
+        }
+
+        // S5.4 part 3
+        const now = new Date();
+        for (const cookie of cookies) {
+          cookie.lastAccessed = now;
+        }
+        // TODO persist lastAccessed
+
+        cb(null, cookies);
+      }
+    );
+  }
+
+  getCookieString(...args) {
+    const cb = args.pop();
+    const next = function(err, cookies) {
+      if (err) {
+        cb(err);
+      } else {
+        cb(
+          null,
+          cookies
+            .sort(cookieCompare)
+            .map(c => c.cookieString())
+            .join("; ")
+        );
+      }
+    };
+    args.push(next);
+    this.getCookies.apply(this, args);
+  }
+
+  getSetCookieStrings(...args) {
+    const cb = args.pop();
+    const next = function(err, cookies) {
+      if (err) {
+        cb(err);
+      } else {
+        cb(
+          null,
+          cookies.map(c => {
+            return c.toString();
+          })
+        );
+      }
+    };
+    args.push(next);
+    this.getCookies.apply(this, args);
+  }
+
+  serialize(cb) {
+    let type = this.store.constructor.name;
+    if (type === "Object") {
+      type = null;
+    }
+
+    // update README.md "Serialization Format" if you change this, please!
+    const serialized = {
+      // The version of tough-cookie that serialized this jar. Generally a good
+      // practice since future versions can make data import decisions based on
+      // known past behavior. When/if this matters, use `semver`.
+      version: `tough-cookie@${VERSION}`,
+
+      // add the store type, to make humans happy:
+      storeType: type,
+
+      // CookieJar configuration:
+      rejectPublicSuffixes: !!this.rejectPublicSuffixes,
+
+      // this gets filled from getAllCookies:
+      cookies: []
+    };
+
+    if (
+      !(
+        this.store.getAllCookies &&
+        typeof this.store.getAllCookies === "function"
+      )
+    ) {
+      return cb(
+        new Error(
+          "store does not support getAllCookies and cannot be serialized"
+        )
+      );
+    }
+
+    this.store.getAllCookies((err, cookies) => {
+      if (err) {
+        return cb(err);
+      }
+
+      serialized.cookies = cookies.map(cookie => {
+        // convert to serialized 'raw' cookies
+        cookie = cookie instanceof Cookie ? cookie.toJSON() : cookie;
+
+        // Remove the index so new ones get assigned during deserialization
+        delete cookie.creationIndex;
+
+        return cookie;
+      });
+
+      return cb(null, serialized);
+    });
+  }
+
+  toJSON() {
+    return this.serializeSync();
+  }
+
+  // use the class method CookieJar.deserialize instead of calling this directly
+  _importCookies(serialized, cb) {
+    let cookies = serialized.cookies;
+    if (!cookies || !Array.isArray(cookies)) {
+      return cb(new Error("serialized jar has no cookies array"));
+    }
+    cookies = cookies.slice(); // do not modify the original
+
+    const putNext = err => {
+      if (err) {
+        return cb(err);
+      }
+
+      if (!cookies.length) {
+        return cb(err, this);
+      }
+
+      let cookie;
+      try {
+        cookie = fromJSON(cookies.shift());
+      } catch (e) {
+        return cb(e);
+      }
+
+      if (cookie === null) {
+        return putNext(null); // skip this cookie
+      }
+
+      this.store.putCookie(cookie, putNext);
+    };
+
+    putNext();
+  }
+
+  clone(newStore, cb) {
+    if (arguments.length === 1) {
+      cb = newStore;
+      newStore = null;
+    }
+
+    this.serialize((err, serialized) => {
+      if (err) {
+        return cb(err);
+      }
+      CookieJar.deserialize(serialized, newStore, cb);
+    });
+  }
+
+  cloneSync(newStore) {
+    if (arguments.length === 0) {
+      return this._cloneSync();
+    }
+    if (!newStore.synchronous) {
+      throw new Error(
+        "CookieJar clone destination store is not synchronous; use async API instead."
+      );
+    }
+    return this._cloneSync(newStore);
+  }
+
+  removeAllCookies(cb) {
+    const store = this.store;
+
+    // Check that the store implements its own removeAllCookies(). The default
+    // implementation in Store will immediately call the callback with a "not
+    // implemented" Error.
+    if (
+      typeof store.removeAllCookies === "function" &&
+      store.removeAllCookies !== Store.prototype.removeAllCookies
+    ) {
+      return store.removeAllCookies(cb);
+    }
+
+    store.getAllCookies((err, cookies) => {
+      if (err) {
+        return cb(err);
+      }
+
+      if (cookies.length === 0) {
+        return cb(null);
+      }
+
+      let completedCount = 0;
+      const removeErrors = [];
+
+      function removeCookieCb(removeErr) {
+        if (removeErr) {
+          removeErrors.push(removeErr);
+        }
+
+        completedCount++;
+
+        if (completedCount === cookies.length) {
+          return cb(removeErrors.length ? removeErrors[0] : null);
+        }
+      }
+
+      cookies.forEach(cookie => {
+        store.removeCookie(
+          cookie.domain,
+          cookie.path,
+          cookie.key,
+          removeCookieCb
+        );
+      });
+    });
+  }
+
+  static deserialize(strOrObj, store, cb) {
+    if (arguments.length !== 3) {
+      // store is optional
+      cb = store;
+      store = null;
+    }
+
+    let serialized;
+    if (typeof strOrObj === "string") {
+      serialized = jsonParse(strOrObj);
+      if (serialized instanceof Error) {
+        return cb(serialized);
+      }
+    } else {
+      serialized = strOrObj;
+    }
+
+    const jar = new CookieJar(store, serialized.rejectPublicSuffixes);
+    jar._importCookies(serialized, err => {
+      if (err) {
+        return cb(err);
+      }
+      cb(null, jar);
+    });
+  }
+
+  static deserializeSync(strOrObj, store) {
+    const serialized =
+      typeof strOrObj === "string" ? JSON.parse(strOrObj) : strOrObj;
+    const jar = new CookieJar(store, serialized.rejectPublicSuffixes);
+
+    // catch this mistake early:
+    if (!jar.store.synchronous) {
+      throw new Error(
+        "CookieJar store is not synchronous; use async API instead."
+      );
+    }
+
+    jar._importCookiesSync(serialized);
+    return jar;
+  }
+}
+CookieJar.fromJSON = CookieJar.deserializeSync;
+
+[
+  "_importCookies",
+  "clone",
+  "getCookies",
+  "getCookieString",
+  "getSetCookieStrings",
+  "removeAllCookies",
+  "serialize",
+  "setCookie"
+].forEach(name => {
+  CookieJar.prototype[name] = fromCallback(CookieJar.prototype[name]);
+});
+CookieJar.deserialize = fromCallback(CookieJar.deserialize);
+
+// Use a closure to provide a true imperative API for synchronous stores.
+function syncWrap(method) {
+  return function(...args) {
+    if (!this.store.synchronous) {
+      throw new Error(
+        "CookieJar store is not synchronous; use async API instead."
+      );
+    }
+
+    let syncErr, syncResult;
+    this[method](...args, (err, result) => {
+      syncErr = err;
+      syncResult = result;
+    });
+
+    if (syncErr) {
+      throw syncErr;
+    }
+    return syncResult;
+  };
+}
+
+exports.version = VERSION;
+exports.CookieJar = CookieJar;
+exports.Cookie = Cookie;
+exports.Store = Store;
+exports.MemoryCookieStore = MemoryCookieStore;
+exports.parseDate = parseDate;
+exports.formatDate = formatDate;
+exports.parse = parse;
+exports.fromJSON = fromJSON;
+exports.domainMatch = domainMatch;
+exports.defaultPath = defaultPath;
+exports.pathMatch = pathMatch;
+exports.getPublicSuffix = pubsuffix.getPublicSuffix;
+exports.cookieCompare = cookieCompare;
+exports.permuteDomain = __webpack_require__(89).permuteDomain;
+exports.permutePath = permutePath;
+exports.canonicalDomain = canonicalDomain;
+exports.PrefixSecurityEnum = PrefixSecurityEnum;
+
 
 /***/ }),
-/* 385 */,
-/* 386 */,
-/* 387 */,
-/* 388 */,
-/* 389 */,
-/* 390 */,
-/* 391 */,
-/* 392 */,
-/* 393 */,
 /* 394 */
 /***/ (function(__unusedmodule, exports, __webpack_require__) {
 
@@ -36383,7 +39271,8 @@ exports.FetchError = FetchError;
 
 
 /***/ }),
-/* 459 */
+/* 459 */,
+/* 460 */
 /***/ (function(module) {
 
 // generated by genversion
@@ -36391,7 +39280,6 @@ module.exports = '4.0.0'
 
 
 /***/ }),
-/* 460 */,
 /* 461 */,
 /* 462 */,
 /* 463 */
@@ -37382,7 +40270,7 @@ exports.getPagedAsyncIterator = getPagedAsyncIterator;
 /* 512 */
 /***/ (function(module) {
 
-module.exports = {"application/1d-interleaved-parityfec":{"source":"iana"},"application/3gpdash-qoe-report+xml":{"source":"iana","charset":"UTF-8","compressible":true},"application/3gpp-ims+xml":{"source":"iana","compressible":true},"application/3gpphal+json":{"source":"iana","compressible":true},"application/3gpphalforms+json":{"source":"iana","compressible":true},"application/a2l":{"source":"iana"},"application/ace+cbor":{"source":"iana"},"application/activemessage":{"source":"iana"},"application/activity+json":{"source":"iana","compressible":true},"application/alto-costmap+json":{"source":"iana","compressible":true},"application/alto-costmapfilter+json":{"source":"iana","compressible":true},"application/alto-directory+json":{"source":"iana","compressible":true},"application/alto-endpointcost+json":{"source":"iana","compressible":true},"application/alto-endpointcostparams+json":{"source":"iana","compressible":true},"application/alto-endpointprop+json":{"source":"iana","compressible":true},"application/alto-endpointpropparams+json":{"source":"iana","compressible":true},"application/alto-error+json":{"source":"iana","compressible":true},"application/alto-networkmap+json":{"source":"iana","compressible":true},"application/alto-networkmapfilter+json":{"source":"iana","compressible":true},"application/alto-updatestreamcontrol+json":{"source":"iana","compressible":true},"application/alto-updatestreamparams+json":{"source":"iana","compressible":true},"application/aml":{"source":"iana"},"application/andrew-inset":{"source":"iana","extensions":["ez"]},"application/applefile":{"source":"iana"},"application/applixware":{"source":"apache","extensions":["aw"]},"application/at+jwt":{"source":"iana"},"application/atf":{"source":"iana"},"application/atfx":{"source":"iana"},"application/atom+xml":{"source":"iana","compressible":true,"extensions":["atom"]},"application/atomcat+xml":{"source":"iana","compressible":true,"extensions":["atomcat"]},"application/atomdeleted+xml":{"source":"iana","compressible":true,"extensions":["atomdeleted"]},"application/atomicmail":{"source":"iana"},"application/atomsvc+xml":{"source":"iana","compressible":true,"extensions":["atomsvc"]},"application/atsc-dwd+xml":{"source":"iana","compressible":true,"extensions":["dwd"]},"application/atsc-dynamic-event-message":{"source":"iana"},"application/atsc-held+xml":{"source":"iana","compressible":true,"extensions":["held"]},"application/atsc-rdt+json":{"source":"iana","compressible":true},"application/atsc-rsat+xml":{"source":"iana","compressible":true,"extensions":["rsat"]},"application/atxml":{"source":"iana"},"application/auth-policy+xml":{"source":"iana","compressible":true},"application/bacnet-xdd+zip":{"source":"iana","compressible":false},"application/batch-smtp":{"source":"iana"},"application/bdoc":{"compressible":false,"extensions":["bdoc"]},"application/beep+xml":{"source":"iana","charset":"UTF-8","compressible":true},"application/calendar+json":{"source":"iana","compressible":true},"application/calendar+xml":{"source":"iana","compressible":true,"extensions":["xcs"]},"application/call-completion":{"source":"iana"},"application/cals-1840":{"source":"iana"},"application/captive+json":{"source":"iana","compressible":true},"application/cbor":{"source":"iana"},"application/cbor-seq":{"source":"iana"},"application/cccex":{"source":"iana"},"application/ccmp+xml":{"source":"iana","compressible":true},"application/ccxml+xml":{"source":"iana","compressible":true,"extensions":["ccxml"]},"application/cdfx+xml":{"source":"iana","compressible":true,"extensions":["cdfx"]},"application/cdmi-capability":{"source":"iana","extensions":["cdmia"]},"application/cdmi-container":{"source":"iana","extensions":["cdmic"]},"application/cdmi-domain":{"source":"iana","extensions":["cdmid"]},"application/cdmi-object":{"source":"iana","extensions":["cdmio"]},"application/cdmi-queue":{"source":"iana","extensions":["cdmiq"]},"application/cdni":{"source":"iana"},"application/cea":{"source":"iana"},"application/cea-2018+xml":{"source":"iana","compressible":true},"application/cellml+xml":{"source":"iana","compressible":true},"application/cfw":{"source":"iana"},"application/clr":{"source":"iana"},"application/clue+xml":{"source":"iana","compressible":true},"application/clue_info+xml":{"source":"iana","compressible":true},"application/cms":{"source":"iana"},"application/cnrp+xml":{"source":"iana","compressible":true},"application/coap-group+json":{"source":"iana","compressible":true},"application/coap-payload":{"source":"iana"},"application/commonground":{"source":"iana"},"application/conference-info+xml":{"source":"iana","compressible":true},"application/cose":{"source":"iana"},"application/cose-key":{"source":"iana"},"application/cose-key-set":{"source":"iana"},"application/cpl+xml":{"source":"iana","compressible":true},"application/csrattrs":{"source":"iana"},"application/csta+xml":{"source":"iana","compressible":true},"application/cstadata+xml":{"source":"iana","compressible":true},"application/csvm+json":{"source":"iana","compressible":true},"application/cu-seeme":{"source":"apache","extensions":["cu"]},"application/cwt":{"source":"iana"},"application/cybercash":{"source":"iana"},"application/dart":{"compressible":true},"application/dash+xml":{"source":"iana","compressible":true,"extensions":["mpd"]},"application/dashdelta":{"source":"iana"},"application/davmount+xml":{"source":"iana","compressible":true,"extensions":["davmount"]},"application/dca-rft":{"source":"iana"},"application/dcd":{"source":"iana"},"application/dec-dx":{"source":"iana"},"application/dialog-info+xml":{"source":"iana","compressible":true},"application/dicom":{"source":"iana"},"application/dicom+json":{"source":"iana","compressible":true},"application/dicom+xml":{"source":"iana","compressible":true},"application/dii":{"source":"iana"},"application/dit":{"source":"iana"},"application/dns":{"source":"iana"},"application/dns+json":{"source":"iana","compressible":true},"application/dns-message":{"source":"iana"},"application/docbook+xml":{"source":"apache","compressible":true,"extensions":["dbk"]},"application/dots+cbor":{"source":"iana"},"application/dskpp+xml":{"source":"iana","compressible":true},"application/dssc+der":{"source":"iana","extensions":["dssc"]},"application/dssc+xml":{"source":"iana","compressible":true,"extensions":["xdssc"]},"application/dvcs":{"source":"iana"},"application/ecmascript":{"source":"iana","compressible":true,"extensions":["es","ecma"]},"application/edi-consent":{"source":"iana"},"application/edi-x12":{"source":"iana","compressible":false},"application/edifact":{"source":"iana","compressible":false},"application/efi":{"source":"iana"},"application/elm+json":{"source":"iana","charset":"UTF-8","compressible":true},"application/elm+xml":{"source":"iana","compressible":true},"application/emergencycalldata.cap+xml":{"source":"iana","charset":"UTF-8","compressible":true},"application/emergencycalldata.comment+xml":{"source":"iana","compressible":true},"application/emergencycalldata.control+xml":{"source":"iana","compressible":true},"application/emergencycalldata.deviceinfo+xml":{"source":"iana","compressible":true},"application/emergencycalldata.ecall.msd":{"source":"iana"},"application/emergencycalldata.providerinfo+xml":{"source":"iana","compressible":true},"application/emergencycalldata.serviceinfo+xml":{"source":"iana","compressible":true},"application/emergencycalldata.subscriberinfo+xml":{"source":"iana","compressible":true},"application/emergencycalldata.veds+xml":{"source":"iana","compressible":true},"application/emma+xml":{"source":"iana","compressible":true,"extensions":["emma"]},"application/emotionml+xml":{"source":"iana","compressible":true,"extensions":["emotionml"]},"application/encaprtp":{"source":"iana"},"application/epp+xml":{"source":"iana","compressible":true},"application/epub+zip":{"source":"iana","compressible":false,"extensions":["epub"]},"application/eshop":{"source":"iana"},"application/exi":{"source":"iana","extensions":["exi"]},"application/expect-ct-report+json":{"source":"iana","compressible":true},"application/express":{"source":"iana","extensions":["exp"]},"application/fastinfoset":{"source":"iana"},"application/fastsoap":{"source":"iana"},"application/fdt+xml":{"source":"iana","compressible":true,"extensions":["fdt"]},"application/fhir+json":{"source":"iana","charset":"UTF-8","compressible":true},"application/fhir+xml":{"source":"iana","charset":"UTF-8","compressible":true},"application/fido.trusted-apps+json":{"compressible":true},"application/fits":{"source":"iana"},"application/flexfec":{"source":"iana"},"application/font-sfnt":{"source":"iana"},"application/font-tdpfr":{"source":"iana","extensions":["pfr"]},"application/font-woff":{"source":"iana","compressible":false},"application/framework-attributes+xml":{"source":"iana","compressible":true},"application/geo+json":{"source":"iana","compressible":true,"extensions":["geojson"]},"application/geo+json-seq":{"source":"iana"},"application/geopackage+sqlite3":{"source":"iana"},"application/geoxacml+xml":{"source":"iana","compressible":true},"application/gltf-buffer":{"source":"iana"},"application/gml+xml":{"source":"iana","compressible":true,"extensions":["gml"]},"application/gpx+xml":{"source":"apache","compressible":true,"extensions":["gpx"]},"application/gxf":{"source":"apache","extensions":["gxf"]},"application/gzip":{"source":"iana","compressible":false,"extensions":["gz"]},"application/h224":{"source":"iana"},"application/held+xml":{"source":"iana","compressible":true},"application/hjson":{"extensions":["hjson"]},"application/http":{"source":"iana"},"application/hyperstudio":{"source":"iana","extensions":["stk"]},"application/ibe-key-request+xml":{"source":"iana","compressible":true},"application/ibe-pkg-reply+xml":{"source":"iana","compressible":true},"application/ibe-pp-data":{"source":"iana"},"application/iges":{"source":"iana"},"application/im-iscomposing+xml":{"source":"iana","charset":"UTF-8","compressible":true},"application/index":{"source":"iana"},"application/index.cmd":{"source":"iana"},"application/index.obj":{"source":"iana"},"application/index.response":{"source":"iana"},"application/index.vnd":{"source":"iana"},"application/inkml+xml":{"source":"iana","compressible":true,"extensions":["ink","inkml"]},"application/iotp":{"source":"iana"},"application/ipfix":{"source":"iana","extensions":["ipfix"]},"application/ipp":{"source":"iana"},"application/isup":{"source":"iana"},"application/its+xml":{"source":"iana","compressible":true,"extensions":["its"]},"application/java-archive":{"source":"apache","compressible":false,"extensions":["jar","war","ear"]},"application/java-serialized-object":{"source":"apache","compressible":false,"extensions":["ser"]},"application/java-vm":{"source":"apache","compressible":false,"extensions":["class"]},"application/javascript":{"source":"iana","charset":"UTF-8","compressible":true,"extensions":["js","mjs"]},"application/jf2feed+json":{"source":"iana","compressible":true},"application/jose":{"source":"iana"},"application/jose+json":{"source":"iana","compressible":true},"application/jrd+json":{"source":"iana","compressible":true},"application/jscalendar+json":{"source":"iana","compressible":true},"application/json":{"source":"iana","charset":"UTF-8","compressible":true,"extensions":["json","map"]},"application/json-patch+json":{"source":"iana","compressible":true},"application/json-seq":{"source":"iana"},"application/json5":{"extensions":["json5"]},"application/jsonml+json":{"source":"apache","compressible":true,"extensions":["jsonml"]},"application/jwk+json":{"source":"iana","compressible":true},"application/jwk-set+json":{"source":"iana","compressible":true},"application/jwt":{"source":"iana"},"application/kpml-request+xml":{"source":"iana","compressible":true},"application/kpml-response+xml":{"source":"iana","compressible":true},"application/ld+json":{"source":"iana","compressible":true,"extensions":["jsonld"]},"application/lgr+xml":{"source":"iana","compressible":true,"extensions":["lgr"]},"application/link-format":{"source":"iana"},"application/load-control+xml":{"source":"iana","compressible":true},"application/lost+xml":{"source":"iana","compressible":true,"extensions":["lostxml"]},"application/lostsync+xml":{"source":"iana","compressible":true},"application/lpf+zip":{"source":"iana","compressible":false},"application/lxf":{"source":"iana"},"application/mac-binhex40":{"source":"iana","extensions":["hqx"]},"application/mac-compactpro":{"source":"apache","extensions":["cpt"]},"application/macwriteii":{"source":"iana"},"application/mads+xml":{"source":"iana","compressible":true,"extensions":["mads"]},"application/manifest+json":{"source":"iana","charset":"UTF-8","compressible":true,"extensions":["webmanifest"]},"application/marc":{"source":"iana","extensions":["mrc"]},"application/marcxml+xml":{"source":"iana","compressible":true,"extensions":["mrcx"]},"application/mathematica":{"source":"iana","extensions":["ma","nb","mb"]},"application/mathml+xml":{"source":"iana","compressible":true,"extensions":["mathml"]},"application/mathml-content+xml":{"source":"iana","compressible":true},"application/mathml-presentation+xml":{"source":"iana","compressible":true},"application/mbms-associated-procedure-description+xml":{"source":"iana","compressible":true},"application/mbms-deregister+xml":{"source":"iana","compressible":true},"application/mbms-envelope+xml":{"source":"iana","compressible":true},"application/mbms-msk+xml":{"source":"iana","compressible":true},"application/mbms-msk-response+xml":{"source":"iana","compressible":true},"application/mbms-protection-description+xml":{"source":"iana","compressible":true},"application/mbms-reception-report+xml":{"source":"iana","compressible":true},"application/mbms-register+xml":{"source":"iana","compressible":true},"application/mbms-register-response+xml":{"source":"iana","compressible":true},"application/mbms-schedule+xml":{"source":"iana","compressible":true},"application/mbms-user-service-description+xml":{"source":"iana","compressible":true},"application/mbox":{"source":"iana","extensions":["mbox"]},"application/media-policy-dataset+xml":{"source":"iana","compressible":true},"application/media_control+xml":{"source":"iana","compressible":true},"application/mediaservercontrol+xml":{"source":"iana","compressible":true,"extensions":["mscml"]},"application/merge-patch+json":{"source":"iana","compressible":true},"application/metalink+xml":{"source":"apache","compressible":true,"extensions":["metalink"]},"application/metalink4+xml":{"source":"iana","compressible":true,"extensions":["meta4"]},"application/mets+xml":{"source":"iana","compressible":true,"extensions":["mets"]},"application/mf4":{"source":"iana"},"application/mikey":{"source":"iana"},"application/mipc":{"source":"iana"},"application/missing-blocks+cbor-seq":{"source":"iana"},"application/mmt-aei+xml":{"source":"iana","compressible":true,"extensions":["maei"]},"application/mmt-usd+xml":{"source":"iana","compressible":true,"extensions":["musd"]},"application/mods+xml":{"source":"iana","compressible":true,"extensions":["mods"]},"application/moss-keys":{"source":"iana"},"application/moss-signature":{"source":"iana"},"application/mosskey-data":{"source":"iana"},"application/mosskey-request":{"source":"iana"},"application/mp21":{"source":"iana","extensions":["m21","mp21"]},"application/mp4":{"source":"iana","extensions":["mp4s","m4p"]},"application/mpeg4-generic":{"source":"iana"},"application/mpeg4-iod":{"source":"iana"},"application/mpeg4-iod-xmt":{"source":"iana"},"application/mrb-consumer+xml":{"source":"iana","compressible":true},"application/mrb-publish+xml":{"source":"iana","compressible":true},"application/msc-ivr+xml":{"source":"iana","charset":"UTF-8","compressible":true},"application/msc-mixer+xml":{"source":"iana","charset":"UTF-8","compressible":true},"application/msword":{"source":"iana","compressible":false,"extensions":["doc","dot"]},"application/mud+json":{"source":"iana","compressible":true},"application/multipart-core":{"source":"iana"},"application/mxf":{"source":"iana","extensions":["mxf"]},"application/n-quads":{"source":"iana","extensions":["nq"]},"application/n-triples":{"source":"iana","extensions":["nt"]},"application/nasdata":{"source":"iana"},"application/news-checkgroups":{"source":"iana","charset":"US-ASCII"},"application/news-groupinfo":{"source":"iana","charset":"US-ASCII"},"application/news-transmission":{"source":"iana"},"application/nlsml+xml":{"source":"iana","compressible":true},"application/node":{"source":"iana","extensions":["cjs"]},"application/nss":{"source":"iana"},"application/oauth-authz-req+jwt":{"source":"iana"},"application/ocsp-request":{"source":"iana"},"application/ocsp-response":{"source":"iana"},"application/octet-stream":{"source":"iana","compressible":false,"extensions":["bin","dms","lrf","mar","so","dist","distz","pkg","bpk","dump","elc","deploy","exe","dll","deb","dmg","iso","img","msi","msp","msm","buffer"]},"application/oda":{"source":"iana","extensions":["oda"]},"application/odm+xml":{"source":"iana","compressible":true},"application/odx":{"source":"iana"},"application/oebps-package+xml":{"source":"iana","compressible":true,"extensions":["opf"]},"application/ogg":{"source":"iana","compressible":false,"extensions":["ogx"]},"application/omdoc+xml":{"source":"apache","compressible":true,"extensions":["omdoc"]},"application/onenote":{"source":"apache","extensions":["onetoc","onetoc2","onetmp","onepkg"]},"application/opc-nodeset+xml":{"source":"iana","compressible":true},"application/oscore":{"source":"iana"},"application/oxps":{"source":"iana","extensions":["oxps"]},"application/p21":{"source":"iana"},"application/p21+zip":{"source":"iana","compressible":false},"application/p2p-overlay+xml":{"source":"iana","compressible":true,"extensions":["relo"]},"application/parityfec":{"source":"iana"},"application/passport":{"source":"iana"},"application/patch-ops-error+xml":{"source":"iana","compressible":true,"extensions":["xer"]},"application/pdf":{"source":"iana","compressible":false,"extensions":["pdf"]},"application/pdx":{"source":"iana"},"application/pem-certificate-chain":{"source":"iana"},"application/pgp-encrypted":{"source":"iana","compressible":false,"extensions":["pgp"]},"application/pgp-keys":{"source":"iana"},"application/pgp-signature":{"source":"iana","extensions":["asc","sig"]},"application/pics-rules":{"source":"apache","extensions":["prf"]},"application/pidf+xml":{"source":"iana","charset":"UTF-8","compressible":true},"application/pidf-diff+xml":{"source":"iana","charset":"UTF-8","compressible":true},"application/pkcs10":{"source":"iana","extensions":["p10"]},"application/pkcs12":{"source":"iana"},"application/pkcs7-mime":{"source":"iana","extensions":["p7m","p7c"]},"application/pkcs7-signature":{"source":"iana","extensions":["p7s"]},"application/pkcs8":{"source":"iana","extensions":["p8"]},"application/pkcs8-encrypted":{"source":"iana"},"application/pkix-attr-cert":{"source":"iana","extensions":["ac"]},"application/pkix-cert":{"source":"iana","extensions":["cer"]},"application/pkix-crl":{"source":"iana","extensions":["crl"]},"application/pkix-pkipath":{"source":"iana","extensions":["pkipath"]},"application/pkixcmp":{"source":"iana","extensions":["pki"]},"application/pls+xml":{"source":"iana","compressible":true,"extensions":["pls"]},"application/poc-settings+xml":{"source":"iana","charset":"UTF-8","compressible":true},"application/postscript":{"source":"iana","compressible":true,"extensions":["ai","eps","ps"]},"application/ppsp-tracker+json":{"source":"iana","compressible":true},"application/problem+json":{"source":"iana","compressible":true},"application/problem+xml":{"source":"iana","compressible":true},"application/provenance+xml":{"source":"iana","compressible":true,"extensions":["provx"]},"application/prs.alvestrand.titrax-sheet":{"source":"iana"},"application/prs.cww":{"source":"iana","extensions":["cww"]},"application/prs.cyn":{"source":"iana","charset":"7-BIT"},"application/prs.hpub+zip":{"source":"iana","compressible":false},"application/prs.nprend":{"source":"iana"},"application/prs.plucker":{"source":"iana"},"application/prs.rdf-xml-crypt":{"source":"iana"},"application/prs.xsf+xml":{"source":"iana","compressible":true},"application/pskc+xml":{"source":"iana","compressible":true,"extensions":["pskcxml"]},"application/pvd+json":{"source":"iana","compressible":true},"application/qsig":{"source":"iana"},"application/raml+yaml":{"compressible":true,"extensions":["raml"]},"application/raptorfec":{"source":"iana"},"application/rdap+json":{"source":"iana","compressible":true},"application/rdf+xml":{"source":"iana","compressible":true,"extensions":["rdf","owl"]},"application/reginfo+xml":{"source":"iana","compressible":true,"extensions":["rif"]},"application/relax-ng-compact-syntax":{"source":"iana","extensions":["rnc"]},"application/remote-printing":{"source":"iana"},"application/reputon+json":{"source":"iana","compressible":true},"application/resource-lists+xml":{"source":"iana","compressible":true,"extensions":["rl"]},"application/resource-lists-diff+xml":{"source":"iana","compressible":true,"extensions":["rld"]},"application/rfc+xml":{"source":"iana","compressible":true},"application/riscos":{"source":"iana"},"application/rlmi+xml":{"source":"iana","compressible":true},"application/rls-services+xml":{"source":"iana","compressible":true,"extensions":["rs"]},"application/route-apd+xml":{"source":"iana","compressible":true,"extensions":["rapd"]},"application/route-s-tsid+xml":{"source":"iana","compressible":true,"extensions":["sls"]},"application/route-usd+xml":{"source":"iana","compressible":true,"extensions":["rusd"]},"application/rpki-ghostbusters":{"source":"iana","extensions":["gbr"]},"application/rpki-manifest":{"source":"iana","extensions":["mft"]},"application/rpki-publication":{"source":"iana"},"application/rpki-roa":{"source":"iana","extensions":["roa"]},"application/rpki-updown":{"source":"iana"},"application/rsd+xml":{"source":"apache","compressible":true,"extensions":["rsd"]},"application/rss+xml":{"source":"apache","compressible":true,"extensions":["rss"]},"application/rtf":{"source":"iana","compressible":true,"extensions":["rtf"]},"application/rtploopback":{"source":"iana"},"application/rtx":{"source":"iana"},"application/samlassertion+xml":{"source":"iana","compressible":true},"application/samlmetadata+xml":{"source":"iana","compressible":true},"application/sarif+json":{"source":"iana","compressible":true},"application/sarif-external-properties+json":{"source":"iana","compressible":true},"application/sbe":{"source":"iana"},"application/sbml+xml":{"source":"iana","compressible":true,"extensions":["sbml"]},"application/scaip+xml":{"source":"iana","compressible":true},"application/scim+json":{"source":"iana","compressible":true},"application/scvp-cv-request":{"source":"iana","extensions":["scq"]},"application/scvp-cv-response":{"source":"iana","extensions":["scs"]},"application/scvp-vp-request":{"source":"iana","extensions":["spq"]},"application/scvp-vp-response":{"source":"iana","extensions":["spp"]},"application/sdp":{"source":"iana","extensions":["sdp"]},"application/secevent+jwt":{"source":"iana"},"application/senml+cbor":{"source":"iana"},"application/senml+json":{"source":"iana","compressible":true},"application/senml+xml":{"source":"iana","compressible":true,"extensions":["senmlx"]},"application/senml-etch+cbor":{"source":"iana"},"application/senml-etch+json":{"source":"iana","compressible":true},"application/senml-exi":{"source":"iana"},"application/sensml+cbor":{"source":"iana"},"application/sensml+json":{"source":"iana","compressible":true},"application/sensml+xml":{"source":"iana","compressible":true,"extensions":["sensmlx"]},"application/sensml-exi":{"source":"iana"},"application/sep+xml":{"source":"iana","compressible":true},"application/sep-exi":{"source":"iana"},"application/session-info":{"source":"iana"},"application/set-payment":{"source":"iana"},"application/set-payment-initiation":{"source":"iana","extensions":["setpay"]},"application/set-registration":{"source":"iana"},"application/set-registration-initiation":{"source":"iana","extensions":["setreg"]},"application/sgml":{"source":"iana"},"application/sgml-open-catalog":{"source":"iana"},"application/shf+xml":{"source":"iana","compressible":true,"extensions":["shf"]},"application/sieve":{"source":"iana","extensions":["siv","sieve"]},"application/simple-filter+xml":{"source":"iana","compressible":true},"application/simple-message-summary":{"source":"iana"},"application/simplesymbolcontainer":{"source":"iana"},"application/sipc":{"source":"iana"},"application/slate":{"source":"iana"},"application/smil":{"source":"iana"},"application/smil+xml":{"source":"iana","compressible":true,"extensions":["smi","smil"]},"application/smpte336m":{"source":"iana"},"application/soap+fastinfoset":{"source":"iana"},"application/soap+xml":{"source":"iana","compressible":true},"application/sparql-query":{"source":"iana","extensions":["rq"]},"application/sparql-results+xml":{"source":"iana","compressible":true,"extensions":["srx"]},"application/spirits-event+xml":{"source":"iana","compressible":true},"application/sql":{"source":"iana"},"application/srgs":{"source":"iana","extensions":["gram"]},"application/srgs+xml":{"source":"iana","compressible":true,"extensions":["grxml"]},"application/sru+xml":{"source":"iana","compressible":true,"extensions":["sru"]},"application/ssdl+xml":{"source":"apache","compressible":true,"extensions":["ssdl"]},"application/ssml+xml":{"source":"iana","compressible":true,"extensions":["ssml"]},"application/stix+json":{"source":"iana","compressible":true},"application/swid+xml":{"source":"iana","compressible":true,"extensions":["swidtag"]},"application/tamp-apex-update":{"source":"iana"},"application/tamp-apex-update-confirm":{"source":"iana"},"application/tamp-community-update":{"source":"iana"},"application/tamp-community-update-confirm":{"source":"iana"},"application/tamp-error":{"source":"iana"},"application/tamp-sequence-adjust":{"source":"iana"},"application/tamp-sequence-adjust-confirm":{"source":"iana"},"application/tamp-status-query":{"source":"iana"},"application/tamp-status-response":{"source":"iana"},"application/tamp-update":{"source":"iana"},"application/tamp-update-confirm":{"source":"iana"},"application/tar":{"compressible":true},"application/taxii+json":{"source":"iana","compressible":true},"application/td+json":{"source":"iana","compressible":true},"application/tei+xml":{"source":"iana","compressible":true,"extensions":["tei","teicorpus"]},"application/tetra_isi":{"source":"iana"},"application/thraud+xml":{"source":"iana","compressible":true,"extensions":["tfi"]},"application/timestamp-query":{"source":"iana"},"application/timestamp-reply":{"source":"iana"},"application/timestamped-data":{"source":"iana","extensions":["tsd"]},"application/tlsrpt+gzip":{"source":"iana"},"application/tlsrpt+json":{"source":"iana","compressible":true},"application/tnauthlist":{"source":"iana"},"application/token-introspection+jwt":{"source":"iana"},"application/toml":{"compressible":true,"extensions":["toml"]},"application/trickle-ice-sdpfrag":{"source":"iana"},"application/trig":{"source":"iana","extensions":["trig"]},"application/ttml+xml":{"source":"iana","compressible":true,"extensions":["ttml"]},"application/tve-trigger":{"source":"iana"},"application/tzif":{"source":"iana"},"application/tzif-leap":{"source":"iana"},"application/ubjson":{"compressible":false,"extensions":["ubj"]},"application/ulpfec":{"source":"iana"},"application/urc-grpsheet+xml":{"source":"iana","compressible":true},"application/urc-ressheet+xml":{"source":"iana","compressible":true,"extensions":["rsheet"]},"application/urc-targetdesc+xml":{"source":"iana","compressible":true,"extensions":["td"]},"application/urc-uisocketdesc+xml":{"source":"iana","compressible":true},"application/vcard+json":{"source":"iana","compressible":true},"application/vcard+xml":{"source":"iana","compressible":true},"application/vemmi":{"source":"iana"},"application/vividence.scriptfile":{"source":"apache"},"application/vnd.1000minds.decision-model+xml":{"source":"iana","compressible":true,"extensions":["1km"]},"application/vnd.3gpp-prose+xml":{"source":"iana","compressible":true},"application/vnd.3gpp-prose-pc3ch+xml":{"source":"iana","compressible":true},"application/vnd.3gpp-v2x-local-service-information":{"source":"iana"},"application/vnd.3gpp.5gnas":{"source":"iana"},"application/vnd.3gpp.access-transfer-events+xml":{"source":"iana","compressible":true},"application/vnd.3gpp.bsf+xml":{"source":"iana","compressible":true},"application/vnd.3gpp.gmop+xml":{"source":"iana","compressible":true},"application/vnd.3gpp.gtpc":{"source":"iana"},"application/vnd.3gpp.interworking-data":{"source":"iana"},"application/vnd.3gpp.lpp":{"source":"iana"},"application/vnd.3gpp.mc-signalling-ear":{"source":"iana"},"application/vnd.3gpp.mcdata-affiliation-command+xml":{"source":"iana","compressible":true},"application/vnd.3gpp.mcdata-info+xml":{"source":"iana","compressible":true},"application/vnd.3gpp.mcdata-payload":{"source":"iana"},"application/vnd.3gpp.mcdata-service-config+xml":{"source":"iana","compressible":true},"application/vnd.3gpp.mcdata-signalling":{"source":"iana"},"application/vnd.3gpp.mcdata-ue-config+xml":{"source":"iana","compressible":true},"application/vnd.3gpp.mcdata-user-profile+xml":{"source":"iana","compressible":true},"application/vnd.3gpp.mcptt-affiliation-command+xml":{"source":"iana","compressible":true},"application/vnd.3gpp.mcptt-floor-request+xml":{"source":"iana","compressible":true},"application/vnd.3gpp.mcptt-info+xml":{"source":"iana","compressible":true},"application/vnd.3gpp.mcptt-location-info+xml":{"source":"iana","compressible":true},"application/vnd.3gpp.mcptt-mbms-usage-info+xml":{"source":"iana","compressible":true},"application/vnd.3gpp.mcptt-service-config+xml":{"source":"iana","compressible":true},"application/vnd.3gpp.mcptt-signed+xml":{"source":"iana","compressible":true},"application/vnd.3gpp.mcptt-ue-config+xml":{"source":"iana","compressible":true},"application/vnd.3gpp.mcptt-ue-init-config+xml":{"source":"iana","compressible":true},"application/vnd.3gpp.mcptt-user-profile+xml":{"source":"iana","compressible":true},"application/vnd.3gpp.mcvideo-affiliation-command+xml":{"source":"iana","compressible":true},"application/vnd.3gpp.mcvideo-affiliation-info+xml":{"source":"iana","compressible":true},"application/vnd.3gpp.mcvideo-info+xml":{"source":"iana","compressible":true},"application/vnd.3gpp.mcvideo-location-info+xml":{"source":"iana","compressible":true},"application/vnd.3gpp.mcvideo-mbms-usage-info+xml":{"source":"iana","compressible":true},"application/vnd.3gpp.mcvideo-service-config+xml":{"source":"iana","compressible":true},"application/vnd.3gpp.mcvideo-transmission-request+xml":{"source":"iana","compressible":true},"application/vnd.3gpp.mcvideo-ue-config+xml":{"source":"iana","compressible":true},"application/vnd.3gpp.mcvideo-user-profile+xml":{"source":"iana","compressible":true},"application/vnd.3gpp.mid-call+xml":{"source":"iana","compressible":true},"application/vnd.3gpp.ngap":{"source":"iana"},"application/vnd.3gpp.pfcp":{"source":"iana"},"application/vnd.3gpp.pic-bw-large":{"source":"iana","extensions":["plb"]},"application/vnd.3gpp.pic-bw-small":{"source":"iana","extensions":["psb"]},"application/vnd.3gpp.pic-bw-var":{"source":"iana","extensions":["pvb"]},"application/vnd.3gpp.s1ap":{"source":"iana"},"application/vnd.3gpp.sms":{"source":"iana"},"application/vnd.3gpp.sms+xml":{"source":"iana","compressible":true},"application/vnd.3gpp.srvcc-ext+xml":{"source":"iana","compressible":true},"application/vnd.3gpp.srvcc-info+xml":{"source":"iana","compressible":true},"application/vnd.3gpp.state-and-event-info+xml":{"source":"iana","compressible":true},"application/vnd.3gpp.ussd+xml":{"source":"iana","compressible":true},"application/vnd.3gpp2.bcmcsinfo+xml":{"source":"iana","compressible":true},"application/vnd.3gpp2.sms":{"source":"iana"},"application/vnd.3gpp2.tcap":{"source":"iana","extensions":["tcap"]},"application/vnd.3lightssoftware.imagescal":{"source":"iana"},"application/vnd.3m.post-it-notes":{"source":"iana","extensions":["pwn"]},"application/vnd.accpac.simply.aso":{"source":"iana","extensions":["aso"]},"application/vnd.accpac.simply.imp":{"source":"iana","extensions":["imp"]},"application/vnd.acucobol":{"source":"iana","extensions":["acu"]},"application/vnd.acucorp":{"source":"iana","extensions":["atc","acutc"]},"application/vnd.adobe.air-application-installer-package+zip":{"source":"apache","compressible":false,"extensions":["air"]},"application/vnd.adobe.flash.movie":{"source":"iana"},"application/vnd.adobe.formscentral.fcdt":{"source":"iana","extensions":["fcdt"]},"application/vnd.adobe.fxp":{"source":"iana","extensions":["fxp","fxpl"]},"application/vnd.adobe.partial-upload":{"source":"iana"},"application/vnd.adobe.xdp+xml":{"source":"iana","compressible":true,"extensions":["xdp"]},"application/vnd.adobe.xfdf":{"source":"iana","extensions":["xfdf"]},"application/vnd.aether.imp":{"source":"iana"},"application/vnd.afpc.afplinedata":{"source":"iana"},"application/vnd.afpc.afplinedata-pagedef":{"source":"iana"},"application/vnd.afpc.cmoca-cmresource":{"source":"iana"},"application/vnd.afpc.foca-charset":{"source":"iana"},"application/vnd.afpc.foca-codedfont":{"source":"iana"},"application/vnd.afpc.foca-codepage":{"source":"iana"},"application/vnd.afpc.modca":{"source":"iana"},"application/vnd.afpc.modca-cmtable":{"source":"iana"},"application/vnd.afpc.modca-formdef":{"source":"iana"},"application/vnd.afpc.modca-mediummap":{"source":"iana"},"application/vnd.afpc.modca-objectcontainer":{"source":"iana"},"application/vnd.afpc.modca-overlay":{"source":"iana"},"application/vnd.afpc.modca-pagesegment":{"source":"iana"},"application/vnd.ah-barcode":{"source":"iana"},"application/vnd.ahead.space":{"source":"iana","extensions":["ahead"]},"application/vnd.airzip.filesecure.azf":{"source":"iana","extensions":["azf"]},"application/vnd.airzip.filesecure.azs":{"source":"iana","extensions":["azs"]},"application/vnd.amadeus+json":{"source":"iana","compressible":true},"application/vnd.amazon.ebook":{"source":"apache","extensions":["azw"]},"application/vnd.amazon.mobi8-ebook":{"source":"iana"},"application/vnd.americandynamics.acc":{"source":"iana","extensions":["acc"]},"application/vnd.amiga.ami":{"source":"iana","extensions":["ami"]},"application/vnd.amundsen.maze+xml":{"source":"iana","compressible":true},"application/vnd.android.ota":{"source":"iana"},"application/vnd.android.package-archive":{"source":"apache","compressible":false,"extensions":["apk"]},"application/vnd.anki":{"source":"iana"},"application/vnd.anser-web-certificate-issue-initiation":{"source":"iana","extensions":["cii"]},"application/vnd.anser-web-funds-transfer-initiation":{"source":"apache","extensions":["fti"]},"application/vnd.antix.game-component":{"source":"iana","extensions":["atx"]},"application/vnd.apache.arrow.file":{"source":"iana"},"application/vnd.apache.arrow.stream":{"source":"iana"},"application/vnd.apache.thrift.binary":{"source":"iana"},"application/vnd.apache.thrift.compact":{"source":"iana"},"application/vnd.apache.thrift.json":{"source":"iana"},"application/vnd.api+json":{"source":"iana","compressible":true},"application/vnd.aplextor.warrp+json":{"source":"iana","compressible":true},"application/vnd.apothekende.reservation+json":{"source":"iana","compressible":true},"application/vnd.apple.installer+xml":{"source":"iana","compressible":true,"extensions":["mpkg"]},"application/vnd.apple.keynote":{"source":"iana","extensions":["key"]},"application/vnd.apple.mpegurl":{"source":"iana","extensions":["m3u8"]},"application/vnd.apple.numbers":{"source":"iana","extensions":["numbers"]},"application/vnd.apple.pages":{"source":"iana","extensions":["pages"]},"application/vnd.apple.pkpass":{"compressible":false,"extensions":["pkpass"]},"application/vnd.arastra.swi":{"source":"iana"},"application/vnd.aristanetworks.swi":{"source":"iana","extensions":["swi"]},"application/vnd.artisan+json":{"source":"iana","compressible":true},"application/vnd.artsquare":{"source":"iana"},"application/vnd.astraea-software.iota":{"source":"iana","extensions":["iota"]},"application/vnd.audiograph":{"source":"iana","extensions":["aep"]},"application/vnd.autopackage":{"source":"iana"},"application/vnd.avalon+json":{"source":"iana","compressible":true},"application/vnd.avistar+xml":{"source":"iana","compressible":true},"application/vnd.balsamiq.bmml+xml":{"source":"iana","compressible":true,"extensions":["bmml"]},"application/vnd.balsamiq.bmpr":{"source":"iana"},"application/vnd.banana-accounting":{"source":"iana"},"application/vnd.bbf.usp.error":{"source":"iana"},"application/vnd.bbf.usp.msg":{"source":"iana"},"application/vnd.bbf.usp.msg+json":{"source":"iana","compressible":true},"application/vnd.bekitzur-stech+json":{"source":"iana","compressible":true},"application/vnd.bint.med-content":{"source":"iana"},"application/vnd.biopax.rdf+xml":{"source":"iana","compressible":true},"application/vnd.blink-idb-value-wrapper":{"source":"iana"},"application/vnd.blueice.multipass":{"source":"iana","extensions":["mpm"]},"application/vnd.bluetooth.ep.oob":{"source":"iana"},"application/vnd.bluetooth.le.oob":{"source":"iana"},"application/vnd.bmi":{"source":"iana","extensions":["bmi"]},"application/vnd.bpf":{"source":"iana"},"application/vnd.bpf3":{"source":"iana"},"application/vnd.businessobjects":{"source":"iana","extensions":["rep"]},"application/vnd.byu.uapi+json":{"source":"iana","compressible":true},"application/vnd.cab-jscript":{"source":"iana"},"application/vnd.canon-cpdl":{"source":"iana"},"application/vnd.canon-lips":{"source":"iana"},"application/vnd.capasystems-pg+json":{"source":"iana","compressible":true},"application/vnd.cendio.thinlinc.clientconf":{"source":"iana"},"application/vnd.century-systems.tcp_stream":{"source":"iana"},"application/vnd.chemdraw+xml":{"source":"iana","compressible":true,"extensions":["cdxml"]},"application/vnd.chess-pgn":{"source":"iana"},"application/vnd.chipnuts.karaoke-mmd":{"source":"iana","extensions":["mmd"]},"application/vnd.ciedi":{"source":"iana"},"application/vnd.cinderella":{"source":"iana","extensions":["cdy"]},"application/vnd.cirpack.isdn-ext":{"source":"iana"},"application/vnd.citationstyles.style+xml":{"source":"iana","compressible":true,"extensions":["csl"]},"application/vnd.claymore":{"source":"iana","extensions":["cla"]},"application/vnd.cloanto.rp9":{"source":"iana","extensions":["rp9"]},"application/vnd.clonk.c4group":{"source":"iana","extensions":["c4g","c4d","c4f","c4p","c4u"]},"application/vnd.cluetrust.cartomobile-config":{"source":"iana","extensions":["c11amc"]},"application/vnd.cluetrust.cartomobile-config-pkg":{"source":"iana","extensions":["c11amz"]},"application/vnd.coffeescript":{"source":"iana"},"application/vnd.collabio.xodocuments.document":{"source":"iana"},"application/vnd.collabio.xodocuments.document-template":{"source":"iana"},"application/vnd.collabio.xodocuments.presentation":{"source":"iana"},"application/vnd.collabio.xodocuments.presentation-template":{"source":"iana"},"application/vnd.collabio.xodocuments.spreadsheet":{"source":"iana"},"application/vnd.collabio.xodocuments.spreadsheet-template":{"source":"iana"},"application/vnd.collection+json":{"source":"iana","compressible":true},"application/vnd.collection.doc+json":{"source":"iana","compressible":true},"application/vnd.collection.next+json":{"source":"iana","compressible":true},"application/vnd.comicbook+zip":{"source":"iana","compressible":false},"application/vnd.comicbook-rar":{"source":"iana"},"application/vnd.commerce-battelle":{"source":"iana"},"application/vnd.commonspace":{"source":"iana","extensions":["csp"]},"application/vnd.contact.cmsg":{"source":"iana","extensions":["cdbcmsg"]},"application/vnd.coreos.ignition+json":{"source":"iana","compressible":true},"application/vnd.cosmocaller":{"source":"iana","extensions":["cmc"]},"application/vnd.crick.clicker":{"source":"iana","extensions":["clkx"]},"application/vnd.crick.clicker.keyboard":{"source":"iana","extensions":["clkk"]},"application/vnd.crick.clicker.palette":{"source":"iana","extensions":["clkp"]},"application/vnd.crick.clicker.template":{"source":"iana","extensions":["clkt"]},"application/vnd.crick.clicker.wordbank":{"source":"iana","extensions":["clkw"]},"application/vnd.criticaltools.wbs+xml":{"source":"iana","compressible":true,"extensions":["wbs"]},"application/vnd.cryptii.pipe+json":{"source":"iana","compressible":true},"application/vnd.crypto-shade-file":{"source":"iana"},"application/vnd.cryptomator.encrypted":{"source":"iana"},"application/vnd.cryptomator.vault":{"source":"iana"},"application/vnd.ctc-posml":{"source":"iana","extensions":["pml"]},"application/vnd.ctct.ws+xml":{"source":"iana","compressible":true},"application/vnd.cups-pdf":{"source":"iana"},"application/vnd.cups-postscript":{"source":"iana"},"application/vnd.cups-ppd":{"source":"iana","extensions":["ppd"]},"application/vnd.cups-raster":{"source":"iana"},"application/vnd.cups-raw":{"source":"iana"},"application/vnd.curl":{"source":"iana"},"application/vnd.curl.car":{"source":"apache","extensions":["car"]},"application/vnd.curl.pcurl":{"source":"apache","extensions":["pcurl"]},"application/vnd.cyan.dean.root+xml":{"source":"iana","compressible":true},"application/vnd.cybank":{"source":"iana"},"application/vnd.cyclonedx+json":{"source":"iana","compressible":true},"application/vnd.cyclonedx+xml":{"source":"iana","compressible":true},"application/vnd.d2l.coursepackage1p0+zip":{"source":"iana","compressible":false},"application/vnd.d3m-dataset":{"source":"iana"},"application/vnd.d3m-problem":{"source":"iana"},"application/vnd.dart":{"source":"iana","compressible":true,"extensions":["dart"]},"application/vnd.data-vision.rdz":{"source":"iana","extensions":["rdz"]},"application/vnd.datapackage+json":{"source":"iana","compressible":true},"application/vnd.dataresource+json":{"source":"iana","compressible":true},"application/vnd.dbf":{"source":"iana","extensions":["dbf"]},"application/vnd.debian.binary-package":{"source":"iana"},"application/vnd.dece.data":{"source":"iana","extensions":["uvf","uvvf","uvd","uvvd"]},"application/vnd.dece.ttml+xml":{"source":"iana","compressible":true,"extensions":["uvt","uvvt"]},"application/vnd.dece.unspecified":{"source":"iana","extensions":["uvx","uvvx"]},"application/vnd.dece.zip":{"source":"iana","extensions":["uvz","uvvz"]},"application/vnd.denovo.fcselayout-link":{"source":"iana","extensions":["fe_launch"]},"application/vnd.desmume.movie":{"source":"iana"},"application/vnd.dir-bi.plate-dl-nosuffix":{"source":"iana"},"application/vnd.dm.delegation+xml":{"source":"iana","compressible":true},"application/vnd.dna":{"source":"iana","extensions":["dna"]},"application/vnd.document+json":{"source":"iana","compressible":true},"application/vnd.dolby.mlp":{"source":"apache","extensions":["mlp"]},"application/vnd.dolby.mobile.1":{"source":"iana"},"application/vnd.dolby.mobile.2":{"source":"iana"},"application/vnd.doremir.scorecloud-binary-document":{"source":"iana"},"application/vnd.dpgraph":{"source":"iana","extensions":["dpg"]},"application/vnd.dreamfactory":{"source":"iana","extensions":["dfac"]},"application/vnd.drive+json":{"source":"iana","compressible":true},"application/vnd.ds-keypoint":{"source":"apache","extensions":["kpxx"]},"application/vnd.dtg.local":{"source":"iana"},"application/vnd.dtg.local.flash":{"source":"iana"},"application/vnd.dtg.local.html":{"source":"iana"},"application/vnd.dvb.ait":{"source":"iana","extensions":["ait"]},"application/vnd.dvb.dvbisl+xml":{"source":"iana","compressible":true},"application/vnd.dvb.dvbj":{"source":"iana"},"application/vnd.dvb.esgcontainer":{"source":"iana"},"application/vnd.dvb.ipdcdftnotifaccess":{"source":"iana"},"application/vnd.dvb.ipdcesgaccess":{"source":"iana"},"application/vnd.dvb.ipdcesgaccess2":{"source":"iana"},"application/vnd.dvb.ipdcesgpdd":{"source":"iana"},"application/vnd.dvb.ipdcroaming":{"source":"iana"},"application/vnd.dvb.iptv.alfec-base":{"source":"iana"},"application/vnd.dvb.iptv.alfec-enhancement":{"source":"iana"},"application/vnd.dvb.notif-aggregate-root+xml":{"source":"iana","compressible":true},"application/vnd.dvb.notif-container+xml":{"source":"iana","compressible":true},"application/vnd.dvb.notif-generic+xml":{"source":"iana","compressible":true},"application/vnd.dvb.notif-ia-msglist+xml":{"source":"iana","compressible":true},"application/vnd.dvb.notif-ia-registration-request+xml":{"source":"iana","compressible":true},"application/vnd.dvb.notif-ia-registration-response+xml":{"source":"iana","compressible":true},"application/vnd.dvb.notif-init+xml":{"source":"iana","compressible":true},"application/vnd.dvb.pfr":{"source":"iana"},"application/vnd.dvb.service":{"source":"iana","extensions":["svc"]},"application/vnd.dxr":{"source":"iana"},"application/vnd.dynageo":{"source":"iana","extensions":["geo"]},"application/vnd.dzr":{"source":"iana"},"application/vnd.easykaraoke.cdgdownload":{"source":"iana"},"application/vnd.ecdis-update":{"source":"iana"},"application/vnd.ecip.rlp":{"source":"iana"},"application/vnd.ecowin.chart":{"source":"iana","extensions":["mag"]},"application/vnd.ecowin.filerequest":{"source":"iana"},"application/vnd.ecowin.fileupdate":{"source":"iana"},"application/vnd.ecowin.series":{"source":"iana"},"application/vnd.ecowin.seriesrequest":{"source":"iana"},"application/vnd.ecowin.seriesupdate":{"source":"iana"},"application/vnd.efi.img":{"source":"iana"},"application/vnd.efi.iso":{"source":"iana"},"application/vnd.emclient.accessrequest+xml":{"source":"iana","compressible":true},"application/vnd.enliven":{"source":"iana","extensions":["nml"]},"application/vnd.enphase.envoy":{"source":"iana"},"application/vnd.eprints.data+xml":{"source":"iana","compressible":true},"application/vnd.epson.esf":{"source":"iana","extensions":["esf"]},"application/vnd.epson.msf":{"source":"iana","extensions":["msf"]},"application/vnd.epson.quickanime":{"source":"iana","extensions":["qam"]},"application/vnd.epson.salt":{"source":"iana","extensions":["slt"]},"application/vnd.epson.ssf":{"source":"iana","extensions":["ssf"]},"application/vnd.ericsson.quickcall":{"source":"iana"},"application/vnd.espass-espass+zip":{"source":"iana","compressible":false},"application/vnd.eszigno3+xml":{"source":"iana","compressible":true,"extensions":["es3","et3"]},"application/vnd.etsi.aoc+xml":{"source":"iana","compressible":true},"application/vnd.etsi.asic-e+zip":{"source":"iana","compressible":false},"application/vnd.etsi.asic-s+zip":{"source":"iana","compressible":false},"application/vnd.etsi.cug+xml":{"source":"iana","compressible":true},"application/vnd.etsi.iptvcommand+xml":{"source":"iana","compressible":true},"application/vnd.etsi.iptvdiscovery+xml":{"source":"iana","compressible":true},"application/vnd.etsi.iptvprofile+xml":{"source":"iana","compressible":true},"application/vnd.etsi.iptvsad-bc+xml":{"source":"iana","compressible":true},"application/vnd.etsi.iptvsad-cod+xml":{"source":"iana","compressible":true},"application/vnd.etsi.iptvsad-npvr+xml":{"source":"iana","compressible":true},"application/vnd.etsi.iptvservice+xml":{"source":"iana","compressible":true},"application/vnd.etsi.iptvsync+xml":{"source":"iana","compressible":true},"application/vnd.etsi.iptvueprofile+xml":{"source":"iana","compressible":true},"application/vnd.etsi.mcid+xml":{"source":"iana","compressible":true},"application/vnd.etsi.mheg5":{"source":"iana"},"application/vnd.etsi.overload-control-policy-dataset+xml":{"source":"iana","compressible":true},"application/vnd.etsi.pstn+xml":{"source":"iana","compressible":true},"application/vnd.etsi.sci+xml":{"source":"iana","compressible":true},"application/vnd.etsi.simservs+xml":{"source":"iana","compressible":true},"application/vnd.etsi.timestamp-token":{"source":"iana"},"application/vnd.etsi.tsl+xml":{"source":"iana","compressible":true},"application/vnd.etsi.tsl.der":{"source":"iana"},"application/vnd.eudora.data":{"source":"iana"},"application/vnd.evolv.ecig.profile":{"source":"iana"},"application/vnd.evolv.ecig.settings":{"source":"iana"},"application/vnd.evolv.ecig.theme":{"source":"iana"},"application/vnd.exstream-empower+zip":{"source":"iana","compressible":false},"application/vnd.exstream-package":{"source":"iana"},"application/vnd.ezpix-album":{"source":"iana","extensions":["ez2"]},"application/vnd.ezpix-package":{"source":"iana","extensions":["ez3"]},"application/vnd.f-secure.mobile":{"source":"iana"},"application/vnd.fastcopy-disk-image":{"source":"iana"},"application/vnd.fdf":{"source":"iana","extensions":["fdf"]},"application/vnd.fdsn.mseed":{"source":"iana","extensions":["mseed"]},"application/vnd.fdsn.seed":{"source":"iana","extensions":["seed","dataless"]},"application/vnd.ffsns":{"source":"iana"},"application/vnd.ficlab.flb+zip":{"source":"iana","compressible":false},"application/vnd.filmit.zfc":{"source":"iana"},"application/vnd.fints":{"source":"iana"},"application/vnd.firemonkeys.cloudcell":{"source":"iana"},"application/vnd.flographit":{"source":"iana","extensions":["gph"]},"application/vnd.fluxtime.clip":{"source":"iana","extensions":["ftc"]},"application/vnd.font-fontforge-sfd":{"source":"iana"},"application/vnd.framemaker":{"source":"iana","extensions":["fm","frame","maker","book"]},"application/vnd.frogans.fnc":{"source":"iana","extensions":["fnc"]},"application/vnd.frogans.ltf":{"source":"iana","extensions":["ltf"]},"application/vnd.fsc.weblaunch":{"source":"iana","extensions":["fsc"]},"application/vnd.fujifilm.fb.docuworks":{"source":"iana"},"application/vnd.fujifilm.fb.docuworks.binder":{"source":"iana"},"application/vnd.fujifilm.fb.docuworks.container":{"source":"iana"},"application/vnd.fujifilm.fb.jfi+xml":{"source":"iana","compressible":true},"application/vnd.fujitsu.oasys":{"source":"iana","extensions":["oas"]},"application/vnd.fujitsu.oasys2":{"source":"iana","extensions":["oa2"]},"application/vnd.fujitsu.oasys3":{"source":"iana","extensions":["oa3"]},"application/vnd.fujitsu.oasysgp":{"source":"iana","extensions":["fg5"]},"application/vnd.fujitsu.oasysprs":{"source":"iana","extensions":["bh2"]},"application/vnd.fujixerox.art-ex":{"source":"iana"},"application/vnd.fujixerox.art4":{"source":"iana"},"application/vnd.fujixerox.ddd":{"source":"iana","extensions":["ddd"]},"application/vnd.fujixerox.docuworks":{"source":"iana","extensions":["xdw"]},"application/vnd.fujixerox.docuworks.binder":{"source":"iana","extensions":["xbd"]},"application/vnd.fujixerox.docuworks.container":{"source":"iana"},"application/vnd.fujixerox.hbpl":{"source":"iana"},"application/vnd.fut-misnet":{"source":"iana"},"application/vnd.futoin+cbor":{"source":"iana"},"application/vnd.futoin+json":{"source":"iana","compressible":true},"application/vnd.fuzzysheet":{"source":"iana","extensions":["fzs"]},"application/vnd.genomatix.tuxedo":{"source":"iana","extensions":["txd"]},"application/vnd.gentics.grd+json":{"source":"iana","compressible":true},"application/vnd.geo+json":{"source":"iana","compressible":true},"application/vnd.geocube+xml":{"source":"iana","compressible":true},"application/vnd.geogebra.file":{"source":"iana","extensions":["ggb"]},"application/vnd.geogebra.slides":{"source":"iana"},"application/vnd.geogebra.tool":{"source":"iana","extensions":["ggt"]},"application/vnd.geometry-explorer":{"source":"iana","extensions":["gex","gre"]},"application/vnd.geonext":{"source":"iana","extensions":["gxt"]},"application/vnd.geoplan":{"source":"iana","extensions":["g2w"]},"application/vnd.geospace":{"source":"iana","extensions":["g3w"]},"application/vnd.gerber":{"source":"iana"},"application/vnd.globalplatform.card-content-mgt":{"source":"iana"},"application/vnd.globalplatform.card-content-mgt-response":{"source":"iana"},"application/vnd.gmx":{"source":"iana","extensions":["gmx"]},"application/vnd.google-apps.document":{"compressible":false,"extensions":["gdoc"]},"application/vnd.google-apps.presentation":{"compressible":false,"extensions":["gslides"]},"application/vnd.google-apps.spreadsheet":{"compressible":false,"extensions":["gsheet"]},"application/vnd.google-earth.kml+xml":{"source":"iana","compressible":true,"extensions":["kml"]},"application/vnd.google-earth.kmz":{"source":"iana","compressible":false,"extensions":["kmz"]},"application/vnd.gov.sk.e-form+xml":{"source":"iana","compressible":true},"application/vnd.gov.sk.e-form+zip":{"source":"iana","compressible":false},"application/vnd.gov.sk.xmldatacontainer+xml":{"source":"iana","compressible":true},"application/vnd.grafeq":{"source":"iana","extensions":["gqf","gqs"]},"application/vnd.gridmp":{"source":"iana"},"application/vnd.groove-account":{"source":"iana","extensions":["gac"]},"application/vnd.groove-help":{"source":"iana","extensions":["ghf"]},"application/vnd.groove-identity-message":{"source":"iana","extensions":["gim"]},"application/vnd.groove-injector":{"source":"iana","extensions":["grv"]},"application/vnd.groove-tool-message":{"source":"iana","extensions":["gtm"]},"application/vnd.groove-tool-template":{"source":"iana","extensions":["tpl"]},"application/vnd.groove-vcard":{"source":"iana","extensions":["vcg"]},"application/vnd.hal+json":{"source":"iana","compressible":true},"application/vnd.hal+xml":{"source":"iana","compressible":true,"extensions":["hal"]},"application/vnd.handheld-entertainment+xml":{"source":"iana","compressible":true,"extensions":["zmm"]},"application/vnd.hbci":{"source":"iana","extensions":["hbci"]},"application/vnd.hc+json":{"source":"iana","compressible":true},"application/vnd.hcl-bireports":{"source":"iana"},"application/vnd.hdt":{"source":"iana"},"application/vnd.heroku+json":{"source":"iana","compressible":true},"application/vnd.hhe.lesson-player":{"source":"iana","extensions":["les"]},"application/vnd.hp-hpgl":{"source":"iana","extensions":["hpgl"]},"application/vnd.hp-hpid":{"source":"iana","extensions":["hpid"]},"application/vnd.hp-hps":{"source":"iana","extensions":["hps"]},"application/vnd.hp-jlyt":{"source":"iana","extensions":["jlt"]},"application/vnd.hp-pcl":{"source":"iana","extensions":["pcl"]},"application/vnd.hp-pclxl":{"source":"iana","extensions":["pclxl"]},"application/vnd.httphone":{"source":"iana"},"application/vnd.hydrostatix.sof-data":{"source":"iana","extensions":["sfd-hdstx"]},"application/vnd.hyper+json":{"source":"iana","compressible":true},"application/vnd.hyper-item+json":{"source":"iana","compressible":true},"application/vnd.hyperdrive+json":{"source":"iana","compressible":true},"application/vnd.hzn-3d-crossword":{"source":"iana"},"application/vnd.ibm.afplinedata":{"source":"iana"},"application/vnd.ibm.electronic-media":{"source":"iana"},"application/vnd.ibm.minipay":{"source":"iana","extensions":["mpy"]},"application/vnd.ibm.modcap":{"source":"iana","extensions":["afp","listafp","list3820"]},"application/vnd.ibm.rights-management":{"source":"iana","extensions":["irm"]},"application/vnd.ibm.secure-container":{"source":"iana","extensions":["sc"]},"application/vnd.iccprofile":{"source":"iana","extensions":["icc","icm"]},"application/vnd.ieee.1905":{"source":"iana"},"application/vnd.igloader":{"source":"iana","extensions":["igl"]},"application/vnd.imagemeter.folder+zip":{"source":"iana","compressible":false},"application/vnd.imagemeter.image+zip":{"source":"iana","compressible":false},"application/vnd.immervision-ivp":{"source":"iana","extensions":["ivp"]},"application/vnd.immervision-ivu":{"source":"iana","extensions":["ivu"]},"application/vnd.ims.imsccv1p1":{"source":"iana"},"application/vnd.ims.imsccv1p2":{"source":"iana"},"application/vnd.ims.imsccv1p3":{"source":"iana"},"application/vnd.ims.lis.v2.result+json":{"source":"iana","compressible":true},"application/vnd.ims.lti.v2.toolconsumerprofile+json":{"source":"iana","compressible":true},"application/vnd.ims.lti.v2.toolproxy+json":{"source":"iana","compressible":true},"application/vnd.ims.lti.v2.toolproxy.id+json":{"source":"iana","compressible":true},"application/vnd.ims.lti.v2.toolsettings+json":{"source":"iana","compressible":true},"application/vnd.ims.lti.v2.toolsettings.simple+json":{"source":"iana","compressible":true},"application/vnd.informedcontrol.rms+xml":{"source":"iana","compressible":true},"application/vnd.informix-visionary":{"source":"iana"},"application/vnd.infotech.project":{"source":"iana"},"application/vnd.infotech.project+xml":{"source":"iana","compressible":true},"application/vnd.innopath.wamp.notification":{"source":"iana"},"application/vnd.insors.igm":{"source":"iana","extensions":["igm"]},"application/vnd.intercon.formnet":{"source":"iana","extensions":["xpw","xpx"]},"application/vnd.intergeo":{"source":"iana","extensions":["i2g"]},"application/vnd.intertrust.digibox":{"source":"iana"},"application/vnd.intertrust.nncp":{"source":"iana"},"application/vnd.intu.qbo":{"source":"iana","extensions":["qbo"]},"application/vnd.intu.qfx":{"source":"iana","extensions":["qfx"]},"application/vnd.iptc.g2.catalogitem+xml":{"source":"iana","compressible":true},"application/vnd.iptc.g2.conceptitem+xml":{"source":"iana","compressible":true},"application/vnd.iptc.g2.knowledgeitem+xml":{"source":"iana","compressible":true},"application/vnd.iptc.g2.newsitem+xml":{"source":"iana","compressible":true},"application/vnd.iptc.g2.newsmessage+xml":{"source":"iana","compressible":true},"application/vnd.iptc.g2.packageitem+xml":{"source":"iana","compressible":true},"application/vnd.iptc.g2.planningitem+xml":{"source":"iana","compressible":true},"application/vnd.ipunplugged.rcprofile":{"source":"iana","extensions":["rcprofile"]},"application/vnd.irepository.package+xml":{"source":"iana","compressible":true,"extensions":["irp"]},"application/vnd.is-xpr":{"source":"iana","extensions":["xpr"]},"application/vnd.isac.fcs":{"source":"iana","extensions":["fcs"]},"application/vnd.iso11783-10+zip":{"source":"iana","compressible":false},"application/vnd.jam":{"source":"iana","extensions":["jam"]},"application/vnd.japannet-directory-service":{"source":"iana"},"application/vnd.japannet-jpnstore-wakeup":{"source":"iana"},"application/vnd.japannet-payment-wakeup":{"source":"iana"},"application/vnd.japannet-registration":{"source":"iana"},"application/vnd.japannet-registration-wakeup":{"source":"iana"},"application/vnd.japannet-setstore-wakeup":{"source":"iana"},"application/vnd.japannet-verification":{"source":"iana"},"application/vnd.japannet-verification-wakeup":{"source":"iana"},"application/vnd.jcp.javame.midlet-rms":{"source":"iana","extensions":["rms"]},"application/vnd.jisp":{"source":"iana","extensions":["jisp"]},"application/vnd.joost.joda-archive":{"source":"iana","extensions":["joda"]},"application/vnd.jsk.isdn-ngn":{"source":"iana"},"application/vnd.kahootz":{"source":"iana","extensions":["ktz","ktr"]},"application/vnd.kde.karbon":{"source":"iana","extensions":["karbon"]},"application/vnd.kde.kchart":{"source":"iana","extensions":["chrt"]},"application/vnd.kde.kformula":{"source":"iana","extensions":["kfo"]},"application/vnd.kde.kivio":{"source":"iana","extensions":["flw"]},"application/vnd.kde.kontour":{"source":"iana","extensions":["kon"]},"application/vnd.kde.kpresenter":{"source":"iana","extensions":["kpr","kpt"]},"application/vnd.kde.kspread":{"source":"iana","extensions":["ksp"]},"application/vnd.kde.kword":{"source":"iana","extensions":["kwd","kwt"]},"application/vnd.kenameaapp":{"source":"iana","extensions":["htke"]},"application/vnd.kidspiration":{"source":"iana","extensions":["kia"]},"application/vnd.kinar":{"source":"iana","extensions":["kne","knp"]},"application/vnd.koan":{"source":"iana","extensions":["skp","skd","skt","skm"]},"application/vnd.kodak-descriptor":{"source":"iana","extensions":["sse"]},"application/vnd.las":{"source":"iana"},"application/vnd.las.las+json":{"source":"iana","compressible":true},"application/vnd.las.las+xml":{"source":"iana","compressible":true,"extensions":["lasxml"]},"application/vnd.laszip":{"source":"iana"},"application/vnd.leap+json":{"source":"iana","compressible":true},"application/vnd.liberty-request+xml":{"source":"iana","compressible":true},"application/vnd.llamagraphics.life-balance.desktop":{"source":"iana","extensions":["lbd"]},"application/vnd.llamagraphics.life-balance.exchange+xml":{"source":"iana","compressible":true,"extensions":["lbe"]},"application/vnd.logipipe.circuit+zip":{"source":"iana","compressible":false},"application/vnd.loom":{"source":"iana"},"application/vnd.lotus-1-2-3":{"source":"iana","extensions":["123"]},"application/vnd.lotus-approach":{"source":"iana","extensions":["apr"]},"application/vnd.lotus-freelance":{"source":"iana","extensions":["pre"]},"application/vnd.lotus-notes":{"source":"iana","extensions":["nsf"]},"application/vnd.lotus-organizer":{"source":"iana","extensions":["org"]},"application/vnd.lotus-screencam":{"source":"iana","extensions":["scm"]},"application/vnd.lotus-wordpro":{"source":"iana","extensions":["lwp"]},"application/vnd.macports.portpkg":{"source":"iana","extensions":["portpkg"]},"application/vnd.mapbox-vector-tile":{"source":"iana","extensions":["mvt"]},"application/vnd.marlin.drm.actiontoken+xml":{"source":"iana","compressible":true},"application/vnd.marlin.drm.conftoken+xml":{"source":"iana","compressible":true},"application/vnd.marlin.drm.license+xml":{"source":"iana","compressible":true},"application/vnd.marlin.drm.mdcf":{"source":"iana"},"application/vnd.mason+json":{"source":"iana","compressible":true},"application/vnd.maxmind.maxmind-db":{"source":"iana"},"application/vnd.mcd":{"source":"iana","extensions":["mcd"]},"application/vnd.medcalcdata":{"source":"iana","extensions":["mc1"]},"application/vnd.mediastation.cdkey":{"source":"iana","extensions":["cdkey"]},"application/vnd.meridian-slingshot":{"source":"iana"},"application/vnd.mfer":{"source":"iana","extensions":["mwf"]},"application/vnd.mfmp":{"source":"iana","extensions":["mfm"]},"application/vnd.micro+json":{"source":"iana","compressible":true},"application/vnd.micrografx.flo":{"source":"iana","extensions":["flo"]},"application/vnd.micrografx.igx":{"source":"iana","extensions":["igx"]},"application/vnd.microsoft.portable-executable":{"source":"iana"},"application/vnd.microsoft.windows.thumbnail-cache":{"source":"iana"},"application/vnd.miele+json":{"source":"iana","compressible":true},"application/vnd.mif":{"source":"iana","extensions":["mif"]},"application/vnd.minisoft-hp3000-save":{"source":"iana"},"application/vnd.mitsubishi.misty-guard.trustweb":{"source":"iana"},"application/vnd.mobius.daf":{"source":"iana","extensions":["daf"]},"application/vnd.mobius.dis":{"source":"iana","extensions":["dis"]},"application/vnd.mobius.mbk":{"source":"iana","extensions":["mbk"]},"application/vnd.mobius.mqy":{"source":"iana","extensions":["mqy"]},"application/vnd.mobius.msl":{"source":"iana","extensions":["msl"]},"application/vnd.mobius.plc":{"source":"iana","extensions":["plc"]},"application/vnd.mobius.txf":{"source":"iana","extensions":["txf"]},"application/vnd.mophun.application":{"source":"iana","extensions":["mpn"]},"application/vnd.mophun.certificate":{"source":"iana","extensions":["mpc"]},"application/vnd.motorola.flexsuite":{"source":"iana"},"application/vnd.motorola.flexsuite.adsi":{"source":"iana"},"application/vnd.motorola.flexsuite.fis":{"source":"iana"},"application/vnd.motorola.flexsuite.gotap":{"source":"iana"},"application/vnd.motorola.flexsuite.kmr":{"source":"iana"},"application/vnd.motorola.flexsuite.ttc":{"source":"iana"},"application/vnd.motorola.flexsuite.wem":{"source":"iana"},"application/vnd.motorola.iprm":{"source":"iana"},"application/vnd.mozilla.xul+xml":{"source":"iana","compressible":true,"extensions":["xul"]},"application/vnd.ms-3mfdocument":{"source":"iana"},"application/vnd.ms-artgalry":{"source":"iana","extensions":["cil"]},"application/vnd.ms-asf":{"source":"iana"},"application/vnd.ms-cab-compressed":{"source":"iana","extensions":["cab"]},"application/vnd.ms-color.iccprofile":{"source":"apache"},"application/vnd.ms-excel":{"source":"iana","compressible":false,"extensions":["xls","xlm","xla","xlc","xlt","xlw"]},"application/vnd.ms-excel.addin.macroenabled.12":{"source":"iana","extensions":["xlam"]},"application/vnd.ms-excel.sheet.binary.macroenabled.12":{"source":"iana","extensions":["xlsb"]},"application/vnd.ms-excel.sheet.macroenabled.12":{"source":"iana","extensions":["xlsm"]},"application/vnd.ms-excel.template.macroenabled.12":{"source":"iana","extensions":["xltm"]},"application/vnd.ms-fontobject":{"source":"iana","compressible":true,"extensions":["eot"]},"application/vnd.ms-htmlhelp":{"source":"iana","extensions":["chm"]},"application/vnd.ms-ims":{"source":"iana","extensions":["ims"]},"application/vnd.ms-lrm":{"source":"iana","extensions":["lrm"]},"application/vnd.ms-office.activex+xml":{"source":"iana","compressible":true},"application/vnd.ms-officetheme":{"source":"iana","extensions":["thmx"]},"application/vnd.ms-opentype":{"source":"apache","compressible":true},"application/vnd.ms-outlook":{"compressible":false,"extensions":["msg"]},"application/vnd.ms-package.obfuscated-opentype":{"source":"apache"},"application/vnd.ms-pki.seccat":{"source":"apache","extensions":["cat"]},"application/vnd.ms-pki.stl":{"source":"apache","extensions":["stl"]},"application/vnd.ms-playready.initiator+xml":{"source":"iana","compressible":true},"application/vnd.ms-powerpoint":{"source":"iana","compressible":false,"extensions":["ppt","pps","pot"]},"application/vnd.ms-powerpoint.addin.macroenabled.12":{"source":"iana","extensions":["ppam"]},"application/vnd.ms-powerpoint.presentation.macroenabled.12":{"source":"iana","extensions":["pptm"]},"application/vnd.ms-powerpoint.slide.macroenabled.12":{"source":"iana","extensions":["sldm"]},"application/vnd.ms-powerpoint.slideshow.macroenabled.12":{"source":"iana","extensions":["ppsm"]},"application/vnd.ms-powerpoint.template.macroenabled.12":{"source":"iana","extensions":["potm"]},"application/vnd.ms-printdevicecapabilities+xml":{"source":"iana","compressible":true},"application/vnd.ms-printing.printticket+xml":{"source":"apache","compressible":true},"application/vnd.ms-printschematicket+xml":{"source":"iana","compressible":true},"application/vnd.ms-project":{"source":"iana","extensions":["mpp","mpt"]},"application/vnd.ms-tnef":{"source":"iana"},"application/vnd.ms-windows.devicepairing":{"source":"iana"},"application/vnd.ms-windows.nwprinting.oob":{"source":"iana"},"application/vnd.ms-windows.printerpairing":{"source":"iana"},"application/vnd.ms-windows.wsd.oob":{"source":"iana"},"application/vnd.ms-wmdrm.lic-chlg-req":{"source":"iana"},"application/vnd.ms-wmdrm.lic-resp":{"source":"iana"},"application/vnd.ms-wmdrm.meter-chlg-req":{"source":"iana"},"application/vnd.ms-wmdrm.meter-resp":{"source":"iana"},"application/vnd.ms-word.document.macroenabled.12":{"source":"iana","extensions":["docm"]},"application/vnd.ms-word.template.macroenabled.12":{"source":"iana","extensions":["dotm"]},"application/vnd.ms-works":{"source":"iana","extensions":["wps","wks","wcm","wdb"]},"application/vnd.ms-wpl":{"source":"iana","extensions":["wpl"]},"application/vnd.ms-xpsdocument":{"source":"iana","compressible":false,"extensions":["xps"]},"application/vnd.msa-disk-image":{"source":"iana"},"application/vnd.mseq":{"source":"iana","extensions":["mseq"]},"application/vnd.msign":{"source":"iana"},"application/vnd.multiad.creator":{"source":"iana"},"application/vnd.multiad.creator.cif":{"source":"iana"},"application/vnd.music-niff":{"source":"iana"},"application/vnd.musician":{"source":"iana","extensions":["mus"]},"application/vnd.muvee.style":{"source":"iana","extensions":["msty"]},"application/vnd.mynfc":{"source":"iana","extensions":["taglet"]},"application/vnd.ncd.control":{"source":"iana"},"application/vnd.ncd.reference":{"source":"iana"},"application/vnd.nearst.inv+json":{"source":"iana","compressible":true},"application/vnd.nebumind.line":{"source":"iana"},"application/vnd.nervana":{"source":"iana"},"application/vnd.netfpx":{"source":"iana"},"application/vnd.neurolanguage.nlu":{"source":"iana","extensions":["nlu"]},"application/vnd.nimn":{"source":"iana"},"application/vnd.nintendo.nitro.rom":{"source":"iana"},"application/vnd.nintendo.snes.rom":{"source":"iana"},"application/vnd.nitf":{"source":"iana","extensions":["ntf","nitf"]},"application/vnd.noblenet-directory":{"source":"iana","extensions":["nnd"]},"application/vnd.noblenet-sealer":{"source":"iana","extensions":["nns"]},"application/vnd.noblenet-web":{"source":"iana","extensions":["nnw"]},"application/vnd.nokia.catalogs":{"source":"iana"},"application/vnd.nokia.conml+wbxml":{"source":"iana"},"application/vnd.nokia.conml+xml":{"source":"iana","compressible":true},"application/vnd.nokia.iptv.config+xml":{"source":"iana","compressible":true},"application/vnd.nokia.isds-radio-presets":{"source":"iana"},"application/vnd.nokia.landmark+wbxml":{"source":"iana"},"application/vnd.nokia.landmark+xml":{"source":"iana","compressible":true},"application/vnd.nokia.landmarkcollection+xml":{"source":"iana","compressible":true},"application/vnd.nokia.n-gage.ac+xml":{"source":"iana","compressible":true,"extensions":["ac"]},"application/vnd.nokia.n-gage.data":{"source":"iana","extensions":["ngdat"]},"application/vnd.nokia.n-gage.symbian.install":{"source":"iana","extensions":["n-gage"]},"application/vnd.nokia.ncd":{"source":"iana"},"application/vnd.nokia.pcd+wbxml":{"source":"iana"},"application/vnd.nokia.pcd+xml":{"source":"iana","compressible":true},"application/vnd.nokia.radio-preset":{"source":"iana","extensions":["rpst"]},"application/vnd.nokia.radio-presets":{"source":"iana","extensions":["rpss"]},"application/vnd.novadigm.edm":{"source":"iana","extensions":["edm"]},"application/vnd.novadigm.edx":{"source":"iana","extensions":["edx"]},"application/vnd.novadigm.ext":{"source":"iana","extensions":["ext"]},"application/vnd.ntt-local.content-share":{"source":"iana"},"application/vnd.ntt-local.file-transfer":{"source":"iana"},"application/vnd.ntt-local.ogw_remote-access":{"source":"iana"},"application/vnd.ntt-local.sip-ta_remote":{"source":"iana"},"application/vnd.ntt-local.sip-ta_tcp_stream":{"source":"iana"},"application/vnd.oasis.opendocument.chart":{"source":"iana","extensions":["odc"]},"application/vnd.oasis.opendocument.chart-template":{"source":"iana","extensions":["otc"]},"application/vnd.oasis.opendocument.database":{"source":"iana","extensions":["odb"]},"application/vnd.oasis.opendocument.formula":{"source":"iana","extensions":["odf"]},"application/vnd.oasis.opendocument.formula-template":{"source":"iana","extensions":["odft"]},"application/vnd.oasis.opendocument.graphics":{"source":"iana","compressible":false,"extensions":["odg"]},"application/vnd.oasis.opendocument.graphics-template":{"source":"iana","extensions":["otg"]},"application/vnd.oasis.opendocument.image":{"source":"iana","extensions":["odi"]},"application/vnd.oasis.opendocument.image-template":{"source":"iana","extensions":["oti"]},"application/vnd.oasis.opendocument.presentation":{"source":"iana","compressible":false,"extensions":["odp"]},"application/vnd.oasis.opendocument.presentation-template":{"source":"iana","extensions":["otp"]},"application/vnd.oasis.opendocument.spreadsheet":{"source":"iana","compressible":false,"extensions":["ods"]},"application/vnd.oasis.opendocument.spreadsheet-template":{"source":"iana","extensions":["ots"]},"application/vnd.oasis.opendocument.text":{"source":"iana","compressible":false,"extensions":["odt"]},"application/vnd.oasis.opendocument.text-master":{"source":"iana","extensions":["odm"]},"application/vnd.oasis.opendocument.text-template":{"source":"iana","extensions":["ott"]},"application/vnd.oasis.opendocument.text-web":{"source":"iana","extensions":["oth"]},"application/vnd.obn":{"source":"iana"},"application/vnd.ocf+cbor":{"source":"iana"},"application/vnd.oci.image.manifest.v1+json":{"source":"iana","compressible":true},"application/vnd.oftn.l10n+json":{"source":"iana","compressible":true},"application/vnd.oipf.contentaccessdownload+xml":{"source":"iana","compressible":true},"application/vnd.oipf.contentaccessstreaming+xml":{"source":"iana","compressible":true},"application/vnd.oipf.cspg-hexbinary":{"source":"iana"},"application/vnd.oipf.dae.svg+xml":{"source":"iana","compressible":true},"application/vnd.oipf.dae.xhtml+xml":{"source":"iana","compressible":true},"application/vnd.oipf.mippvcontrolmessage+xml":{"source":"iana","compressible":true},"application/vnd.oipf.pae.gem":{"source":"iana"},"application/vnd.oipf.spdiscovery+xml":{"source":"iana","compressible":true},"application/vnd.oipf.spdlist+xml":{"source":"iana","compressible":true},"application/vnd.oipf.ueprofile+xml":{"source":"iana","compressible":true},"application/vnd.oipf.userprofile+xml":{"source":"iana","compressible":true},"application/vnd.olpc-sugar":{"source":"iana","extensions":["xo"]},"application/vnd.oma-scws-config":{"source":"iana"},"application/vnd.oma-scws-http-request":{"source":"iana"},"application/vnd.oma-scws-http-response":{"source":"iana"},"application/vnd.oma.bcast.associated-procedure-parameter+xml":{"source":"iana","compressible":true},"application/vnd.oma.bcast.drm-trigger+xml":{"source":"iana","compressible":true},"application/vnd.oma.bcast.imd+xml":{"source":"iana","compressible":true},"application/vnd.oma.bcast.ltkm":{"source":"iana"},"application/vnd.oma.bcast.notification+xml":{"source":"iana","compressible":true},"application/vnd.oma.bcast.provisioningtrigger":{"source":"iana"},"application/vnd.oma.bcast.sgboot":{"source":"iana"},"application/vnd.oma.bcast.sgdd+xml":{"source":"iana","compressible":true},"application/vnd.oma.bcast.sgdu":{"source":"iana"},"application/vnd.oma.bcast.simple-symbol-container":{"source":"iana"},"application/vnd.oma.bcast.smartcard-trigger+xml":{"source":"iana","compressible":true},"application/vnd.oma.bcast.sprov+xml":{"source":"iana","compressible":true},"application/vnd.oma.bcast.stkm":{"source":"iana"},"application/vnd.oma.cab-address-book+xml":{"source":"iana","compressible":true},"application/vnd.oma.cab-feature-handler+xml":{"source":"iana","compressible":true},"application/vnd.oma.cab-pcc+xml":{"source":"iana","compressible":true},"application/vnd.oma.cab-subs-invite+xml":{"source":"iana","compressible":true},"application/vnd.oma.cab-user-prefs+xml":{"source":"iana","compressible":true},"application/vnd.oma.dcd":{"source":"iana"},"application/vnd.oma.dcdc":{"source":"iana"},"application/vnd.oma.dd2+xml":{"source":"iana","compressible":true,"extensions":["dd2"]},"application/vnd.oma.drm.risd+xml":{"source":"iana","compressible":true},"application/vnd.oma.group-usage-list+xml":{"source":"iana","compressible":true},"application/vnd.oma.lwm2m+cbor":{"source":"iana"},"application/vnd.oma.lwm2m+json":{"source":"iana","compressible":true},"application/vnd.oma.lwm2m+tlv":{"source":"iana"},"application/vnd.oma.pal+xml":{"source":"iana","compressible":true},"application/vnd.oma.poc.detailed-progress-report+xml":{"source":"iana","compressible":true},"application/vnd.oma.poc.final-report+xml":{"source":"iana","compressible":true},"application/vnd.oma.poc.groups+xml":{"source":"iana","compressible":true},"application/vnd.oma.poc.invocation-descriptor+xml":{"source":"iana","compressible":true},"application/vnd.oma.poc.optimized-progress-report+xml":{"source":"iana","compressible":true},"application/vnd.oma.push":{"source":"iana"},"application/vnd.oma.scidm.messages+xml":{"source":"iana","compressible":true},"application/vnd.oma.xcap-directory+xml":{"source":"iana","compressible":true},"application/vnd.omads-email+xml":{"source":"iana","charset":"UTF-8","compressible":true},"application/vnd.omads-file+xml":{"source":"iana","charset":"UTF-8","compressible":true},"application/vnd.omads-folder+xml":{"source":"iana","charset":"UTF-8","compressible":true},"application/vnd.omaloc-supl-init":{"source":"iana"},"application/vnd.onepager":{"source":"iana"},"application/vnd.onepagertamp":{"source":"iana"},"application/vnd.onepagertamx":{"source":"iana"},"application/vnd.onepagertat":{"source":"iana"},"application/vnd.onepagertatp":{"source":"iana"},"application/vnd.onepagertatx":{"source":"iana"},"application/vnd.openblox.game+xml":{"source":"iana","compressible":true,"extensions":["obgx"]},"application/vnd.openblox.game-binary":{"source":"iana"},"application/vnd.openeye.oeb":{"source":"iana"},"application/vnd.openofficeorg.extension":{"source":"apache","extensions":["oxt"]},"application/vnd.openstreetmap.data+xml":{"source":"iana","compressible":true,"extensions":["osm"]},"application/vnd.opentimestamps.ots":{"source":"iana"},"application/vnd.openxmlformats-officedocument.custom-properties+xml":{"source":"iana","compressible":true},"application/vnd.openxmlformats-officedocument.customxmlproperties+xml":{"source":"iana","compressible":true},"application/vnd.openxmlformats-officedocument.drawing+xml":{"source":"iana","compressible":true},"application/vnd.openxmlformats-officedocument.drawingml.chart+xml":{"source":"iana","compressible":true},"application/vnd.openxmlformats-officedocument.drawingml.chartshapes+xml":{"source":"iana","compressible":true},"application/vnd.openxmlformats-officedocument.drawingml.diagramcolors+xml":{"source":"iana","compressible":true},"application/vnd.openxmlformats-officedocument.drawingml.diagramdata+xml":{"source":"iana","compressible":true},"application/vnd.openxmlformats-officedocument.drawingml.diagramlayout+xml":{"source":"iana","compressible":true},"application/vnd.openxmlformats-officedocument.drawingml.diagramstyle+xml":{"source":"iana","compressible":true},"application/vnd.openxmlformats-officedocument.extended-properties+xml":{"source":"iana","compressible":true},"application/vnd.openxmlformats-officedocument.presentationml.commentauthors+xml":{"source":"iana","compressible":true},"application/vnd.openxmlformats-officedocument.presentationml.comments+xml":{"source":"iana","compressible":true},"application/vnd.openxmlformats-officedocument.presentationml.handoutmaster+xml":{"source":"iana","compressible":true},"application/vnd.openxmlformats-officedocument.presentationml.notesmaster+xml":{"source":"iana","compressible":true},"application/vnd.openxmlformats-officedocument.presentationml.notesslide+xml":{"source":"iana","compressible":true},"application/vnd.openxmlformats-officedocument.presentationml.presentation":{"source":"iana","compressible":false,"extensions":["pptx"]},"application/vnd.openxmlformats-officedocument.presentationml.presentation.main+xml":{"source":"iana","compressible":true},"application/vnd.openxmlformats-officedocument.presentationml.presprops+xml":{"source":"iana","compressible":true},"application/vnd.openxmlformats-officedocument.presentationml.slide":{"source":"iana","extensions":["sldx"]},"application/vnd.openxmlformats-officedocument.presentationml.slide+xml":{"source":"iana","compressible":true},"application/vnd.openxmlformats-officedocument.presentationml.slidelayout+xml":{"source":"iana","compressible":true},"application/vnd.openxmlformats-officedocument.presentationml.slidemaster+xml":{"source":"iana","compressible":true},"application/vnd.openxmlformats-officedocument.presentationml.slideshow":{"source":"iana","extensions":["ppsx"]},"application/vnd.openxmlformats-officedocument.presentationml.slideshow.main+xml":{"source":"iana","compressible":true},"application/vnd.openxmlformats-officedocument.presentationml.slideupdateinfo+xml":{"source":"iana","compressible":true},"application/vnd.openxmlformats-officedocument.presentationml.tablestyles+xml":{"source":"iana","compressible":true},"application/vnd.openxmlformats-officedocument.presentationml.tags+xml":{"source":"iana","compressible":true},"application/vnd.openxmlformats-officedocument.presentationml.template":{"source":"iana","extensions":["potx"]},"application/vnd.openxmlformats-officedocument.presentationml.template.main+xml":{"source":"iana","compressible":true},"application/vnd.openxmlformats-officedocument.presentationml.viewprops+xml":{"source":"iana","compressible":true},"application/vnd.openxmlformats-officedocument.spreadsheetml.calcchain+xml":{"source":"iana","compressible":true},"application/vnd.openxmlformats-officedocument.spreadsheetml.chartsheet+xml":{"source":"iana","compressible":true},"application/vnd.openxmlformats-officedocument.spreadsheetml.comments+xml":{"source":"iana","compressible":true},"application/vnd.openxmlformats-officedocument.spreadsheetml.connections+xml":{"source":"iana","compressible":true},"application/vnd.openxmlformats-officedocument.spreadsheetml.dialogsheet+xml":{"source":"iana","compressible":true},"application/vnd.openxmlformats-officedocument.spreadsheetml.externallink+xml":{"source":"iana","compressible":true},"application/vnd.openxmlformats-officedocument.spreadsheetml.pivotcachedefinition+xml":{"source":"iana","compressible":true},"application/vnd.openxmlformats-officedocument.spreadsheetml.pivotcacherecords+xml":{"source":"iana","compressible":true},"application/vnd.openxmlformats-officedocument.spreadsheetml.pivottable+xml":{"source":"iana","compressible":true},"application/vnd.openxmlformats-officedocument.spreadsheetml.querytable+xml":{"source":"iana","compressible":true},"application/vnd.openxmlformats-officedocument.spreadsheetml.revisionheaders+xml":{"source":"iana","compressible":true},"application/vnd.openxmlformats-officedocument.spreadsheetml.revisionlog+xml":{"source":"iana","compressible":true},"application/vnd.openxmlformats-officedocument.spreadsheetml.sharedstrings+xml":{"source":"iana","compressible":true},"application/vnd.openxmlformats-officedocument.spreadsheetml.sheet":{"source":"iana","compressible":false,"extensions":["xlsx"]},"application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml":{"source":"iana","compressible":true},"application/vnd.openxmlformats-officedocument.spreadsheetml.sheetmetadata+xml":{"source":"iana","compressible":true},"application/vnd.openxmlformats-officedocument.spreadsheetml.styles+xml":{"source":"iana","compressible":true},"application/vnd.openxmlformats-officedocument.spreadsheetml.table+xml":{"source":"iana","compressible":true},"application/vnd.openxmlformats-officedocument.spreadsheetml.tablesinglecells+xml":{"source":"iana","compressible":true},"application/vnd.openxmlformats-officedocument.spreadsheetml.template":{"source":"iana","extensions":["xltx"]},"application/vnd.openxmlformats-officedocument.spreadsheetml.template.main+xml":{"source":"iana","compressible":true},"application/vnd.openxmlformats-officedocument.spreadsheetml.usernames+xml":{"source":"iana","compressible":true},"application/vnd.openxmlformats-officedocument.spreadsheetml.volatiledependencies+xml":{"source":"iana","compressible":true},"application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml":{"source":"iana","compressible":true},"application/vnd.openxmlformats-officedocument.theme+xml":{"source":"iana","compressible":true},"application/vnd.openxmlformats-officedocument.themeoverride+xml":{"source":"iana","compressible":true},"application/vnd.openxmlformats-officedocument.vmldrawing":{"source":"iana"},"application/vnd.openxmlformats-officedocument.wordprocessingml.comments+xml":{"source":"iana","compressible":true},"application/vnd.openxmlformats-officedocument.wordprocessingml.document":{"source":"iana","compressible":false,"extensions":["docx"]},"application/vnd.openxmlformats-officedocument.wordprocessingml.document.glossary+xml":{"source":"iana","compressible":true},"application/vnd.openxmlformats-officedocument.wordprocessingml.document.main+xml":{"source":"iana","compressible":true},"application/vnd.openxmlformats-officedocument.wordprocessingml.endnotes+xml":{"source":"iana","compressible":true},"application/vnd.openxmlformats-officedocument.wordprocessingml.fonttable+xml":{"source":"iana","compressible":true},"application/vnd.openxmlformats-officedocument.wordprocessingml.footer+xml":{"source":"iana","compressible":true},"application/vnd.openxmlformats-officedocument.wordprocessingml.footnotes+xml":{"source":"iana","compressible":true},"application/vnd.openxmlformats-officedocument.wordprocessingml.numbering+xml":{"source":"iana","compressible":true},"application/vnd.openxmlformats-officedocument.wordprocessingml.settings+xml":{"source":"iana","compressible":true},"application/vnd.openxmlformats-officedocument.wordprocessingml.styles+xml":{"source":"iana","compressible":true},"application/vnd.openxmlformats-officedocument.wordprocessingml.template":{"source":"iana","extensions":["dotx"]},"application/vnd.openxmlformats-officedocument.wordprocessingml.template.main+xml":{"source":"iana","compressible":true},"application/vnd.openxmlformats-officedocument.wordprocessingml.websettings+xml":{"source":"iana","compressible":true},"application/vnd.openxmlformats-package.core-properties+xml":{"source":"iana","compressible":true},"application/vnd.openxmlformats-package.digital-signature-xmlsignature+xml":{"source":"iana","compressible":true},"application/vnd.openxmlformats-package.relationships+xml":{"source":"iana","compressible":true},"application/vnd.oracle.resource+json":{"source":"iana","compressible":true},"application/vnd.orange.indata":{"source":"iana"},"application/vnd.osa.netdeploy":{"source":"iana"},"application/vnd.osgeo.mapguide.package":{"source":"iana","extensions":["mgp"]},"application/vnd.osgi.bundle":{"source":"iana"},"application/vnd.osgi.dp":{"source":"iana","extensions":["dp"]},"application/vnd.osgi.subsystem":{"source":"iana","extensions":["esa"]},"application/vnd.otps.ct-kip+xml":{"source":"iana","compressible":true},"application/vnd.oxli.countgraph":{"source":"iana"},"application/vnd.pagerduty+json":{"source":"iana","compressible":true},"application/vnd.palm":{"source":"iana","extensions":["pdb","pqa","oprc"]},"application/vnd.panoply":{"source":"iana"},"application/vnd.paos.xml":{"source":"iana"},"application/vnd.patentdive":{"source":"iana"},"application/vnd.patientecommsdoc":{"source":"iana"},"application/vnd.pawaafile":{"source":"iana","extensions":["paw"]},"application/vnd.pcos":{"source":"iana"},"application/vnd.pg.format":{"source":"iana","extensions":["str"]},"application/vnd.pg.osasli":{"source":"iana","extensions":["ei6"]},"application/vnd.piaccess.application-licence":{"source":"iana"},"application/vnd.picsel":{"source":"iana","extensions":["efif"]},"application/vnd.pmi.widget":{"source":"iana","extensions":["wg"]},"application/vnd.poc.group-advertisement+xml":{"source":"iana","compressible":true},"application/vnd.pocketlearn":{"source":"iana","extensions":["plf"]},"application/vnd.powerbuilder6":{"source":"iana","extensions":["pbd"]},"application/vnd.powerbuilder6-s":{"source":"iana"},"application/vnd.powerbuilder7":{"source":"iana"},"application/vnd.powerbuilder7-s":{"source":"iana"},"application/vnd.powerbuilder75":{"source":"iana"},"application/vnd.powerbuilder75-s":{"source":"iana"},"application/vnd.preminet":{"source":"iana"},"application/vnd.previewsystems.box":{"source":"iana","extensions":["box"]},"application/vnd.proteus.magazine":{"source":"iana","extensions":["mgz"]},"application/vnd.psfs":{"source":"iana"},"application/vnd.publishare-delta-tree":{"source":"iana","extensions":["qps"]},"application/vnd.pvi.ptid1":{"source":"iana","extensions":["ptid"]},"application/vnd.pwg-multiplexed":{"source":"iana"},"application/vnd.pwg-xhtml-print+xml":{"source":"iana","compressible":true},"application/vnd.qualcomm.brew-app-res":{"source":"iana"},"application/vnd.quarantainenet":{"source":"iana"},"application/vnd.quark.quarkxpress":{"source":"iana","extensions":["qxd","qxt","qwd","qwt","qxl","qxb"]},"application/vnd.quobject-quoxdocument":{"source":"iana"},"application/vnd.radisys.moml+xml":{"source":"iana","compressible":true},"application/vnd.radisys.msml+xml":{"source":"iana","compressible":true},"application/vnd.radisys.msml-audit+xml":{"source":"iana","compressible":true},"application/vnd.radisys.msml-audit-conf+xml":{"source":"iana","compressible":true},"application/vnd.radisys.msml-audit-conn+xml":{"source":"iana","compressible":true},"application/vnd.radisys.msml-audit-dialog+xml":{"source":"iana","compressible":true},"application/vnd.radisys.msml-audit-stream+xml":{"source":"iana","compressible":true},"application/vnd.radisys.msml-conf+xml":{"source":"iana","compressible":true},"application/vnd.radisys.msml-dialog+xml":{"source":"iana","compressible":true},"application/vnd.radisys.msml-dialog-base+xml":{"source":"iana","compressible":true},"application/vnd.radisys.msml-dialog-fax-detect+xml":{"source":"iana","compressible":true},"application/vnd.radisys.msml-dialog-fax-sendrecv+xml":{"source":"iana","compressible":true},"application/vnd.radisys.msml-dialog-group+xml":{"source":"iana","compressible":true},"application/vnd.radisys.msml-dialog-speech+xml":{"source":"iana","compressible":true},"application/vnd.radisys.msml-dialog-transform+xml":{"source":"iana","compressible":true},"application/vnd.rainstor.data":{"source":"iana"},"application/vnd.rapid":{"source":"iana"},"application/vnd.rar":{"source":"iana","extensions":["rar"]},"application/vnd.realvnc.bed":{"source":"iana","extensions":["bed"]},"application/vnd.recordare.musicxml":{"source":"iana","extensions":["mxl"]},"application/vnd.recordare.musicxml+xml":{"source":"iana","compressible":true,"extensions":["musicxml"]},"application/vnd.renlearn.rlprint":{"source":"iana"},"application/vnd.resilient.logic":{"source":"iana"},"application/vnd.restful+json":{"source":"iana","compressible":true},"application/vnd.rig.cryptonote":{"source":"iana","extensions":["cryptonote"]},"application/vnd.rim.cod":{"source":"apache","extensions":["cod"]},"application/vnd.rn-realmedia":{"source":"apache","extensions":["rm"]},"application/vnd.rn-realmedia-vbr":{"source":"apache","extensions":["rmvb"]},"application/vnd.route66.link66+xml":{"source":"iana","compressible":true,"extensions":["link66"]},"application/vnd.rs-274x":{"source":"iana"},"application/vnd.ruckus.download":{"source":"iana"},"application/vnd.s3sms":{"source":"iana"},"application/vnd.sailingtracker.track":{"source":"iana","extensions":["st"]},"application/vnd.sar":{"source":"iana"},"application/vnd.sbm.cid":{"source":"iana"},"application/vnd.sbm.mid2":{"source":"iana"},"application/vnd.scribus":{"source":"iana"},"application/vnd.sealed.3df":{"source":"iana"},"application/vnd.sealed.csf":{"source":"iana"},"application/vnd.sealed.doc":{"source":"iana"},"application/vnd.sealed.eml":{"source":"iana"},"application/vnd.sealed.mht":{"source":"iana"},"application/vnd.sealed.net":{"source":"iana"},"application/vnd.sealed.ppt":{"source":"iana"},"application/vnd.sealed.tiff":{"source":"iana"},"application/vnd.sealed.xls":{"source":"iana"},"application/vnd.sealedmedia.softseal.html":{"source":"iana"},"application/vnd.sealedmedia.softseal.pdf":{"source":"iana"},"application/vnd.seemail":{"source":"iana","extensions":["see"]},"application/vnd.seis+json":{"source":"iana","compressible":true},"application/vnd.sema":{"source":"iana","extensions":["sema"]},"application/vnd.semd":{"source":"iana","extensions":["semd"]},"application/vnd.semf":{"source":"iana","extensions":["semf"]},"application/vnd.shade-save-file":{"source":"iana"},"application/vnd.shana.informed.formdata":{"source":"iana","extensions":["ifm"]},"application/vnd.shana.informed.formtemplate":{"source":"iana","extensions":["itp"]},"application/vnd.shana.informed.interchange":{"source":"iana","extensions":["iif"]},"application/vnd.shana.informed.package":{"source":"iana","extensions":["ipk"]},"application/vnd.shootproof+json":{"source":"iana","compressible":true},"application/vnd.shopkick+json":{"source":"iana","compressible":true},"application/vnd.shp":{"source":"iana"},"application/vnd.shx":{"source":"iana"},"application/vnd.sigrok.session":{"source":"iana"},"application/vnd.simtech-mindmapper":{"source":"iana","extensions":["twd","twds"]},"application/vnd.siren+json":{"source":"iana","compressible":true},"application/vnd.smaf":{"source":"iana","extensions":["mmf"]},"application/vnd.smart.notebook":{"source":"iana"},"application/vnd.smart.teacher":{"source":"iana","extensions":["teacher"]},"application/vnd.snesdev-page-table":{"source":"iana"},"application/vnd.software602.filler.form+xml":{"source":"iana","compressible":true,"extensions":["fo"]},"application/vnd.software602.filler.form-xml-zip":{"source":"iana"},"application/vnd.solent.sdkm+xml":{"source":"iana","compressible":true,"extensions":["sdkm","sdkd"]},"application/vnd.spotfire.dxp":{"source":"iana","extensions":["dxp"]},"application/vnd.spotfire.sfs":{"source":"iana","extensions":["sfs"]},"application/vnd.sqlite3":{"source":"iana"},"application/vnd.sss-cod":{"source":"iana"},"application/vnd.sss-dtf":{"source":"iana"},"application/vnd.sss-ntf":{"source":"iana"},"application/vnd.stardivision.calc":{"source":"apache","extensions":["sdc"]},"application/vnd.stardivision.draw":{"source":"apache","extensions":["sda"]},"application/vnd.stardivision.impress":{"source":"apache","extensions":["sdd"]},"application/vnd.stardivision.math":{"source":"apache","extensions":["smf"]},"application/vnd.stardivision.writer":{"source":"apache","extensions":["sdw","vor"]},"application/vnd.stardivision.writer-global":{"source":"apache","extensions":["sgl"]},"application/vnd.stepmania.package":{"source":"iana","extensions":["smzip"]},"application/vnd.stepmania.stepchart":{"source":"iana","extensions":["sm"]},"application/vnd.street-stream":{"source":"iana"},"application/vnd.sun.wadl+xml":{"source":"iana","compressible":true,"extensions":["wadl"]},"application/vnd.sun.xml.calc":{"source":"apache","extensions":["sxc"]},"application/vnd.sun.xml.calc.template":{"source":"apache","extensions":["stc"]},"application/vnd.sun.xml.draw":{"source":"apache","extensions":["sxd"]},"application/vnd.sun.xml.draw.template":{"source":"apache","extensions":["std"]},"application/vnd.sun.xml.impress":{"source":"apache","extensions":["sxi"]},"application/vnd.sun.xml.impress.template":{"source":"apache","extensions":["sti"]},"application/vnd.sun.xml.math":{"source":"apache","extensions":["sxm"]},"application/vnd.sun.xml.writer":{"source":"apache","extensions":["sxw"]},"application/vnd.sun.xml.writer.global":{"source":"apache","extensions":["sxg"]},"application/vnd.sun.xml.writer.template":{"source":"apache","extensions":["stw"]},"application/vnd.sus-calendar":{"source":"iana","extensions":["sus","susp"]},"application/vnd.svd":{"source":"iana","extensions":["svd"]},"application/vnd.swiftview-ics":{"source":"iana"},"application/vnd.sycle+xml":{"source":"iana","compressible":true},"application/vnd.symbian.install":{"source":"apache","extensions":["sis","sisx"]},"application/vnd.syncml+xml":{"source":"iana","charset":"UTF-8","compressible":true,"extensions":["xsm"]},"application/vnd.syncml.dm+wbxml":{"source":"iana","charset":"UTF-8","extensions":["bdm"]},"application/vnd.syncml.dm+xml":{"source":"iana","charset":"UTF-8","compressible":true,"extensions":["xdm"]},"application/vnd.syncml.dm.notification":{"source":"iana"},"application/vnd.syncml.dmddf+wbxml":{"source":"iana"},"application/vnd.syncml.dmddf+xml":{"source":"iana","charset":"UTF-8","compressible":true,"extensions":["ddf"]},"application/vnd.syncml.dmtnds+wbxml":{"source":"iana"},"application/vnd.syncml.dmtnds+xml":{"source":"iana","charset":"UTF-8","compressible":true},"application/vnd.syncml.ds.notification":{"source":"iana"},"application/vnd.tableschema+json":{"source":"iana","compressible":true},"application/vnd.tao.intent-module-archive":{"source":"iana","extensions":["tao"]},"application/vnd.tcpdump.pcap":{"source":"iana","extensions":["pcap","cap","dmp"]},"application/vnd.think-cell.ppttc+json":{"source":"iana","compressible":true},"application/vnd.tmd.mediaflex.api+xml":{"source":"iana","compressible":true},"application/vnd.tml":{"source":"iana"},"application/vnd.tmobile-livetv":{"source":"iana","extensions":["tmo"]},"application/vnd.tri.onesource":{"source":"iana"},"application/vnd.trid.tpt":{"source":"iana","extensions":["tpt"]},"application/vnd.triscape.mxs":{"source":"iana","extensions":["mxs"]},"application/vnd.trueapp":{"source":"iana","extensions":["tra"]},"application/vnd.truedoc":{"source":"iana"},"application/vnd.ubisoft.webplayer":{"source":"iana"},"application/vnd.ufdl":{"source":"iana","extensions":["ufd","ufdl"]},"application/vnd.uiq.theme":{"source":"iana","extensions":["utz"]},"application/vnd.umajin":{"source":"iana","extensions":["umj"]},"application/vnd.unity":{"source":"iana","extensions":["unityweb"]},"application/vnd.uoml+xml":{"source":"iana","compressible":true,"extensions":["uoml"]},"application/vnd.uplanet.alert":{"source":"iana"},"application/vnd.uplanet.alert-wbxml":{"source":"iana"},"application/vnd.uplanet.bearer-choice":{"source":"iana"},"application/vnd.uplanet.bearer-choice-wbxml":{"source":"iana"},"application/vnd.uplanet.cacheop":{"source":"iana"},"application/vnd.uplanet.cacheop-wbxml":{"source":"iana"},"application/vnd.uplanet.channel":{"source":"iana"},"application/vnd.uplanet.channel-wbxml":{"source":"iana"},"application/vnd.uplanet.list":{"source":"iana"},"application/vnd.uplanet.list-wbxml":{"source":"iana"},"application/vnd.uplanet.listcmd":{"source":"iana"},"application/vnd.uplanet.listcmd-wbxml":{"source":"iana"},"application/vnd.uplanet.signal":{"source":"iana"},"application/vnd.uri-map":{"source":"iana"},"application/vnd.valve.source.material":{"source":"iana"},"application/vnd.vcx":{"source":"iana","extensions":["vcx"]},"application/vnd.vd-study":{"source":"iana"},"application/vnd.vectorworks":{"source":"iana"},"application/vnd.vel+json":{"source":"iana","compressible":true},"application/vnd.verimatrix.vcas":{"source":"iana"},"application/vnd.veritone.aion+json":{"source":"iana","compressible":true},"application/vnd.veryant.thin":{"source":"iana"},"application/vnd.ves.encrypted":{"source":"iana"},"application/vnd.vidsoft.vidconference":{"source":"iana"},"application/vnd.visio":{"source":"iana","extensions":["vsd","vst","vss","vsw"]},"application/vnd.visionary":{"source":"iana","extensions":["vis"]},"application/vnd.vividence.scriptfile":{"source":"iana"},"application/vnd.vsf":{"source":"iana","extensions":["vsf"]},"application/vnd.wap.sic":{"source":"iana"},"application/vnd.wap.slc":{"source":"iana"},"application/vnd.wap.wbxml":{"source":"iana","charset":"UTF-8","extensions":["wbxml"]},"application/vnd.wap.wmlc":{"source":"iana","extensions":["wmlc"]},"application/vnd.wap.wmlscriptc":{"source":"iana","extensions":["wmlsc"]},"application/vnd.webturbo":{"source":"iana","extensions":["wtb"]},"application/vnd.wfa.dpp":{"source":"iana"},"application/vnd.wfa.p2p":{"source":"iana"},"application/vnd.wfa.wsc":{"source":"iana"},"application/vnd.windows.devicepairing":{"source":"iana"},"application/vnd.wmc":{"source":"iana"},"application/vnd.wmf.bootstrap":{"source":"iana"},"application/vnd.wolfram.mathematica":{"source":"iana"},"application/vnd.wolfram.mathematica.package":{"source":"iana"},"application/vnd.wolfram.player":{"source":"iana","extensions":["nbp"]},"application/vnd.wordperfect":{"source":"iana","extensions":["wpd"]},"application/vnd.wqd":{"source":"iana","extensions":["wqd"]},"application/vnd.wrq-hp3000-labelled":{"source":"iana"},"application/vnd.wt.stf":{"source":"iana","extensions":["stf"]},"application/vnd.wv.csp+wbxml":{"source":"iana"},"application/vnd.wv.csp+xml":{"source":"iana","compressible":true},"application/vnd.wv.ssp+xml":{"source":"iana","compressible":true},"application/vnd.xacml+json":{"source":"iana","compressible":true},"application/vnd.xara":{"source":"iana","extensions":["xar"]},"application/vnd.xfdl":{"source":"iana","extensions":["xfdl"]},"application/vnd.xfdl.webform":{"source":"iana"},"application/vnd.xmi+xml":{"source":"iana","compressible":true},"application/vnd.xmpie.cpkg":{"source":"iana"},"application/vnd.xmpie.dpkg":{"source":"iana"},"application/vnd.xmpie.plan":{"source":"iana"},"application/vnd.xmpie.ppkg":{"source":"iana"},"application/vnd.xmpie.xlim":{"source":"iana"},"application/vnd.yamaha.hv-dic":{"source":"iana","extensions":["hvd"]},"application/vnd.yamaha.hv-script":{"source":"iana","extensions":["hvs"]},"application/vnd.yamaha.hv-voice":{"source":"iana","extensions":["hvp"]},"application/vnd.yamaha.openscoreformat":{"source":"iana","extensions":["osf"]},"application/vnd.yamaha.openscoreformat.osfpvg+xml":{"source":"iana","compressible":true,"extensions":["osfpvg"]},"application/vnd.yamaha.remote-setup":{"source":"iana"},"application/vnd.yamaha.smaf-audio":{"source":"iana","extensions":["saf"]},"application/vnd.yamaha.smaf-phrase":{"source":"iana","extensions":["spf"]},"application/vnd.yamaha.through-ngn":{"source":"iana"},"application/vnd.yamaha.tunnel-udpencap":{"source":"iana"},"application/vnd.yaoweme":{"source":"iana"},"application/vnd.yellowriver-custom-menu":{"source":"iana","extensions":["cmp"]},"application/vnd.youtube.yt":{"source":"iana"},"application/vnd.zul":{"source":"iana","extensions":["zir","zirz"]},"application/vnd.zzazz.deck+xml":{"source":"iana","compressible":true,"extensions":["zaz"]},"application/voicexml+xml":{"source":"iana","compressible":true,"extensions":["vxml"]},"application/voucher-cms+json":{"source":"iana","compressible":true},"application/vq-rtcpxr":{"source":"iana"},"application/wasm":{"source":"iana","compressible":true,"extensions":["wasm"]},"application/watcherinfo+xml":{"source":"iana","compressible":true},"application/webpush-options+json":{"source":"iana","compressible":true},"application/whoispp-query":{"source":"iana"},"application/whoispp-response":{"source":"iana"},"application/widget":{"source":"iana","extensions":["wgt"]},"application/winhlp":{"source":"apache","extensions":["hlp"]},"application/wita":{"source":"iana"},"application/wordperfect5.1":{"source":"iana"},"application/wsdl+xml":{"source":"iana","compressible":true,"extensions":["wsdl"]},"application/wspolicy+xml":{"source":"iana","compressible":true,"extensions":["wspolicy"]},"application/x-7z-compressed":{"source":"apache","compressible":false,"extensions":["7z"]},"application/x-abiword":{"source":"apache","extensions":["abw"]},"application/x-ace-compressed":{"source":"apache","extensions":["ace"]},"application/x-amf":{"source":"apache"},"application/x-apple-diskimage":{"source":"apache","extensions":["dmg"]},"application/x-arj":{"compressible":false,"extensions":["arj"]},"application/x-authorware-bin":{"source":"apache","extensions":["aab","x32","u32","vox"]},"application/x-authorware-map":{"source":"apache","extensions":["aam"]},"application/x-authorware-seg":{"source":"apache","extensions":["aas"]},"application/x-bcpio":{"source":"apache","extensions":["bcpio"]},"application/x-bdoc":{"compressible":false,"extensions":["bdoc"]},"application/x-bittorrent":{"source":"apache","extensions":["torrent"]},"application/x-blorb":{"source":"apache","extensions":["blb","blorb"]},"application/x-bzip":{"source":"apache","compressible":false,"extensions":["bz"]},"application/x-bzip2":{"source":"apache","compressible":false,"extensions":["bz2","boz"]},"application/x-cbr":{"source":"apache","extensions":["cbr","cba","cbt","cbz","cb7"]},"application/x-cdlink":{"source":"apache","extensions":["vcd"]},"application/x-cfs-compressed":{"source":"apache","extensions":["cfs"]},"application/x-chat":{"source":"apache","extensions":["chat"]},"application/x-chess-pgn":{"source":"apache","extensions":["pgn"]},"application/x-chrome-extension":{"extensions":["crx"]},"application/x-cocoa":{"source":"nginx","extensions":["cco"]},"application/x-compress":{"source":"apache"},"application/x-conference":{"source":"apache","extensions":["nsc"]},"application/x-cpio":{"source":"apache","extensions":["cpio"]},"application/x-csh":{"source":"apache","extensions":["csh"]},"application/x-deb":{"compressible":false},"application/x-debian-package":{"source":"apache","extensions":["deb","udeb"]},"application/x-dgc-compressed":{"source":"apache","extensions":["dgc"]},"application/x-director":{"source":"apache","extensions":["dir","dcr","dxr","cst","cct","cxt","w3d","fgd","swa"]},"application/x-doom":{"source":"apache","extensions":["wad"]},"application/x-dtbncx+xml":{"source":"apache","compressible":true,"extensions":["ncx"]},"application/x-dtbook+xml":{"source":"apache","compressible":true,"extensions":["dtb"]},"application/x-dtbresource+xml":{"source":"apache","compressible":true,"extensions":["res"]},"application/x-dvi":{"source":"apache","compressible":false,"extensions":["dvi"]},"application/x-envoy":{"source":"apache","extensions":["evy"]},"application/x-eva":{"source":"apache","extensions":["eva"]},"application/x-font-bdf":{"source":"apache","extensions":["bdf"]},"application/x-font-dos":{"source":"apache"},"application/x-font-framemaker":{"source":"apache"},"application/x-font-ghostscript":{"source":"apache","extensions":["gsf"]},"application/x-font-libgrx":{"source":"apache"},"application/x-font-linux-psf":{"source":"apache","extensions":["psf"]},"application/x-font-pcf":{"source":"apache","extensions":["pcf"]},"application/x-font-snf":{"source":"apache","extensions":["snf"]},"application/x-font-speedo":{"source":"apache"},"application/x-font-sunos-news":{"source":"apache"},"application/x-font-type1":{"source":"apache","extensions":["pfa","pfb","pfm","afm"]},"application/x-font-vfont":{"source":"apache"},"application/x-freearc":{"source":"apache","extensions":["arc"]},"application/x-futuresplash":{"source":"apache","extensions":["spl"]},"application/x-gca-compressed":{"source":"apache","extensions":["gca"]},"application/x-glulx":{"source":"apache","extensions":["ulx"]},"application/x-gnumeric":{"source":"apache","extensions":["gnumeric"]},"application/x-gramps-xml":{"source":"apache","extensions":["gramps"]},"application/x-gtar":{"source":"apache","extensions":["gtar"]},"application/x-gzip":{"source":"apache"},"application/x-hdf":{"source":"apache","extensions":["hdf"]},"application/x-httpd-php":{"compressible":true,"extensions":["php"]},"application/x-install-instructions":{"source":"apache","extensions":["install"]},"application/x-iso9660-image":{"source":"apache","extensions":["iso"]},"application/x-iwork-keynote-sffkey":{"extensions":["key"]},"application/x-iwork-numbers-sffnumbers":{"extensions":["numbers"]},"application/x-iwork-pages-sffpages":{"extensions":["pages"]},"application/x-java-archive-diff":{"source":"nginx","extensions":["jardiff"]},"application/x-java-jnlp-file":{"source":"apache","compressible":false,"extensions":["jnlp"]},"application/x-javascript":{"compressible":true},"application/x-keepass2":{"extensions":["kdbx"]},"application/x-latex":{"source":"apache","compressible":false,"extensions":["latex"]},"application/x-lua-bytecode":{"extensions":["luac"]},"application/x-lzh-compressed":{"source":"apache","extensions":["lzh","lha"]},"application/x-makeself":{"source":"nginx","extensions":["run"]},"application/x-mie":{"source":"apache","extensions":["mie"]},"application/x-mobipocket-ebook":{"source":"apache","extensions":["prc","mobi"]},"application/x-mpegurl":{"compressible":false},"application/x-ms-application":{"source":"apache","extensions":["application"]},"application/x-ms-shortcut":{"source":"apache","extensions":["lnk"]},"application/x-ms-wmd":{"source":"apache","extensions":["wmd"]},"application/x-ms-wmz":{"source":"apache","extensions":["wmz"]},"application/x-ms-xbap":{"source":"apache","extensions":["xbap"]},"application/x-msaccess":{"source":"apache","extensions":["mdb"]},"application/x-msbinder":{"source":"apache","extensions":["obd"]},"application/x-mscardfile":{"source":"apache","extensions":["crd"]},"application/x-msclip":{"source":"apache","extensions":["clp"]},"application/x-msdos-program":{"extensions":["exe"]},"application/x-msdownload":{"source":"apache","extensions":["exe","dll","com","bat","msi"]},"application/x-msmediaview":{"source":"apache","extensions":["mvb","m13","m14"]},"application/x-msmetafile":{"source":"apache","extensions":["wmf","wmz","emf","emz"]},"application/x-msmoney":{"source":"apache","extensions":["mny"]},"application/x-mspublisher":{"source":"apache","extensions":["pub"]},"application/x-msschedule":{"source":"apache","extensions":["scd"]},"application/x-msterminal":{"source":"apache","extensions":["trm"]},"application/x-mswrite":{"source":"apache","extensions":["wri"]},"application/x-netcdf":{"source":"apache","extensions":["nc","cdf"]},"application/x-ns-proxy-autoconfig":{"compressible":true,"extensions":["pac"]},"application/x-nzb":{"source":"apache","extensions":["nzb"]},"application/x-perl":{"source":"nginx","extensions":["pl","pm"]},"application/x-pilot":{"source":"nginx","extensions":["prc","pdb"]},"application/x-pkcs12":{"source":"apache","compressible":false,"extensions":["p12","pfx"]},"application/x-pkcs7-certificates":{"source":"apache","extensions":["p7b","spc"]},"application/x-pkcs7-certreqresp":{"source":"apache","extensions":["p7r"]},"application/x-pki-message":{"source":"iana"},"application/x-rar-compressed":{"source":"apache","compressible":false,"extensions":["rar"]},"application/x-redhat-package-manager":{"source":"nginx","extensions":["rpm"]},"application/x-research-info-systems":{"source":"apache","extensions":["ris"]},"application/x-sea":{"source":"nginx","extensions":["sea"]},"application/x-sh":{"source":"apache","compressible":true,"extensions":["sh"]},"application/x-shar":{"source":"apache","extensions":["shar"]},"application/x-shockwave-flash":{"source":"apache","compressible":false,"extensions":["swf"]},"application/x-silverlight-app":{"source":"apache","extensions":["xap"]},"application/x-sql":{"source":"apache","extensions":["sql"]},"application/x-stuffit":{"source":"apache","compressible":false,"extensions":["sit"]},"application/x-stuffitx":{"source":"apache","extensions":["sitx"]},"application/x-subrip":{"source":"apache","extensions":["srt"]},"application/x-sv4cpio":{"source":"apache","extensions":["sv4cpio"]},"application/x-sv4crc":{"source":"apache","extensions":["sv4crc"]},"application/x-t3vm-image":{"source":"apache","extensions":["t3"]},"application/x-tads":{"source":"apache","extensions":["gam"]},"application/x-tar":{"source":"apache","compressible":true,"extensions":["tar"]},"application/x-tcl":{"source":"apache","extensions":["tcl","tk"]},"application/x-tex":{"source":"apache","extensions":["tex"]},"application/x-tex-tfm":{"source":"apache","extensions":["tfm"]},"application/x-texinfo":{"source":"apache","extensions":["texinfo","texi"]},"application/x-tgif":{"source":"apache","extensions":["obj"]},"application/x-ustar":{"source":"apache","extensions":["ustar"]},"application/x-virtualbox-hdd":{"compressible":true,"extensions":["hdd"]},"application/x-virtualbox-ova":{"compressible":true,"extensions":["ova"]},"application/x-virtualbox-ovf":{"compressible":true,"extensions":["ovf"]},"application/x-virtualbox-vbox":{"compressible":true,"extensions":["vbox"]},"application/x-virtualbox-vbox-extpack":{"compressible":false,"extensions":["vbox-extpack"]},"application/x-virtualbox-vdi":{"compressible":true,"extensions":["vdi"]},"application/x-virtualbox-vhd":{"compressible":true,"extensions":["vhd"]},"application/x-virtualbox-vmdk":{"compressible":true,"extensions":["vmdk"]},"application/x-wais-source":{"source":"apache","extensions":["src"]},"application/x-web-app-manifest+json":{"compressible":true,"extensions":["webapp"]},"application/x-www-form-urlencoded":{"source":"iana","compressible":true},"application/x-x509-ca-cert":{"source":"iana","extensions":["der","crt","pem"]},"application/x-x509-ca-ra-cert":{"source":"iana"},"application/x-x509-next-ca-cert":{"source":"iana"},"application/x-xfig":{"source":"apache","extensions":["fig"]},"application/x-xliff+xml":{"source":"apache","compressible":true,"extensions":["xlf"]},"application/x-xpinstall":{"source":"apache","compressible":false,"extensions":["xpi"]},"application/x-xz":{"source":"apache","extensions":["xz"]},"application/x-zmachine":{"source":"apache","extensions":["z1","z2","z3","z4","z5","z6","z7","z8"]},"application/x400-bp":{"source":"iana"},"application/xacml+xml":{"source":"iana","compressible":true},"application/xaml+xml":{"source":"apache","compressible":true,"extensions":["xaml"]},"application/xcap-att+xml":{"source":"iana","compressible":true,"extensions":["xav"]},"application/xcap-caps+xml":{"source":"iana","compressible":true,"extensions":["xca"]},"application/xcap-diff+xml":{"source":"iana","compressible":true,"extensions":["xdf"]},"application/xcap-el+xml":{"source":"iana","compressible":true,"extensions":["xel"]},"application/xcap-error+xml":{"source":"iana","compressible":true},"application/xcap-ns+xml":{"source":"iana","compressible":true,"extensions":["xns"]},"application/xcon-conference-info+xml":{"source":"iana","compressible":true},"application/xcon-conference-info-diff+xml":{"source":"iana","compressible":true},"application/xenc+xml":{"source":"iana","compressible":true,"extensions":["xenc"]},"application/xhtml+xml":{"source":"iana","compressible":true,"extensions":["xhtml","xht"]},"application/xhtml-voice+xml":{"source":"apache","compressible":true},"application/xliff+xml":{"source":"iana","compressible":true,"extensions":["xlf"]},"application/xml":{"source":"iana","compressible":true,"extensions":["xml","xsl","xsd","rng"]},"application/xml-dtd":{"source":"iana","compressible":true,"extensions":["dtd"]},"application/xml-external-parsed-entity":{"source":"iana"},"application/xml-patch+xml":{"source":"iana","compressible":true},"application/xmpp+xml":{"source":"iana","compressible":true},"application/xop+xml":{"source":"iana","compressible":true,"extensions":["xop"]},"application/xproc+xml":{"source":"apache","compressible":true,"extensions":["xpl"]},"application/xslt+xml":{"source":"iana","compressible":true,"extensions":["xsl","xslt"]},"application/xspf+xml":{"source":"apache","compressible":true,"extensions":["xspf"]},"application/xv+xml":{"source":"iana","compressible":true,"extensions":["mxml","xhvml","xvml","xvm"]},"application/yang":{"source":"iana","extensions":["yang"]},"application/yang-data+json":{"source":"iana","compressible":true},"application/yang-data+xml":{"source":"iana","compressible":true},"application/yang-patch+json":{"source":"iana","compressible":true},"application/yang-patch+xml":{"source":"iana","compressible":true},"application/yin+xml":{"source":"iana","compressible":true,"extensions":["yin"]},"application/zip":{"source":"iana","compressible":false,"extensions":["zip"]},"application/zlib":{"source":"iana"},"application/zstd":{"source":"iana"},"audio/1d-interleaved-parityfec":{"source":"iana"},"audio/32kadpcm":{"source":"iana"},"audio/3gpp":{"source":"iana","compressible":false,"extensions":["3gpp"]},"audio/3gpp2":{"source":"iana"},"audio/aac":{"source":"iana"},"audio/ac3":{"source":"iana"},"audio/adpcm":{"source":"apache","extensions":["adp"]},"audio/amr":{"source":"iana","extensions":["amr"]},"audio/amr-wb":{"source":"iana"},"audio/amr-wb+":{"source":"iana"},"audio/aptx":{"source":"iana"},"audio/asc":{"source":"iana"},"audio/atrac-advanced-lossless":{"source":"iana"},"audio/atrac-x":{"source":"iana"},"audio/atrac3":{"source":"iana"},"audio/basic":{"source":"iana","compressible":false,"extensions":["au","snd"]},"audio/bv16":{"source":"iana"},"audio/bv32":{"source":"iana"},"audio/clearmode":{"source":"iana"},"audio/cn":{"source":"iana"},"audio/dat12":{"source":"iana"},"audio/dls":{"source":"iana"},"audio/dsr-es201108":{"source":"iana"},"audio/dsr-es202050":{"source":"iana"},"audio/dsr-es202211":{"source":"iana"},"audio/dsr-es202212":{"source":"iana"},"audio/dv":{"source":"iana"},"audio/dvi4":{"source":"iana"},"audio/eac3":{"source":"iana"},"audio/encaprtp":{"source":"iana"},"audio/evrc":{"source":"iana"},"audio/evrc-qcp":{"source":"iana"},"audio/evrc0":{"source":"iana"},"audio/evrc1":{"source":"iana"},"audio/evrcb":{"source":"iana"},"audio/evrcb0":{"source":"iana"},"audio/evrcb1":{"source":"iana"},"audio/evrcnw":{"source":"iana"},"audio/evrcnw0":{"source":"iana"},"audio/evrcnw1":{"source":"iana"},"audio/evrcwb":{"source":"iana"},"audio/evrcwb0":{"source":"iana"},"audio/evrcwb1":{"source":"iana"},"audio/evs":{"source":"iana"},"audio/flexfec":{"source":"iana"},"audio/fwdred":{"source":"iana"},"audio/g711-0":{"source":"iana"},"audio/g719":{"source":"iana"},"audio/g722":{"source":"iana"},"audio/g7221":{"source":"iana"},"audio/g723":{"source":"iana"},"audio/g726-16":{"source":"iana"},"audio/g726-24":{"source":"iana"},"audio/g726-32":{"source":"iana"},"audio/g726-40":{"source":"iana"},"audio/g728":{"source":"iana"},"audio/g729":{"source":"iana"},"audio/g7291":{"source":"iana"},"audio/g729d":{"source":"iana"},"audio/g729e":{"source":"iana"},"audio/gsm":{"source":"iana"},"audio/gsm-efr":{"source":"iana"},"audio/gsm-hr-08":{"source":"iana"},"audio/ilbc":{"source":"iana"},"audio/ip-mr_v2.5":{"source":"iana"},"audio/isac":{"source":"apache"},"audio/l16":{"source":"iana"},"audio/l20":{"source":"iana"},"audio/l24":{"source":"iana","compressible":false},"audio/l8":{"source":"iana"},"audio/lpc":{"source":"iana"},"audio/melp":{"source":"iana"},"audio/melp1200":{"source":"iana"},"audio/melp2400":{"source":"iana"},"audio/melp600":{"source":"iana"},"audio/mhas":{"source":"iana"},"audio/midi":{"source":"apache","extensions":["mid","midi","kar","rmi"]},"audio/mobile-xmf":{"source":"iana","extensions":["mxmf"]},"audio/mp3":{"compressible":false,"extensions":["mp3"]},"audio/mp4":{"source":"iana","compressible":false,"extensions":["m4a","mp4a"]},"audio/mp4a-latm":{"source":"iana"},"audio/mpa":{"source":"iana"},"audio/mpa-robust":{"source":"iana"},"audio/mpeg":{"source":"iana","compressible":false,"extensions":["mpga","mp2","mp2a","mp3","m2a","m3a"]},"audio/mpeg4-generic":{"source":"iana"},"audio/musepack":{"source":"apache"},"audio/ogg":{"source":"iana","compressible":false,"extensions":["oga","ogg","spx","opus"]},"audio/opus":{"source":"iana"},"audio/parityfec":{"source":"iana"},"audio/pcma":{"source":"iana"},"audio/pcma-wb":{"source":"iana"},"audio/pcmu":{"source":"iana"},"audio/pcmu-wb":{"source":"iana"},"audio/prs.sid":{"source":"iana"},"audio/qcelp":{"source":"iana"},"audio/raptorfec":{"source":"iana"},"audio/red":{"source":"iana"},"audio/rtp-enc-aescm128":{"source":"iana"},"audio/rtp-midi":{"source":"iana"},"audio/rtploopback":{"source":"iana"},"audio/rtx":{"source":"iana"},"audio/s3m":{"source":"apache","extensions":["s3m"]},"audio/scip":{"source":"iana"},"audio/silk":{"source":"apache","extensions":["sil"]},"audio/smv":{"source":"iana"},"audio/smv-qcp":{"source":"iana"},"audio/smv0":{"source":"iana"},"audio/sofa":{"source":"iana"},"audio/sp-midi":{"source":"iana"},"audio/speex":{"source":"iana"},"audio/t140c":{"source":"iana"},"audio/t38":{"source":"iana"},"audio/telephone-event":{"source":"iana"},"audio/tetra_acelp":{"source":"iana"},"audio/tetra_acelp_bb":{"source":"iana"},"audio/tone":{"source":"iana"},"audio/tsvcis":{"source":"iana"},"audio/uemclip":{"source":"iana"},"audio/ulpfec":{"source":"iana"},"audio/usac":{"source":"iana"},"audio/vdvi":{"source":"iana"},"audio/vmr-wb":{"source":"iana"},"audio/vnd.3gpp.iufp":{"source":"iana"},"audio/vnd.4sb":{"source":"iana"},"audio/vnd.audiokoz":{"source":"iana"},"audio/vnd.celp":{"source":"iana"},"audio/vnd.cisco.nse":{"source":"iana"},"audio/vnd.cmles.radio-events":{"source":"iana"},"audio/vnd.cns.anp1":{"source":"iana"},"audio/vnd.cns.inf1":{"source":"iana"},"audio/vnd.dece.audio":{"source":"iana","extensions":["uva","uvva"]},"audio/vnd.digital-winds":{"source":"iana","extensions":["eol"]},"audio/vnd.dlna.adts":{"source":"iana"},"audio/vnd.dolby.heaac.1":{"source":"iana"},"audio/vnd.dolby.heaac.2":{"source":"iana"},"audio/vnd.dolby.mlp":{"source":"iana"},"audio/vnd.dolby.mps":{"source":"iana"},"audio/vnd.dolby.pl2":{"source":"iana"},"audio/vnd.dolby.pl2x":{"source":"iana"},"audio/vnd.dolby.pl2z":{"source":"iana"},"audio/vnd.dolby.pulse.1":{"source":"iana"},"audio/vnd.dra":{"source":"iana","extensions":["dra"]},"audio/vnd.dts":{"source":"iana","extensions":["dts"]},"audio/vnd.dts.hd":{"source":"iana","extensions":["dtshd"]},"audio/vnd.dts.uhd":{"source":"iana"},"audio/vnd.dvb.file":{"source":"iana"},"audio/vnd.everad.plj":{"source":"iana"},"audio/vnd.hns.audio":{"source":"iana"},"audio/vnd.lucent.voice":{"source":"iana","extensions":["lvp"]},"audio/vnd.ms-playready.media.pya":{"source":"iana","extensions":["pya"]},"audio/vnd.nokia.mobile-xmf":{"source":"iana"},"audio/vnd.nortel.vbk":{"source":"iana"},"audio/vnd.nuera.ecelp4800":{"source":"iana","extensions":["ecelp4800"]},"audio/vnd.nuera.ecelp7470":{"source":"iana","extensions":["ecelp7470"]},"audio/vnd.nuera.ecelp9600":{"source":"iana","extensions":["ecelp9600"]},"audio/vnd.octel.sbc":{"source":"iana"},"audio/vnd.presonus.multitrack":{"source":"iana"},"audio/vnd.qcelp":{"source":"iana"},"audio/vnd.rhetorex.32kadpcm":{"source":"iana"},"audio/vnd.rip":{"source":"iana","extensions":["rip"]},"audio/vnd.rn-realaudio":{"compressible":false},"audio/vnd.sealedmedia.softseal.mpeg":{"source":"iana"},"audio/vnd.vmx.cvsd":{"source":"iana"},"audio/vnd.wave":{"compressible":false},"audio/vorbis":{"source":"iana","compressible":false},"audio/vorbis-config":{"source":"iana"},"audio/wav":{"compressible":false,"extensions":["wav"]},"audio/wave":{"compressible":false,"extensions":["wav"]},"audio/webm":{"source":"apache","compressible":false,"extensions":["weba"]},"audio/x-aac":{"source":"apache","compressible":false,"extensions":["aac"]},"audio/x-aiff":{"source":"apache","extensions":["aif","aiff","aifc"]},"audio/x-caf":{"source":"apache","compressible":false,"extensions":["caf"]},"audio/x-flac":{"source":"apache","extensions":["flac"]},"audio/x-m4a":{"source":"nginx","extensions":["m4a"]},"audio/x-matroska":{"source":"apache","extensions":["mka"]},"audio/x-mpegurl":{"source":"apache","extensions":["m3u"]},"audio/x-ms-wax":{"source":"apache","extensions":["wax"]},"audio/x-ms-wma":{"source":"apache","extensions":["wma"]},"audio/x-pn-realaudio":{"source":"apache","extensions":["ram","ra"]},"audio/x-pn-realaudio-plugin":{"source":"apache","extensions":["rmp"]},"audio/x-realaudio":{"source":"nginx","extensions":["ra"]},"audio/x-tta":{"source":"apache"},"audio/x-wav":{"source":"apache","extensions":["wav"]},"audio/xm":{"source":"apache","extensions":["xm"]},"chemical/x-cdx":{"source":"apache","extensions":["cdx"]},"chemical/x-cif":{"source":"apache","extensions":["cif"]},"chemical/x-cmdf":{"source":"apache","extensions":["cmdf"]},"chemical/x-cml":{"source":"apache","extensions":["cml"]},"chemical/x-csml":{"source":"apache","extensions":["csml"]},"chemical/x-pdb":{"source":"apache"},"chemical/x-xyz":{"source":"apache","extensions":["xyz"]},"font/collection":{"source":"iana","extensions":["ttc"]},"font/otf":{"source":"iana","compressible":true,"extensions":["otf"]},"font/sfnt":{"source":"iana"},"font/ttf":{"source":"iana","compressible":true,"extensions":["ttf"]},"font/woff":{"source":"iana","extensions":["woff"]},"font/woff2":{"source":"iana","extensions":["woff2"]},"image/aces":{"source":"iana","extensions":["exr"]},"image/apng":{"compressible":false,"extensions":["apng"]},"image/avci":{"source":"iana"},"image/avcs":{"source":"iana"},"image/avif":{"source":"iana","compressible":false,"extensions":["avif"]},"image/bmp":{"source":"iana","compressible":true,"extensions":["bmp"]},"image/cgm":{"source":"iana","extensions":["cgm"]},"image/dicom-rle":{"source":"iana","extensions":["drle"]},"image/emf":{"source":"iana","extensions":["emf"]},"image/fits":{"source":"iana","extensions":["fits"]},"image/g3fax":{"source":"iana","extensions":["g3"]},"image/gif":{"source":"iana","compressible":false,"extensions":["gif"]},"image/heic":{"source":"iana","extensions":["heic"]},"image/heic-sequence":{"source":"iana","extensions":["heics"]},"image/heif":{"source":"iana","extensions":["heif"]},"image/heif-sequence":{"source":"iana","extensions":["heifs"]},"image/hej2k":{"source":"iana","extensions":["hej2"]},"image/hsj2":{"source":"iana","extensions":["hsj2"]},"image/ief":{"source":"iana","extensions":["ief"]},"image/jls":{"source":"iana","extensions":["jls"]},"image/jp2":{"source":"iana","compressible":false,"extensions":["jp2","jpg2"]},"image/jpeg":{"source":"iana","compressible":false,"extensions":["jpeg","jpg","jpe"]},"image/jph":{"source":"iana","extensions":["jph"]},"image/jphc":{"source":"iana","extensions":["jhc"]},"image/jpm":{"source":"iana","compressible":false,"extensions":["jpm"]},"image/jpx":{"source":"iana","compressible":false,"extensions":["jpx","jpf"]},"image/jxr":{"source":"iana","extensions":["jxr"]},"image/jxra":{"source":"iana","extensions":["jxra"]},"image/jxrs":{"source":"iana","extensions":["jxrs"]},"image/jxs":{"source":"iana","extensions":["jxs"]},"image/jxsc":{"source":"iana","extensions":["jxsc"]},"image/jxsi":{"source":"iana","extensions":["jxsi"]},"image/jxss":{"source":"iana","extensions":["jxss"]},"image/ktx":{"source":"iana","extensions":["ktx"]},"image/ktx2":{"source":"iana","extensions":["ktx2"]},"image/naplps":{"source":"iana"},"image/pjpeg":{"compressible":false},"image/png":{"source":"iana","compressible":false,"extensions":["png"]},"image/prs.btif":{"source":"iana","extensions":["btif"]},"image/prs.pti":{"source":"iana","extensions":["pti"]},"image/pwg-raster":{"source":"iana"},"image/sgi":{"source":"apache","extensions":["sgi"]},"image/svg+xml":{"source":"iana","compressible":true,"extensions":["svg","svgz"]},"image/t38":{"source":"iana","extensions":["t38"]},"image/tiff":{"source":"iana","compressible":false,"extensions":["tif","tiff"]},"image/tiff-fx":{"source":"iana","extensions":["tfx"]},"image/vnd.adobe.photoshop":{"source":"iana","compressible":true,"extensions":["psd"]},"image/vnd.airzip.accelerator.azv":{"source":"iana","extensions":["azv"]},"image/vnd.cns.inf2":{"source":"iana"},"image/vnd.dece.graphic":{"source":"iana","extensions":["uvi","uvvi","uvg","uvvg"]},"image/vnd.djvu":{"source":"iana","extensions":["djvu","djv"]},"image/vnd.dvb.subtitle":{"source":"iana","extensions":["sub"]},"image/vnd.dwg":{"source":"iana","extensions":["dwg"]},"image/vnd.dxf":{"source":"iana","extensions":["dxf"]},"image/vnd.fastbidsheet":{"source":"iana","extensions":["fbs"]},"image/vnd.fpx":{"source":"iana","extensions":["fpx"]},"image/vnd.fst":{"source":"iana","extensions":["fst"]},"image/vnd.fujixerox.edmics-mmr":{"source":"iana","extensions":["mmr"]},"image/vnd.fujixerox.edmics-rlc":{"source":"iana","extensions":["rlc"]},"image/vnd.globalgraphics.pgb":{"source":"iana"},"image/vnd.microsoft.icon":{"source":"iana","extensions":["ico"]},"image/vnd.mix":{"source":"iana"},"image/vnd.mozilla.apng":{"source":"iana"},"image/vnd.ms-dds":{"extensions":["dds"]},"image/vnd.ms-modi":{"source":"iana","extensions":["mdi"]},"image/vnd.ms-photo":{"source":"apache","extensions":["wdp"]},"image/vnd.net-fpx":{"source":"iana","extensions":["npx"]},"image/vnd.pco.b16":{"source":"iana","extensions":["b16"]},"image/vnd.radiance":{"source":"iana"},"image/vnd.sealed.png":{"source":"iana"},"image/vnd.sealedmedia.softseal.gif":{"source":"iana"},"image/vnd.sealedmedia.softseal.jpg":{"source":"iana"},"image/vnd.svf":{"source":"iana"},"image/vnd.tencent.tap":{"source":"iana","extensions":["tap"]},"image/vnd.valve.source.texture":{"source":"iana","extensions":["vtf"]},"image/vnd.wap.wbmp":{"source":"iana","extensions":["wbmp"]},"image/vnd.xiff":{"source":"iana","extensions":["xif"]},"image/vnd.zbrush.pcx":{"source":"iana","extensions":["pcx"]},"image/webp":{"source":"apache","extensions":["webp"]},"image/wmf":{"source":"iana","extensions":["wmf"]},"image/x-3ds":{"source":"apache","extensions":["3ds"]},"image/x-cmu-raster":{"source":"apache","extensions":["ras"]},"image/x-cmx":{"source":"apache","extensions":["cmx"]},"image/x-freehand":{"source":"apache","extensions":["fh","fhc","fh4","fh5","fh7"]},"image/x-icon":{"source":"apache","compressible":true,"extensions":["ico"]},"image/x-jng":{"source":"nginx","extensions":["jng"]},"image/x-mrsid-image":{"source":"apache","extensions":["sid"]},"image/x-ms-bmp":{"source":"nginx","compressible":true,"extensions":["bmp"]},"image/x-pcx":{"source":"apache","extensions":["pcx"]},"image/x-pict":{"source":"apache","extensions":["pic","pct"]},"image/x-portable-anymap":{"source":"apache","extensions":["pnm"]},"image/x-portable-bitmap":{"source":"apache","extensions":["pbm"]},"image/x-portable-graymap":{"source":"apache","extensions":["pgm"]},"image/x-portable-pixmap":{"source":"apache","extensions":["ppm"]},"image/x-rgb":{"source":"apache","extensions":["rgb"]},"image/x-tga":{"source":"apache","extensions":["tga"]},"image/x-xbitmap":{"source":"apache","extensions":["xbm"]},"image/x-xcf":{"compressible":false},"image/x-xpixmap":{"source":"apache","extensions":["xpm"]},"image/x-xwindowdump":{"source":"apache","extensions":["xwd"]},"message/cpim":{"source":"iana"},"message/delivery-status":{"source":"iana"},"message/disposition-notification":{"source":"iana","extensions":["disposition-notification"]},"message/external-body":{"source":"iana"},"message/feedback-report":{"source":"iana"},"message/global":{"source":"iana","extensions":["u8msg"]},"message/global-delivery-status":{"source":"iana","extensions":["u8dsn"]},"message/global-disposition-notification":{"source":"iana","extensions":["u8mdn"]},"message/global-headers":{"source":"iana","extensions":["u8hdr"]},"message/http":{"source":"iana","compressible":false},"message/imdn+xml":{"source":"iana","compressible":true},"message/news":{"source":"iana"},"message/partial":{"source":"iana","compressible":false},"message/rfc822":{"source":"iana","compressible":true,"extensions":["eml","mime"]},"message/s-http":{"source":"iana"},"message/sip":{"source":"iana"},"message/sipfrag":{"source":"iana"},"message/tracking-status":{"source":"iana"},"message/vnd.si.simp":{"source":"iana"},"message/vnd.wfa.wsc":{"source":"iana","extensions":["wsc"]},"model/3mf":{"source":"iana","extensions":["3mf"]},"model/e57":{"source":"iana"},"model/gltf+json":{"source":"iana","compressible":true,"extensions":["gltf"]},"model/gltf-binary":{"source":"iana","compressible":true,"extensions":["glb"]},"model/iges":{"source":"iana","compressible":false,"extensions":["igs","iges"]},"model/mesh":{"source":"iana","compressible":false,"extensions":["msh","mesh","silo"]},"model/mtl":{"source":"iana","extensions":["mtl"]},"model/obj":{"source":"iana","extensions":["obj"]},"model/step":{"source":"iana"},"model/step+xml":{"source":"iana","compressible":true,"extensions":["stpx"]},"model/step+zip":{"source":"iana","compressible":false,"extensions":["stpz"]},"model/step-xml+zip":{"source":"iana","compressible":false,"extensions":["stpxz"]},"model/stl":{"source":"iana","extensions":["stl"]},"model/vnd.collada+xml":{"source":"iana","compressible":true,"extensions":["dae"]},"model/vnd.dwf":{"source":"iana","extensions":["dwf"]},"model/vnd.flatland.3dml":{"source":"iana"},"model/vnd.gdl":{"source":"iana","extensions":["gdl"]},"model/vnd.gs-gdl":{"source":"apache"},"model/vnd.gs.gdl":{"source":"iana"},"model/vnd.gtw":{"source":"iana","extensions":["gtw"]},"model/vnd.moml+xml":{"source":"iana","compressible":true},"model/vnd.mts":{"source":"iana","extensions":["mts"]},"model/vnd.opengex":{"source":"iana","extensions":["ogex"]},"model/vnd.parasolid.transmit.binary":{"source":"iana","extensions":["x_b"]},"model/vnd.parasolid.transmit.text":{"source":"iana","extensions":["x_t"]},"model/vnd.pytha.pyox":{"source":"iana"},"model/vnd.rosette.annotated-data-model":{"source":"iana"},"model/vnd.sap.vds":{"source":"iana","extensions":["vds"]},"model/vnd.usdz+zip":{"source":"iana","compressible":false,"extensions":["usdz"]},"model/vnd.valve.source.compiled-map":{"source":"iana","extensions":["bsp"]},"model/vnd.vtu":{"source":"iana","extensions":["vtu"]},"model/vrml":{"source":"iana","compressible":false,"extensions":["wrl","vrml"]},"model/x3d+binary":{"source":"apache","compressible":false,"extensions":["x3db","x3dbz"]},"model/x3d+fastinfoset":{"source":"iana","extensions":["x3db"]},"model/x3d+vrml":{"source":"apache","compressible":false,"extensions":["x3dv","x3dvz"]},"model/x3d+xml":{"source":"iana","compressible":true,"extensions":["x3d","x3dz"]},"model/x3d-vrml":{"source":"iana","extensions":["x3dv"]},"multipart/alternative":{"source":"iana","compressible":false},"multipart/appledouble":{"source":"iana"},"multipart/byteranges":{"source":"iana"},"multipart/digest":{"source":"iana"},"multipart/encrypted":{"source":"iana","compressible":false},"multipart/form-data":{"source":"iana","compressible":false},"multipart/header-set":{"source":"iana"},"multipart/mixed":{"source":"iana"},"multipart/multilingual":{"source":"iana"},"multipart/parallel":{"source":"iana"},"multipart/related":{"source":"iana","compressible":false},"multipart/report":{"source":"iana"},"multipart/signed":{"source":"iana","compressible":false},"multipart/vnd.bint.med-plus":{"source":"iana"},"multipart/voice-message":{"source":"iana"},"multipart/x-mixed-replace":{"source":"iana"},"text/1d-interleaved-parityfec":{"source":"iana"},"text/cache-manifest":{"source":"iana","compressible":true,"extensions":["appcache","manifest"]},"text/calendar":{"source":"iana","extensions":["ics","ifb"]},"text/calender":{"compressible":true},"text/cmd":{"compressible":true},"text/coffeescript":{"extensions":["coffee","litcoffee"]},"text/cql":{"source":"iana"},"text/cql-expression":{"source":"iana"},"text/cql-identifier":{"source":"iana"},"text/css":{"source":"iana","charset":"UTF-8","compressible":true,"extensions":["css"]},"text/csv":{"source":"iana","compressible":true,"extensions":["csv"]},"text/csv-schema":{"source":"iana"},"text/directory":{"source":"iana"},"text/dns":{"source":"iana"},"text/ecmascript":{"source":"iana"},"text/encaprtp":{"source":"iana"},"text/enriched":{"source":"iana"},"text/fhirpath":{"source":"iana"},"text/flexfec":{"source":"iana"},"text/fwdred":{"source":"iana"},"text/gff3":{"source":"iana"},"text/grammar-ref-list":{"source":"iana"},"text/html":{"source":"iana","compressible":true,"extensions":["html","htm","shtml"]},"text/jade":{"extensions":["jade"]},"text/javascript":{"source":"iana","compressible":true},"text/jcr-cnd":{"source":"iana"},"text/jsx":{"compressible":true,"extensions":["jsx"]},"text/less":{"compressible":true,"extensions":["less"]},"text/markdown":{"source":"iana","compressible":true,"extensions":["markdown","md"]},"text/mathml":{"source":"nginx","extensions":["mml"]},"text/mdx":{"compressible":true,"extensions":["mdx"]},"text/mizar":{"source":"iana"},"text/n3":{"source":"iana","charset":"UTF-8","compressible":true,"extensions":["n3"]},"text/parameters":{"source":"iana","charset":"UTF-8"},"text/parityfec":{"source":"iana"},"text/plain":{"source":"iana","compressible":true,"extensions":["txt","text","conf","def","list","log","in","ini"]},"text/provenance-notation":{"source":"iana","charset":"UTF-8"},"text/prs.fallenstein.rst":{"source":"iana"},"text/prs.lines.tag":{"source":"iana","extensions":["dsc"]},"text/prs.prop.logic":{"source":"iana"},"text/raptorfec":{"source":"iana"},"text/red":{"source":"iana"},"text/rfc822-headers":{"source":"iana"},"text/richtext":{"source":"iana","compressible":true,"extensions":["rtx"]},"text/rtf":{"source":"iana","compressible":true,"extensions":["rtf"]},"text/rtp-enc-aescm128":{"source":"iana"},"text/rtploopback":{"source":"iana"},"text/rtx":{"source":"iana"},"text/sgml":{"source":"iana","extensions":["sgml","sgm"]},"text/shaclc":{"source":"iana"},"text/shex":{"source":"iana","extensions":["shex"]},"text/slim":{"extensions":["slim","slm"]},"text/spdx":{"source":"iana","extensions":["spdx"]},"text/strings":{"source":"iana"},"text/stylus":{"extensions":["stylus","styl"]},"text/t140":{"source":"iana"},"text/tab-separated-values":{"source":"iana","compressible":true,"extensions":["tsv"]},"text/troff":{"source":"iana","extensions":["t","tr","roff","man","me","ms"]},"text/turtle":{"source":"iana","charset":"UTF-8","extensions":["ttl"]},"text/ulpfec":{"source":"iana"},"text/uri-list":{"source":"iana","compressible":true,"extensions":["uri","uris","urls"]},"text/vcard":{"source":"iana","compressible":true,"extensions":["vcard"]},"text/vnd.a":{"source":"iana"},"text/vnd.abc":{"source":"iana"},"text/vnd.ascii-art":{"source":"iana"},"text/vnd.curl":{"source":"iana","extensions":["curl"]},"text/vnd.curl.dcurl":{"source":"apache","extensions":["dcurl"]},"text/vnd.curl.mcurl":{"source":"apache","extensions":["mcurl"]},"text/vnd.curl.scurl":{"source":"apache","extensions":["scurl"]},"text/vnd.debian.copyright":{"source":"iana","charset":"UTF-8"},"text/vnd.dmclientscript":{"source":"iana"},"text/vnd.dvb.subtitle":{"source":"iana","extensions":["sub"]},"text/vnd.esmertec.theme-descriptor":{"source":"iana","charset":"UTF-8"},"text/vnd.ficlab.flt":{"source":"iana"},"text/vnd.fly":{"source":"iana","extensions":["fly"]},"text/vnd.fmi.flexstor":{"source":"iana","extensions":["flx"]},"text/vnd.gml":{"source":"iana"},"text/vnd.graphviz":{"source":"iana","extensions":["gv"]},"text/vnd.hans":{"source":"iana"},"text/vnd.hgl":{"source":"iana"},"text/vnd.in3d.3dml":{"source":"iana","extensions":["3dml"]},"text/vnd.in3d.spot":{"source":"iana","extensions":["spot"]},"text/vnd.iptc.newsml":{"source":"iana"},"text/vnd.iptc.nitf":{"source":"iana"},"text/vnd.latex-z":{"source":"iana"},"text/vnd.motorola.reflex":{"source":"iana"},"text/vnd.ms-mediapackage":{"source":"iana"},"text/vnd.net2phone.commcenter.command":{"source":"iana"},"text/vnd.radisys.msml-basic-layout":{"source":"iana"},"text/vnd.senx.warpscript":{"source":"iana"},"text/vnd.si.uricatalogue":{"source":"iana"},"text/vnd.sosi":{"source":"iana"},"text/vnd.sun.j2me.app-descriptor":{"source":"iana","charset":"UTF-8","extensions":["jad"]},"text/vnd.trolltech.linguist":{"source":"iana","charset":"UTF-8"},"text/vnd.wap.si":{"source":"iana"},"text/vnd.wap.sl":{"source":"iana"},"text/vnd.wap.wml":{"source":"iana","extensions":["wml"]},"text/vnd.wap.wmlscript":{"source":"iana","extensions":["wmls"]},"text/vtt":{"source":"iana","charset":"UTF-8","compressible":true,"extensions":["vtt"]},"text/x-asm":{"source":"apache","extensions":["s","asm"]},"text/x-c":{"source":"apache","extensions":["c","cc","cxx","cpp","h","hh","dic"]},"text/x-component":{"source":"nginx","extensions":["htc"]},"text/x-fortran":{"source":"apache","extensions":["f","for","f77","f90"]},"text/x-gwt-rpc":{"compressible":true},"text/x-handlebars-template":{"extensions":["hbs"]},"text/x-java-source":{"source":"apache","extensions":["java"]},"text/x-jquery-tmpl":{"compressible":true},"text/x-lua":{"extensions":["lua"]},"text/x-markdown":{"compressible":true,"extensions":["mkd"]},"text/x-nfo":{"source":"apache","extensions":["nfo"]},"text/x-opml":{"source":"apache","extensions":["opml"]},"text/x-org":{"compressible":true,"extensions":["org"]},"text/x-pascal":{"source":"apache","extensions":["p","pas"]},"text/x-processing":{"compressible":true,"extensions":["pde"]},"text/x-sass":{"extensions":["sass"]},"text/x-scss":{"extensions":["scss"]},"text/x-setext":{"source":"apache","extensions":["etx"]},"text/x-sfv":{"source":"apache","extensions":["sfv"]},"text/x-suse-ymp":{"compressible":true,"extensions":["ymp"]},"text/x-uuencode":{"source":"apache","extensions":["uu"]},"text/x-vcalendar":{"source":"apache","extensions":["vcs"]},"text/x-vcard":{"source":"apache","extensions":["vcf"]},"text/xml":{"source":"iana","compressible":true,"extensions":["xml"]},"text/xml-external-parsed-entity":{"source":"iana"},"text/yaml":{"compressible":true,"extensions":["yaml","yml"]},"video/1d-interleaved-parityfec":{"source":"iana"},"video/3gpp":{"source":"iana","extensions":["3gp","3gpp"]},"video/3gpp-tt":{"source":"iana"},"video/3gpp2":{"source":"iana","extensions":["3g2"]},"video/av1":{"source":"iana"},"video/bmpeg":{"source":"iana"},"video/bt656":{"source":"iana"},"video/celb":{"source":"iana"},"video/dv":{"source":"iana"},"video/encaprtp":{"source":"iana"},"video/ffv1":{"source":"iana"},"video/flexfec":{"source":"iana"},"video/h261":{"source":"iana","extensions":["h261"]},"video/h263":{"source":"iana","extensions":["h263"]},"video/h263-1998":{"source":"iana"},"video/h263-2000":{"source":"iana"},"video/h264":{"source":"iana","extensions":["h264"]},"video/h264-rcdo":{"source":"iana"},"video/h264-svc":{"source":"iana"},"video/h265":{"source":"iana"},"video/iso.segment":{"source":"iana","extensions":["m4s"]},"video/jpeg":{"source":"iana","extensions":["jpgv"]},"video/jpeg2000":{"source":"iana"},"video/jpm":{"source":"apache","extensions":["jpm","jpgm"]},"video/jxsv":{"source":"iana"},"video/mj2":{"source":"iana","extensions":["mj2","mjp2"]},"video/mp1s":{"source":"iana"},"video/mp2p":{"source":"iana"},"video/mp2t":{"source":"iana","extensions":["ts"]},"video/mp4":{"source":"iana","compressible":false,"extensions":["mp4","mp4v","mpg4"]},"video/mp4v-es":{"source":"iana"},"video/mpeg":{"source":"iana","compressible":false,"extensions":["mpeg","mpg","mpe","m1v","m2v"]},"video/mpeg4-generic":{"source":"iana"},"video/mpv":{"source":"iana"},"video/nv":{"source":"iana"},"video/ogg":{"source":"iana","compressible":false,"extensions":["ogv"]},"video/parityfec":{"source":"iana"},"video/pointer":{"source":"iana"},"video/quicktime":{"source":"iana","compressible":false,"extensions":["qt","mov"]},"video/raptorfec":{"source":"iana"},"video/raw":{"source":"iana"},"video/rtp-enc-aescm128":{"source":"iana"},"video/rtploopback":{"source":"iana"},"video/rtx":{"source":"iana"},"video/scip":{"source":"iana"},"video/smpte291":{"source":"iana"},"video/smpte292m":{"source":"iana"},"video/ulpfec":{"source":"iana"},"video/vc1":{"source":"iana"},"video/vc2":{"source":"iana"},"video/vnd.cctv":{"source":"iana"},"video/vnd.dece.hd":{"source":"iana","extensions":["uvh","uvvh"]},"video/vnd.dece.mobile":{"source":"iana","extensions":["uvm","uvvm"]},"video/vnd.dece.mp4":{"source":"iana"},"video/vnd.dece.pd":{"source":"iana","extensions":["uvp","uvvp"]},"video/vnd.dece.sd":{"source":"iana","extensions":["uvs","uvvs"]},"video/vnd.dece.video":{"source":"iana","extensions":["uvv","uvvv"]},"video/vnd.directv.mpeg":{"source":"iana"},"video/vnd.directv.mpeg-tts":{"source":"iana"},"video/vnd.dlna.mpeg-tts":{"source":"iana"},"video/vnd.dvb.file":{"source":"iana","extensions":["dvb"]},"video/vnd.fvt":{"source":"iana","extensions":["fvt"]},"video/vnd.hns.video":{"source":"iana"},"video/vnd.iptvforum.1dparityfec-1010":{"source":"iana"},"video/vnd.iptvforum.1dparityfec-2005":{"source":"iana"},"video/vnd.iptvforum.2dparityfec-1010":{"source":"iana"},"video/vnd.iptvforum.2dparityfec-2005":{"source":"iana"},"video/vnd.iptvforum.ttsavc":{"source":"iana"},"video/vnd.iptvforum.ttsmpeg2":{"source":"iana"},"video/vnd.motorola.video":{"source":"iana"},"video/vnd.motorola.videop":{"source":"iana"},"video/vnd.mpegurl":{"source":"iana","extensions":["mxu","m4u"]},"video/vnd.ms-playready.media.pyv":{"source":"iana","extensions":["pyv"]},"video/vnd.nokia.interleaved-multimedia":{"source":"iana"},"video/vnd.nokia.mp4vr":{"source":"iana"},"video/vnd.nokia.videovoip":{"source":"iana"},"video/vnd.objectvideo":{"source":"iana"},"video/vnd.radgamettools.bink":{"source":"iana"},"video/vnd.radgamettools.smacker":{"source":"iana"},"video/vnd.sealed.mpeg1":{"source":"iana"},"video/vnd.sealed.mpeg4":{"source":"iana"},"video/vnd.sealed.swf":{"source":"iana"},"video/vnd.sealedmedia.softseal.mov":{"source":"iana"},"video/vnd.uvvu.mp4":{"source":"iana","extensions":["uvu","uvvu"]},"video/vnd.vivo":{"source":"iana","extensions":["viv"]},"video/vnd.youtube.yt":{"source":"iana"},"video/vp8":{"source":"iana"},"video/vp9":{"source":"iana"},"video/webm":{"source":"apache","compressible":false,"extensions":["webm"]},"video/x-f4v":{"source":"apache","extensions":["f4v"]},"video/x-fli":{"source":"apache","extensions":["fli"]},"video/x-flv":{"source":"apache","compressible":false,"extensions":["flv"]},"video/x-m4v":{"source":"apache","extensions":["m4v"]},"video/x-matroska":{"source":"apache","compressible":false,"extensions":["mkv","mk3d","mks"]},"video/x-mng":{"source":"apache","extensions":["mng"]},"video/x-ms-asf":{"source":"apache","extensions":["asf","asx"]},"video/x-ms-vob":{"source":"apache","extensions":["vob"]},"video/x-ms-wm":{"source":"apache","extensions":["wm"]},"video/x-ms-wmv":{"source":"apache","compressible":false,"extensions":["wmv"]},"video/x-ms-wmx":{"source":"apache","extensions":["wmx"]},"video/x-ms-wvx":{"source":"apache","extensions":["wvx"]},"video/x-msvideo":{"source":"apache","extensions":["avi"]},"video/x-sgi-movie":{"source":"apache","extensions":["movie"]},"video/x-smv":{"source":"apache","extensions":["smv"]},"x-conference/x-cooltalk":{"source":"apache","extensions":["ice"]},"x-shader/x-fragment":{"compressible":true},"x-shader/x-vertex":{"compressible":true}};
+module.exports = {"application/1d-interleaved-parityfec":{"source":"iana"},"application/3gpdash-qoe-report+xml":{"source":"iana","charset":"UTF-8","compressible":true},"application/3gpp-ims+xml":{"source":"iana","compressible":true},"application/3gpphal+json":{"source":"iana","compressible":true},"application/3gpphalforms+json":{"source":"iana","compressible":true},"application/a2l":{"source":"iana"},"application/ace+cbor":{"source":"iana"},"application/activemessage":{"source":"iana"},"application/activity+json":{"source":"iana","compressible":true},"application/alto-costmap+json":{"source":"iana","compressible":true},"application/alto-costmapfilter+json":{"source":"iana","compressible":true},"application/alto-directory+json":{"source":"iana","compressible":true},"application/alto-endpointcost+json":{"source":"iana","compressible":true},"application/alto-endpointcostparams+json":{"source":"iana","compressible":true},"application/alto-endpointprop+json":{"source":"iana","compressible":true},"application/alto-endpointpropparams+json":{"source":"iana","compressible":true},"application/alto-error+json":{"source":"iana","compressible":true},"application/alto-networkmap+json":{"source":"iana","compressible":true},"application/alto-networkmapfilter+json":{"source":"iana","compressible":true},"application/alto-updatestreamcontrol+json":{"source":"iana","compressible":true},"application/alto-updatestreamparams+json":{"source":"iana","compressible":true},"application/aml":{"source":"iana"},"application/andrew-inset":{"source":"iana","extensions":["ez"]},"application/applefile":{"source":"iana"},"application/applixware":{"source":"apache","extensions":["aw"]},"application/at+jwt":{"source":"iana"},"application/atf":{"source":"iana"},"application/atfx":{"source":"iana"},"application/atom+xml":{"source":"iana","compressible":true,"extensions":["atom"]},"application/atomcat+xml":{"source":"iana","compressible":true,"extensions":["atomcat"]},"application/atomdeleted+xml":{"source":"iana","compressible":true,"extensions":["atomdeleted"]},"application/atomicmail":{"source":"iana"},"application/atomsvc+xml":{"source":"iana","compressible":true,"extensions":["atomsvc"]},"application/atsc-dwd+xml":{"source":"iana","compressible":true,"extensions":["dwd"]},"application/atsc-dynamic-event-message":{"source":"iana"},"application/atsc-held+xml":{"source":"iana","compressible":true,"extensions":["held"]},"application/atsc-rdt+json":{"source":"iana","compressible":true},"application/atsc-rsat+xml":{"source":"iana","compressible":true,"extensions":["rsat"]},"application/atxml":{"source":"iana"},"application/auth-policy+xml":{"source":"iana","compressible":true},"application/bacnet-xdd+zip":{"source":"iana","compressible":false},"application/batch-smtp":{"source":"iana"},"application/bdoc":{"compressible":false,"extensions":["bdoc"]},"application/beep+xml":{"source":"iana","charset":"UTF-8","compressible":true},"application/calendar+json":{"source":"iana","compressible":true},"application/calendar+xml":{"source":"iana","compressible":true,"extensions":["xcs"]},"application/call-completion":{"source":"iana"},"application/cals-1840":{"source":"iana"},"application/captive+json":{"source":"iana","compressible":true},"application/cbor":{"source":"iana"},"application/cbor-seq":{"source":"iana"},"application/cccex":{"source":"iana"},"application/ccmp+xml":{"source":"iana","compressible":true},"application/ccxml+xml":{"source":"iana","compressible":true,"extensions":["ccxml"]},"application/cdfx+xml":{"source":"iana","compressible":true,"extensions":["cdfx"]},"application/cdmi-capability":{"source":"iana","extensions":["cdmia"]},"application/cdmi-container":{"source":"iana","extensions":["cdmic"]},"application/cdmi-domain":{"source":"iana","extensions":["cdmid"]},"application/cdmi-object":{"source":"iana","extensions":["cdmio"]},"application/cdmi-queue":{"source":"iana","extensions":["cdmiq"]},"application/cdni":{"source":"iana"},"application/cea":{"source":"iana"},"application/cea-2018+xml":{"source":"iana","compressible":true},"application/cellml+xml":{"source":"iana","compressible":true},"application/cfw":{"source":"iana"},"application/city+json":{"source":"iana","compressible":true},"application/clr":{"source":"iana"},"application/clue+xml":{"source":"iana","compressible":true},"application/clue_info+xml":{"source":"iana","compressible":true},"application/cms":{"source":"iana"},"application/cnrp+xml":{"source":"iana","compressible":true},"application/coap-group+json":{"source":"iana","compressible":true},"application/coap-payload":{"source":"iana"},"application/commonground":{"source":"iana"},"application/conference-info+xml":{"source":"iana","compressible":true},"application/cose":{"source":"iana"},"application/cose-key":{"source":"iana"},"application/cose-key-set":{"source":"iana"},"application/cpl+xml":{"source":"iana","compressible":true,"extensions":["cpl"]},"application/csrattrs":{"source":"iana"},"application/csta+xml":{"source":"iana","compressible":true},"application/cstadata+xml":{"source":"iana","compressible":true},"application/csvm+json":{"source":"iana","compressible":true},"application/cu-seeme":{"source":"apache","extensions":["cu"]},"application/cwt":{"source":"iana"},"application/cybercash":{"source":"iana"},"application/dart":{"compressible":true},"application/dash+xml":{"source":"iana","compressible":true,"extensions":["mpd"]},"application/dash-patch+xml":{"source":"iana","compressible":true,"extensions":["mpp"]},"application/dashdelta":{"source":"iana"},"application/davmount+xml":{"source":"iana","compressible":true,"extensions":["davmount"]},"application/dca-rft":{"source":"iana"},"application/dcd":{"source":"iana"},"application/dec-dx":{"source":"iana"},"application/dialog-info+xml":{"source":"iana","compressible":true},"application/dicom":{"source":"iana"},"application/dicom+json":{"source":"iana","compressible":true},"application/dicom+xml":{"source":"iana","compressible":true},"application/dii":{"source":"iana"},"application/dit":{"source":"iana"},"application/dns":{"source":"iana"},"application/dns+json":{"source":"iana","compressible":true},"application/dns-message":{"source":"iana"},"application/docbook+xml":{"source":"apache","compressible":true,"extensions":["dbk"]},"application/dots+cbor":{"source":"iana"},"application/dskpp+xml":{"source":"iana","compressible":true},"application/dssc+der":{"source":"iana","extensions":["dssc"]},"application/dssc+xml":{"source":"iana","compressible":true,"extensions":["xdssc"]},"application/dvcs":{"source":"iana"},"application/ecmascript":{"source":"iana","compressible":true,"extensions":["es","ecma"]},"application/edi-consent":{"source":"iana"},"application/edi-x12":{"source":"iana","compressible":false},"application/edifact":{"source":"iana","compressible":false},"application/efi":{"source":"iana"},"application/elm+json":{"source":"iana","charset":"UTF-8","compressible":true},"application/elm+xml":{"source":"iana","compressible":true},"application/emergencycalldata.cap+xml":{"source":"iana","charset":"UTF-8","compressible":true},"application/emergencycalldata.comment+xml":{"source":"iana","compressible":true},"application/emergencycalldata.control+xml":{"source":"iana","compressible":true},"application/emergencycalldata.deviceinfo+xml":{"source":"iana","compressible":true},"application/emergencycalldata.ecall.msd":{"source":"iana"},"application/emergencycalldata.providerinfo+xml":{"source":"iana","compressible":true},"application/emergencycalldata.serviceinfo+xml":{"source":"iana","compressible":true},"application/emergencycalldata.subscriberinfo+xml":{"source":"iana","compressible":true},"application/emergencycalldata.veds+xml":{"source":"iana","compressible":true},"application/emma+xml":{"source":"iana","compressible":true,"extensions":["emma"]},"application/emotionml+xml":{"source":"iana","compressible":true,"extensions":["emotionml"]},"application/encaprtp":{"source":"iana"},"application/epp+xml":{"source":"iana","compressible":true},"application/epub+zip":{"source":"iana","compressible":false,"extensions":["epub"]},"application/eshop":{"source":"iana"},"application/exi":{"source":"iana","extensions":["exi"]},"application/expect-ct-report+json":{"source":"iana","compressible":true},"application/express":{"source":"iana","extensions":["exp"]},"application/fastinfoset":{"source":"iana"},"application/fastsoap":{"source":"iana"},"application/fdt+xml":{"source":"iana","compressible":true,"extensions":["fdt"]},"application/fhir+json":{"source":"iana","charset":"UTF-8","compressible":true},"application/fhir+xml":{"source":"iana","charset":"UTF-8","compressible":true},"application/fido.trusted-apps+json":{"compressible":true},"application/fits":{"source":"iana"},"application/flexfec":{"source":"iana"},"application/font-sfnt":{"source":"iana"},"application/font-tdpfr":{"source":"iana","extensions":["pfr"]},"application/font-woff":{"source":"iana","compressible":false},"application/framework-attributes+xml":{"source":"iana","compressible":true},"application/geo+json":{"source":"iana","compressible":true,"extensions":["geojson"]},"application/geo+json-seq":{"source":"iana"},"application/geopackage+sqlite3":{"source":"iana"},"application/geoxacml+xml":{"source":"iana","compressible":true},"application/gltf-buffer":{"source":"iana"},"application/gml+xml":{"source":"iana","compressible":true,"extensions":["gml"]},"application/gpx+xml":{"source":"apache","compressible":true,"extensions":["gpx"]},"application/gxf":{"source":"apache","extensions":["gxf"]},"application/gzip":{"source":"iana","compressible":false,"extensions":["gz"]},"application/h224":{"source":"iana"},"application/held+xml":{"source":"iana","compressible":true},"application/hjson":{"extensions":["hjson"]},"application/http":{"source":"iana"},"application/hyperstudio":{"source":"iana","extensions":["stk"]},"application/ibe-key-request+xml":{"source":"iana","compressible":true},"application/ibe-pkg-reply+xml":{"source":"iana","compressible":true},"application/ibe-pp-data":{"source":"iana"},"application/iges":{"source":"iana"},"application/im-iscomposing+xml":{"source":"iana","charset":"UTF-8","compressible":true},"application/index":{"source":"iana"},"application/index.cmd":{"source":"iana"},"application/index.obj":{"source":"iana"},"application/index.response":{"source":"iana"},"application/index.vnd":{"source":"iana"},"application/inkml+xml":{"source":"iana","compressible":true,"extensions":["ink","inkml"]},"application/iotp":{"source":"iana"},"application/ipfix":{"source":"iana","extensions":["ipfix"]},"application/ipp":{"source":"iana"},"application/isup":{"source":"iana"},"application/its+xml":{"source":"iana","compressible":true,"extensions":["its"]},"application/java-archive":{"source":"apache","compressible":false,"extensions":["jar","war","ear"]},"application/java-serialized-object":{"source":"apache","compressible":false,"extensions":["ser"]},"application/java-vm":{"source":"apache","compressible":false,"extensions":["class"]},"application/javascript":{"source":"iana","charset":"UTF-8","compressible":true,"extensions":["js","mjs"]},"application/jf2feed+json":{"source":"iana","compressible":true},"application/jose":{"source":"iana"},"application/jose+json":{"source":"iana","compressible":true},"application/jrd+json":{"source":"iana","compressible":true},"application/jscalendar+json":{"source":"iana","compressible":true},"application/json":{"source":"iana","charset":"UTF-8","compressible":true,"extensions":["json","map"]},"application/json-patch+json":{"source":"iana","compressible":true},"application/json-seq":{"source":"iana"},"application/json5":{"extensions":["json5"]},"application/jsonml+json":{"source":"apache","compressible":true,"extensions":["jsonml"]},"application/jwk+json":{"source":"iana","compressible":true},"application/jwk-set+json":{"source":"iana","compressible":true},"application/jwt":{"source":"iana"},"application/kpml-request+xml":{"source":"iana","compressible":true},"application/kpml-response+xml":{"source":"iana","compressible":true},"application/ld+json":{"source":"iana","compressible":true,"extensions":["jsonld"]},"application/lgr+xml":{"source":"iana","compressible":true,"extensions":["lgr"]},"application/link-format":{"source":"iana"},"application/load-control+xml":{"source":"iana","compressible":true},"application/lost+xml":{"source":"iana","compressible":true,"extensions":["lostxml"]},"application/lostsync+xml":{"source":"iana","compressible":true},"application/lpf+zip":{"source":"iana","compressible":false},"application/lxf":{"source":"iana"},"application/mac-binhex40":{"source":"iana","extensions":["hqx"]},"application/mac-compactpro":{"source":"apache","extensions":["cpt"]},"application/macwriteii":{"source":"iana"},"application/mads+xml":{"source":"iana","compressible":true,"extensions":["mads"]},"application/manifest+json":{"source":"iana","charset":"UTF-8","compressible":true,"extensions":["webmanifest"]},"application/marc":{"source":"iana","extensions":["mrc"]},"application/marcxml+xml":{"source":"iana","compressible":true,"extensions":["mrcx"]},"application/mathematica":{"source":"iana","extensions":["ma","nb","mb"]},"application/mathml+xml":{"source":"iana","compressible":true,"extensions":["mathml"]},"application/mathml-content+xml":{"source":"iana","compressible":true},"application/mathml-presentation+xml":{"source":"iana","compressible":true},"application/mbms-associated-procedure-description+xml":{"source":"iana","compressible":true},"application/mbms-deregister+xml":{"source":"iana","compressible":true},"application/mbms-envelope+xml":{"source":"iana","compressible":true},"application/mbms-msk+xml":{"source":"iana","compressible":true},"application/mbms-msk-response+xml":{"source":"iana","compressible":true},"application/mbms-protection-description+xml":{"source":"iana","compressible":true},"application/mbms-reception-report+xml":{"source":"iana","compressible":true},"application/mbms-register+xml":{"source":"iana","compressible":true},"application/mbms-register-response+xml":{"source":"iana","compressible":true},"application/mbms-schedule+xml":{"source":"iana","compressible":true},"application/mbms-user-service-description+xml":{"source":"iana","compressible":true},"application/mbox":{"source":"iana","extensions":["mbox"]},"application/media-policy-dataset+xml":{"source":"iana","compressible":true,"extensions":["mpf"]},"application/media_control+xml":{"source":"iana","compressible":true},"application/mediaservercontrol+xml":{"source":"iana","compressible":true,"extensions":["mscml"]},"application/merge-patch+json":{"source":"iana","compressible":true},"application/metalink+xml":{"source":"apache","compressible":true,"extensions":["metalink"]},"application/metalink4+xml":{"source":"iana","compressible":true,"extensions":["meta4"]},"application/mets+xml":{"source":"iana","compressible":true,"extensions":["mets"]},"application/mf4":{"source":"iana"},"application/mikey":{"source":"iana"},"application/mipc":{"source":"iana"},"application/missing-blocks+cbor-seq":{"source":"iana"},"application/mmt-aei+xml":{"source":"iana","compressible":true,"extensions":["maei"]},"application/mmt-usd+xml":{"source":"iana","compressible":true,"extensions":["musd"]},"application/mods+xml":{"source":"iana","compressible":true,"extensions":["mods"]},"application/moss-keys":{"source":"iana"},"application/moss-signature":{"source":"iana"},"application/mosskey-data":{"source":"iana"},"application/mosskey-request":{"source":"iana"},"application/mp21":{"source":"iana","extensions":["m21","mp21"]},"application/mp4":{"source":"iana","extensions":["mp4s","m4p"]},"application/mpeg4-generic":{"source":"iana"},"application/mpeg4-iod":{"source":"iana"},"application/mpeg4-iod-xmt":{"source":"iana"},"application/mrb-consumer+xml":{"source":"iana","compressible":true},"application/mrb-publish+xml":{"source":"iana","compressible":true},"application/msc-ivr+xml":{"source":"iana","charset":"UTF-8","compressible":true},"application/msc-mixer+xml":{"source":"iana","charset":"UTF-8","compressible":true},"application/msword":{"source":"iana","compressible":false,"extensions":["doc","dot"]},"application/mud+json":{"source":"iana","compressible":true},"application/multipart-core":{"source":"iana"},"application/mxf":{"source":"iana","extensions":["mxf"]},"application/n-quads":{"source":"iana","extensions":["nq"]},"application/n-triples":{"source":"iana","extensions":["nt"]},"application/nasdata":{"source":"iana"},"application/news-checkgroups":{"source":"iana","charset":"US-ASCII"},"application/news-groupinfo":{"source":"iana","charset":"US-ASCII"},"application/news-transmission":{"source":"iana"},"application/nlsml+xml":{"source":"iana","compressible":true},"application/node":{"source":"iana","extensions":["cjs"]},"application/nss":{"source":"iana"},"application/oauth-authz-req+jwt":{"source":"iana"},"application/oblivious-dns-message":{"source":"iana"},"application/ocsp-request":{"source":"iana"},"application/ocsp-response":{"source":"iana"},"application/octet-stream":{"source":"iana","compressible":false,"extensions":["bin","dms","lrf","mar","so","dist","distz","pkg","bpk","dump","elc","deploy","exe","dll","deb","dmg","iso","img","msi","msp","msm","buffer"]},"application/oda":{"source":"iana","extensions":["oda"]},"application/odm+xml":{"source":"iana","compressible":true},"application/odx":{"source":"iana"},"application/oebps-package+xml":{"source":"iana","compressible":true,"extensions":["opf"]},"application/ogg":{"source":"iana","compressible":false,"extensions":["ogx"]},"application/omdoc+xml":{"source":"apache","compressible":true,"extensions":["omdoc"]},"application/onenote":{"source":"apache","extensions":["onetoc","onetoc2","onetmp","onepkg"]},"application/opc-nodeset+xml":{"source":"iana","compressible":true},"application/oscore":{"source":"iana"},"application/oxps":{"source":"iana","extensions":["oxps"]},"application/p21":{"source":"iana"},"application/p21+zip":{"source":"iana","compressible":false},"application/p2p-overlay+xml":{"source":"iana","compressible":true,"extensions":["relo"]},"application/parityfec":{"source":"iana"},"application/passport":{"source":"iana"},"application/patch-ops-error+xml":{"source":"iana","compressible":true,"extensions":["xer"]},"application/pdf":{"source":"iana","compressible":false,"extensions":["pdf"]},"application/pdx":{"source":"iana"},"application/pem-certificate-chain":{"source":"iana"},"application/pgp-encrypted":{"source":"iana","compressible":false,"extensions":["pgp"]},"application/pgp-keys":{"source":"iana","extensions":["asc"]},"application/pgp-signature":{"source":"iana","extensions":["asc","sig"]},"application/pics-rules":{"source":"apache","extensions":["prf"]},"application/pidf+xml":{"source":"iana","charset":"UTF-8","compressible":true},"application/pidf-diff+xml":{"source":"iana","charset":"UTF-8","compressible":true},"application/pkcs10":{"source":"iana","extensions":["p10"]},"application/pkcs12":{"source":"iana"},"application/pkcs7-mime":{"source":"iana","extensions":["p7m","p7c"]},"application/pkcs7-signature":{"source":"iana","extensions":["p7s"]},"application/pkcs8":{"source":"iana","extensions":["p8"]},"application/pkcs8-encrypted":{"source":"iana"},"application/pkix-attr-cert":{"source":"iana","extensions":["ac"]},"application/pkix-cert":{"source":"iana","extensions":["cer"]},"application/pkix-crl":{"source":"iana","extensions":["crl"]},"application/pkix-pkipath":{"source":"iana","extensions":["pkipath"]},"application/pkixcmp":{"source":"iana","extensions":["pki"]},"application/pls+xml":{"source":"iana","compressible":true,"extensions":["pls"]},"application/poc-settings+xml":{"source":"iana","charset":"UTF-8","compressible":true},"application/postscript":{"source":"iana","compressible":true,"extensions":["ai","eps","ps"]},"application/ppsp-tracker+json":{"source":"iana","compressible":true},"application/problem+json":{"source":"iana","compressible":true},"application/problem+xml":{"source":"iana","compressible":true},"application/provenance+xml":{"source":"iana","compressible":true,"extensions":["provx"]},"application/prs.alvestrand.titrax-sheet":{"source":"iana"},"application/prs.cww":{"source":"iana","extensions":["cww"]},"application/prs.cyn":{"source":"iana","charset":"7-BIT"},"application/prs.hpub+zip":{"source":"iana","compressible":false},"application/prs.nprend":{"source":"iana"},"application/prs.plucker":{"source":"iana"},"application/prs.rdf-xml-crypt":{"source":"iana"},"application/prs.xsf+xml":{"source":"iana","compressible":true},"application/pskc+xml":{"source":"iana","compressible":true,"extensions":["pskcxml"]},"application/pvd+json":{"source":"iana","compressible":true},"application/qsig":{"source":"iana"},"application/raml+yaml":{"compressible":true,"extensions":["raml"]},"application/raptorfec":{"source":"iana"},"application/rdap+json":{"source":"iana","compressible":true},"application/rdf+xml":{"source":"iana","compressible":true,"extensions":["rdf","owl"]},"application/reginfo+xml":{"source":"iana","compressible":true,"extensions":["rif"]},"application/relax-ng-compact-syntax":{"source":"iana","extensions":["rnc"]},"application/remote-printing":{"source":"iana"},"application/reputon+json":{"source":"iana","compressible":true},"application/resource-lists+xml":{"source":"iana","compressible":true,"extensions":["rl"]},"application/resource-lists-diff+xml":{"source":"iana","compressible":true,"extensions":["rld"]},"application/rfc+xml":{"source":"iana","compressible":true},"application/riscos":{"source":"iana"},"application/rlmi+xml":{"source":"iana","compressible":true},"application/rls-services+xml":{"source":"iana","compressible":true,"extensions":["rs"]},"application/route-apd+xml":{"source":"iana","compressible":true,"extensions":["rapd"]},"application/route-s-tsid+xml":{"source":"iana","compressible":true,"extensions":["sls"]},"application/route-usd+xml":{"source":"iana","compressible":true,"extensions":["rusd"]},"application/rpki-ghostbusters":{"source":"iana","extensions":["gbr"]},"application/rpki-manifest":{"source":"iana","extensions":["mft"]},"application/rpki-publication":{"source":"iana"},"application/rpki-roa":{"source":"iana","extensions":["roa"]},"application/rpki-updown":{"source":"iana"},"application/rsd+xml":{"source":"apache","compressible":true,"extensions":["rsd"]},"application/rss+xml":{"source":"apache","compressible":true,"extensions":["rss"]},"application/rtf":{"source":"iana","compressible":true,"extensions":["rtf"]},"application/rtploopback":{"source":"iana"},"application/rtx":{"source":"iana"},"application/samlassertion+xml":{"source":"iana","compressible":true},"application/samlmetadata+xml":{"source":"iana","compressible":true},"application/sarif+json":{"source":"iana","compressible":true},"application/sarif-external-properties+json":{"source":"iana","compressible":true},"application/sbe":{"source":"iana"},"application/sbml+xml":{"source":"iana","compressible":true,"extensions":["sbml"]},"application/scaip+xml":{"source":"iana","compressible":true},"application/scim+json":{"source":"iana","compressible":true},"application/scvp-cv-request":{"source":"iana","extensions":["scq"]},"application/scvp-cv-response":{"source":"iana","extensions":["scs"]},"application/scvp-vp-request":{"source":"iana","extensions":["spq"]},"application/scvp-vp-response":{"source":"iana","extensions":["spp"]},"application/sdp":{"source":"iana","extensions":["sdp"]},"application/secevent+jwt":{"source":"iana"},"application/senml+cbor":{"source":"iana"},"application/senml+json":{"source":"iana","compressible":true},"application/senml+xml":{"source":"iana","compressible":true,"extensions":["senmlx"]},"application/senml-etch+cbor":{"source":"iana"},"application/senml-etch+json":{"source":"iana","compressible":true},"application/senml-exi":{"source":"iana"},"application/sensml+cbor":{"source":"iana"},"application/sensml+json":{"source":"iana","compressible":true},"application/sensml+xml":{"source":"iana","compressible":true,"extensions":["sensmlx"]},"application/sensml-exi":{"source":"iana"},"application/sep+xml":{"source":"iana","compressible":true},"application/sep-exi":{"source":"iana"},"application/session-info":{"source":"iana"},"application/set-payment":{"source":"iana"},"application/set-payment-initiation":{"source":"iana","extensions":["setpay"]},"application/set-registration":{"source":"iana"},"application/set-registration-initiation":{"source":"iana","extensions":["setreg"]},"application/sgml":{"source":"iana"},"application/sgml-open-catalog":{"source":"iana"},"application/shf+xml":{"source":"iana","compressible":true,"extensions":["shf"]},"application/sieve":{"source":"iana","extensions":["siv","sieve"]},"application/simple-filter+xml":{"source":"iana","compressible":true},"application/simple-message-summary":{"source":"iana"},"application/simplesymbolcontainer":{"source":"iana"},"application/sipc":{"source":"iana"},"application/slate":{"source":"iana"},"application/smil":{"source":"iana"},"application/smil+xml":{"source":"iana","compressible":true,"extensions":["smi","smil"]},"application/smpte336m":{"source":"iana"},"application/soap+fastinfoset":{"source":"iana"},"application/soap+xml":{"source":"iana","compressible":true},"application/sparql-query":{"source":"iana","extensions":["rq"]},"application/sparql-results+xml":{"source":"iana","compressible":true,"extensions":["srx"]},"application/spdx+json":{"source":"iana","compressible":true},"application/spirits-event+xml":{"source":"iana","compressible":true},"application/sql":{"source":"iana"},"application/srgs":{"source":"iana","extensions":["gram"]},"application/srgs+xml":{"source":"iana","compressible":true,"extensions":["grxml"]},"application/sru+xml":{"source":"iana","compressible":true,"extensions":["sru"]},"application/ssdl+xml":{"source":"apache","compressible":true,"extensions":["ssdl"]},"application/ssml+xml":{"source":"iana","compressible":true,"extensions":["ssml"]},"application/stix+json":{"source":"iana","compressible":true},"application/swid+xml":{"source":"iana","compressible":true,"extensions":["swidtag"]},"application/tamp-apex-update":{"source":"iana"},"application/tamp-apex-update-confirm":{"source":"iana"},"application/tamp-community-update":{"source":"iana"},"application/tamp-community-update-confirm":{"source":"iana"},"application/tamp-error":{"source":"iana"},"application/tamp-sequence-adjust":{"source":"iana"},"application/tamp-sequence-adjust-confirm":{"source":"iana"},"application/tamp-status-query":{"source":"iana"},"application/tamp-status-response":{"source":"iana"},"application/tamp-update":{"source":"iana"},"application/tamp-update-confirm":{"source":"iana"},"application/tar":{"compressible":true},"application/taxii+json":{"source":"iana","compressible":true},"application/td+json":{"source":"iana","compressible":true},"application/tei+xml":{"source":"iana","compressible":true,"extensions":["tei","teicorpus"]},"application/tetra_isi":{"source":"iana"},"application/thraud+xml":{"source":"iana","compressible":true,"extensions":["tfi"]},"application/timestamp-query":{"source":"iana"},"application/timestamp-reply":{"source":"iana"},"application/timestamped-data":{"source":"iana","extensions":["tsd"]},"application/tlsrpt+gzip":{"source":"iana"},"application/tlsrpt+json":{"source":"iana","compressible":true},"application/tnauthlist":{"source":"iana"},"application/token-introspection+jwt":{"source":"iana"},"application/toml":{"compressible":true,"extensions":["toml"]},"application/trickle-ice-sdpfrag":{"source":"iana"},"application/trig":{"source":"iana","extensions":["trig"]},"application/ttml+xml":{"source":"iana","compressible":true,"extensions":["ttml"]},"application/tve-trigger":{"source":"iana"},"application/tzif":{"source":"iana"},"application/tzif-leap":{"source":"iana"},"application/ubjson":{"compressible":false,"extensions":["ubj"]},"application/ulpfec":{"source":"iana"},"application/urc-grpsheet+xml":{"source":"iana","compressible":true},"application/urc-ressheet+xml":{"source":"iana","compressible":true,"extensions":["rsheet"]},"application/urc-targetdesc+xml":{"source":"iana","compressible":true,"extensions":["td"]},"application/urc-uisocketdesc+xml":{"source":"iana","compressible":true},"application/vcard+json":{"source":"iana","compressible":true},"application/vcard+xml":{"source":"iana","compressible":true},"application/vemmi":{"source":"iana"},"application/vividence.scriptfile":{"source":"apache"},"application/vnd.1000minds.decision-model+xml":{"source":"iana","compressible":true,"extensions":["1km"]},"application/vnd.3gpp-prose+xml":{"source":"iana","compressible":true},"application/vnd.3gpp-prose-pc3ch+xml":{"source":"iana","compressible":true},"application/vnd.3gpp-v2x-local-service-information":{"source":"iana"},"application/vnd.3gpp.5gnas":{"source":"iana"},"application/vnd.3gpp.access-transfer-events+xml":{"source":"iana","compressible":true},"application/vnd.3gpp.bsf+xml":{"source":"iana","compressible":true},"application/vnd.3gpp.gmop+xml":{"source":"iana","compressible":true},"application/vnd.3gpp.gtpc":{"source":"iana"},"application/vnd.3gpp.interworking-data":{"source":"iana"},"application/vnd.3gpp.lpp":{"source":"iana"},"application/vnd.3gpp.mc-signalling-ear":{"source":"iana"},"application/vnd.3gpp.mcdata-affiliation-command+xml":{"source":"iana","compressible":true},"application/vnd.3gpp.mcdata-info+xml":{"source":"iana","compressible":true},"application/vnd.3gpp.mcdata-payload":{"source":"iana"},"application/vnd.3gpp.mcdata-service-config+xml":{"source":"iana","compressible":true},"application/vnd.3gpp.mcdata-signalling":{"source":"iana"},"application/vnd.3gpp.mcdata-ue-config+xml":{"source":"iana","compressible":true},"application/vnd.3gpp.mcdata-user-profile+xml":{"source":"iana","compressible":true},"application/vnd.3gpp.mcptt-affiliation-command+xml":{"source":"iana","compressible":true},"application/vnd.3gpp.mcptt-floor-request+xml":{"source":"iana","compressible":true},"application/vnd.3gpp.mcptt-info+xml":{"source":"iana","compressible":true},"application/vnd.3gpp.mcptt-location-info+xml":{"source":"iana","compressible":true},"application/vnd.3gpp.mcptt-mbms-usage-info+xml":{"source":"iana","compressible":true},"application/vnd.3gpp.mcptt-service-config+xml":{"source":"iana","compressible":true},"application/vnd.3gpp.mcptt-signed+xml":{"source":"iana","compressible":true},"application/vnd.3gpp.mcptt-ue-config+xml":{"source":"iana","compressible":true},"application/vnd.3gpp.mcptt-ue-init-config+xml":{"source":"iana","compressible":true},"application/vnd.3gpp.mcptt-user-profile+xml":{"source":"iana","compressible":true},"application/vnd.3gpp.mcvideo-affiliation-command+xml":{"source":"iana","compressible":true},"application/vnd.3gpp.mcvideo-affiliation-info+xml":{"source":"iana","compressible":true},"application/vnd.3gpp.mcvideo-info+xml":{"source":"iana","compressible":true},"application/vnd.3gpp.mcvideo-location-info+xml":{"source":"iana","compressible":true},"application/vnd.3gpp.mcvideo-mbms-usage-info+xml":{"source":"iana","compressible":true},"application/vnd.3gpp.mcvideo-service-config+xml":{"source":"iana","compressible":true},"application/vnd.3gpp.mcvideo-transmission-request+xml":{"source":"iana","compressible":true},"application/vnd.3gpp.mcvideo-ue-config+xml":{"source":"iana","compressible":true},"application/vnd.3gpp.mcvideo-user-profile+xml":{"source":"iana","compressible":true},"application/vnd.3gpp.mid-call+xml":{"source":"iana","compressible":true},"application/vnd.3gpp.ngap":{"source":"iana"},"application/vnd.3gpp.pfcp":{"source":"iana"},"application/vnd.3gpp.pic-bw-large":{"source":"iana","extensions":["plb"]},"application/vnd.3gpp.pic-bw-small":{"source":"iana","extensions":["psb"]},"application/vnd.3gpp.pic-bw-var":{"source":"iana","extensions":["pvb"]},"application/vnd.3gpp.s1ap":{"source":"iana"},"application/vnd.3gpp.sms":{"source":"iana"},"application/vnd.3gpp.sms+xml":{"source":"iana","compressible":true},"application/vnd.3gpp.srvcc-ext+xml":{"source":"iana","compressible":true},"application/vnd.3gpp.srvcc-info+xml":{"source":"iana","compressible":true},"application/vnd.3gpp.state-and-event-info+xml":{"source":"iana","compressible":true},"application/vnd.3gpp.ussd+xml":{"source":"iana","compressible":true},"application/vnd.3gpp2.bcmcsinfo+xml":{"source":"iana","compressible":true},"application/vnd.3gpp2.sms":{"source":"iana"},"application/vnd.3gpp2.tcap":{"source":"iana","extensions":["tcap"]},"application/vnd.3lightssoftware.imagescal":{"source":"iana"},"application/vnd.3m.post-it-notes":{"source":"iana","extensions":["pwn"]},"application/vnd.accpac.simply.aso":{"source":"iana","extensions":["aso"]},"application/vnd.accpac.simply.imp":{"source":"iana","extensions":["imp"]},"application/vnd.acucobol":{"source":"iana","extensions":["acu"]},"application/vnd.acucorp":{"source":"iana","extensions":["atc","acutc"]},"application/vnd.adobe.air-application-installer-package+zip":{"source":"apache","compressible":false,"extensions":["air"]},"application/vnd.adobe.flash.movie":{"source":"iana"},"application/vnd.adobe.formscentral.fcdt":{"source":"iana","extensions":["fcdt"]},"application/vnd.adobe.fxp":{"source":"iana","extensions":["fxp","fxpl"]},"application/vnd.adobe.partial-upload":{"source":"iana"},"application/vnd.adobe.xdp+xml":{"source":"iana","compressible":true,"extensions":["xdp"]},"application/vnd.adobe.xfdf":{"source":"iana","extensions":["xfdf"]},"application/vnd.aether.imp":{"source":"iana"},"application/vnd.afpc.afplinedata":{"source":"iana"},"application/vnd.afpc.afplinedata-pagedef":{"source":"iana"},"application/vnd.afpc.cmoca-cmresource":{"source":"iana"},"application/vnd.afpc.foca-charset":{"source":"iana"},"application/vnd.afpc.foca-codedfont":{"source":"iana"},"application/vnd.afpc.foca-codepage":{"source":"iana"},"application/vnd.afpc.modca":{"source":"iana"},"application/vnd.afpc.modca-cmtable":{"source":"iana"},"application/vnd.afpc.modca-formdef":{"source":"iana"},"application/vnd.afpc.modca-mediummap":{"source":"iana"},"application/vnd.afpc.modca-objectcontainer":{"source":"iana"},"application/vnd.afpc.modca-overlay":{"source":"iana"},"application/vnd.afpc.modca-pagesegment":{"source":"iana"},"application/vnd.age":{"source":"iana","extensions":["age"]},"application/vnd.ah-barcode":{"source":"iana"},"application/vnd.ahead.space":{"source":"iana","extensions":["ahead"]},"application/vnd.airzip.filesecure.azf":{"source":"iana","extensions":["azf"]},"application/vnd.airzip.filesecure.azs":{"source":"iana","extensions":["azs"]},"application/vnd.amadeus+json":{"source":"iana","compressible":true},"application/vnd.amazon.ebook":{"source":"apache","extensions":["azw"]},"application/vnd.amazon.mobi8-ebook":{"source":"iana"},"application/vnd.americandynamics.acc":{"source":"iana","extensions":["acc"]},"application/vnd.amiga.ami":{"source":"iana","extensions":["ami"]},"application/vnd.amundsen.maze+xml":{"source":"iana","compressible":true},"application/vnd.android.ota":{"source":"iana"},"application/vnd.android.package-archive":{"source":"apache","compressible":false,"extensions":["apk"]},"application/vnd.anki":{"source":"iana"},"application/vnd.anser-web-certificate-issue-initiation":{"source":"iana","extensions":["cii"]},"application/vnd.anser-web-funds-transfer-initiation":{"source":"apache","extensions":["fti"]},"application/vnd.antix.game-component":{"source":"iana","extensions":["atx"]},"application/vnd.apache.arrow.file":{"source":"iana"},"application/vnd.apache.arrow.stream":{"source":"iana"},"application/vnd.apache.thrift.binary":{"source":"iana"},"application/vnd.apache.thrift.compact":{"source":"iana"},"application/vnd.apache.thrift.json":{"source":"iana"},"application/vnd.api+json":{"source":"iana","compressible":true},"application/vnd.aplextor.warrp+json":{"source":"iana","compressible":true},"application/vnd.apothekende.reservation+json":{"source":"iana","compressible":true},"application/vnd.apple.installer+xml":{"source":"iana","compressible":true,"extensions":["mpkg"]},"application/vnd.apple.keynote":{"source":"iana","extensions":["key"]},"application/vnd.apple.mpegurl":{"source":"iana","extensions":["m3u8"]},"application/vnd.apple.numbers":{"source":"iana","extensions":["numbers"]},"application/vnd.apple.pages":{"source":"iana","extensions":["pages"]},"application/vnd.apple.pkpass":{"compressible":false,"extensions":["pkpass"]},"application/vnd.arastra.swi":{"source":"iana"},"application/vnd.aristanetworks.swi":{"source":"iana","extensions":["swi"]},"application/vnd.artisan+json":{"source":"iana","compressible":true},"application/vnd.artsquare":{"source":"iana"},"application/vnd.astraea-software.iota":{"source":"iana","extensions":["iota"]},"application/vnd.audiograph":{"source":"iana","extensions":["aep"]},"application/vnd.autopackage":{"source":"iana"},"application/vnd.avalon+json":{"source":"iana","compressible":true},"application/vnd.avistar+xml":{"source":"iana","compressible":true},"application/vnd.balsamiq.bmml+xml":{"source":"iana","compressible":true,"extensions":["bmml"]},"application/vnd.balsamiq.bmpr":{"source":"iana"},"application/vnd.banana-accounting":{"source":"iana"},"application/vnd.bbf.usp.error":{"source":"iana"},"application/vnd.bbf.usp.msg":{"source":"iana"},"application/vnd.bbf.usp.msg+json":{"source":"iana","compressible":true},"application/vnd.bekitzur-stech+json":{"source":"iana","compressible":true},"application/vnd.bint.med-content":{"source":"iana"},"application/vnd.biopax.rdf+xml":{"source":"iana","compressible":true},"application/vnd.blink-idb-value-wrapper":{"source":"iana"},"application/vnd.blueice.multipass":{"source":"iana","extensions":["mpm"]},"application/vnd.bluetooth.ep.oob":{"source":"iana"},"application/vnd.bluetooth.le.oob":{"source":"iana"},"application/vnd.bmi":{"source":"iana","extensions":["bmi"]},"application/vnd.bpf":{"source":"iana"},"application/vnd.bpf3":{"source":"iana"},"application/vnd.businessobjects":{"source":"iana","extensions":["rep"]},"application/vnd.byu.uapi+json":{"source":"iana","compressible":true},"application/vnd.cab-jscript":{"source":"iana"},"application/vnd.canon-cpdl":{"source":"iana"},"application/vnd.canon-lips":{"source":"iana"},"application/vnd.capasystems-pg+json":{"source":"iana","compressible":true},"application/vnd.cendio.thinlinc.clientconf":{"source":"iana"},"application/vnd.century-systems.tcp_stream":{"source":"iana"},"application/vnd.chemdraw+xml":{"source":"iana","compressible":true,"extensions":["cdxml"]},"application/vnd.chess-pgn":{"source":"iana"},"application/vnd.chipnuts.karaoke-mmd":{"source":"iana","extensions":["mmd"]},"application/vnd.ciedi":{"source":"iana"},"application/vnd.cinderella":{"source":"iana","extensions":["cdy"]},"application/vnd.cirpack.isdn-ext":{"source":"iana"},"application/vnd.citationstyles.style+xml":{"source":"iana","compressible":true,"extensions":["csl"]},"application/vnd.claymore":{"source":"iana","extensions":["cla"]},"application/vnd.cloanto.rp9":{"source":"iana","extensions":["rp9"]},"application/vnd.clonk.c4group":{"source":"iana","extensions":["c4g","c4d","c4f","c4p","c4u"]},"application/vnd.cluetrust.cartomobile-config":{"source":"iana","extensions":["c11amc"]},"application/vnd.cluetrust.cartomobile-config-pkg":{"source":"iana","extensions":["c11amz"]},"application/vnd.coffeescript":{"source":"iana"},"application/vnd.collabio.xodocuments.document":{"source":"iana"},"application/vnd.collabio.xodocuments.document-template":{"source":"iana"},"application/vnd.collabio.xodocuments.presentation":{"source":"iana"},"application/vnd.collabio.xodocuments.presentation-template":{"source":"iana"},"application/vnd.collabio.xodocuments.spreadsheet":{"source":"iana"},"application/vnd.collabio.xodocuments.spreadsheet-template":{"source":"iana"},"application/vnd.collection+json":{"source":"iana","compressible":true},"application/vnd.collection.doc+json":{"source":"iana","compressible":true},"application/vnd.collection.next+json":{"source":"iana","compressible":true},"application/vnd.comicbook+zip":{"source":"iana","compressible":false},"application/vnd.comicbook-rar":{"source":"iana"},"application/vnd.commerce-battelle":{"source":"iana"},"application/vnd.commonspace":{"source":"iana","extensions":["csp"]},"application/vnd.contact.cmsg":{"source":"iana","extensions":["cdbcmsg"]},"application/vnd.coreos.ignition+json":{"source":"iana","compressible":true},"application/vnd.cosmocaller":{"source":"iana","extensions":["cmc"]},"application/vnd.crick.clicker":{"source":"iana","extensions":["clkx"]},"application/vnd.crick.clicker.keyboard":{"source":"iana","extensions":["clkk"]},"application/vnd.crick.clicker.palette":{"source":"iana","extensions":["clkp"]},"application/vnd.crick.clicker.template":{"source":"iana","extensions":["clkt"]},"application/vnd.crick.clicker.wordbank":{"source":"iana","extensions":["clkw"]},"application/vnd.criticaltools.wbs+xml":{"source":"iana","compressible":true,"extensions":["wbs"]},"application/vnd.cryptii.pipe+json":{"source":"iana","compressible":true},"application/vnd.crypto-shade-file":{"source":"iana"},"application/vnd.cryptomator.encrypted":{"source":"iana"},"application/vnd.cryptomator.vault":{"source":"iana"},"application/vnd.ctc-posml":{"source":"iana","extensions":["pml"]},"application/vnd.ctct.ws+xml":{"source":"iana","compressible":true},"application/vnd.cups-pdf":{"source":"iana"},"application/vnd.cups-postscript":{"source":"iana"},"application/vnd.cups-ppd":{"source":"iana","extensions":["ppd"]},"application/vnd.cups-raster":{"source":"iana"},"application/vnd.cups-raw":{"source":"iana"},"application/vnd.curl":{"source":"iana"},"application/vnd.curl.car":{"source":"apache","extensions":["car"]},"application/vnd.curl.pcurl":{"source":"apache","extensions":["pcurl"]},"application/vnd.cyan.dean.root+xml":{"source":"iana","compressible":true},"application/vnd.cybank":{"source":"iana"},"application/vnd.cyclonedx+json":{"source":"iana","compressible":true},"application/vnd.cyclonedx+xml":{"source":"iana","compressible":true},"application/vnd.d2l.coursepackage1p0+zip":{"source":"iana","compressible":false},"application/vnd.d3m-dataset":{"source":"iana"},"application/vnd.d3m-problem":{"source":"iana"},"application/vnd.dart":{"source":"iana","compressible":true,"extensions":["dart"]},"application/vnd.data-vision.rdz":{"source":"iana","extensions":["rdz"]},"application/vnd.datapackage+json":{"source":"iana","compressible":true},"application/vnd.dataresource+json":{"source":"iana","compressible":true},"application/vnd.dbf":{"source":"iana","extensions":["dbf"]},"application/vnd.debian.binary-package":{"source":"iana"},"application/vnd.dece.data":{"source":"iana","extensions":["uvf","uvvf","uvd","uvvd"]},"application/vnd.dece.ttml+xml":{"source":"iana","compressible":true,"extensions":["uvt","uvvt"]},"application/vnd.dece.unspecified":{"source":"iana","extensions":["uvx","uvvx"]},"application/vnd.dece.zip":{"source":"iana","extensions":["uvz","uvvz"]},"application/vnd.denovo.fcselayout-link":{"source":"iana","extensions":["fe_launch"]},"application/vnd.desmume.movie":{"source":"iana"},"application/vnd.dir-bi.plate-dl-nosuffix":{"source":"iana"},"application/vnd.dm.delegation+xml":{"source":"iana","compressible":true},"application/vnd.dna":{"source":"iana","extensions":["dna"]},"application/vnd.document+json":{"source":"iana","compressible":true},"application/vnd.dolby.mlp":{"source":"apache","extensions":["mlp"]},"application/vnd.dolby.mobile.1":{"source":"iana"},"application/vnd.dolby.mobile.2":{"source":"iana"},"application/vnd.doremir.scorecloud-binary-document":{"source":"iana"},"application/vnd.dpgraph":{"source":"iana","extensions":["dpg"]},"application/vnd.dreamfactory":{"source":"iana","extensions":["dfac"]},"application/vnd.drive+json":{"source":"iana","compressible":true},"application/vnd.ds-keypoint":{"source":"apache","extensions":["kpxx"]},"application/vnd.dtg.local":{"source":"iana"},"application/vnd.dtg.local.flash":{"source":"iana"},"application/vnd.dtg.local.html":{"source":"iana"},"application/vnd.dvb.ait":{"source":"iana","extensions":["ait"]},"application/vnd.dvb.dvbisl+xml":{"source":"iana","compressible":true},"application/vnd.dvb.dvbj":{"source":"iana"},"application/vnd.dvb.esgcontainer":{"source":"iana"},"application/vnd.dvb.ipdcdftnotifaccess":{"source":"iana"},"application/vnd.dvb.ipdcesgaccess":{"source":"iana"},"application/vnd.dvb.ipdcesgaccess2":{"source":"iana"},"application/vnd.dvb.ipdcesgpdd":{"source":"iana"},"application/vnd.dvb.ipdcroaming":{"source":"iana"},"application/vnd.dvb.iptv.alfec-base":{"source":"iana"},"application/vnd.dvb.iptv.alfec-enhancement":{"source":"iana"},"application/vnd.dvb.notif-aggregate-root+xml":{"source":"iana","compressible":true},"application/vnd.dvb.notif-container+xml":{"source":"iana","compressible":true},"application/vnd.dvb.notif-generic+xml":{"source":"iana","compressible":true},"application/vnd.dvb.notif-ia-msglist+xml":{"source":"iana","compressible":true},"application/vnd.dvb.notif-ia-registration-request+xml":{"source":"iana","compressible":true},"application/vnd.dvb.notif-ia-registration-response+xml":{"source":"iana","compressible":true},"application/vnd.dvb.notif-init+xml":{"source":"iana","compressible":true},"application/vnd.dvb.pfr":{"source":"iana"},"application/vnd.dvb.service":{"source":"iana","extensions":["svc"]},"application/vnd.dxr":{"source":"iana"},"application/vnd.dynageo":{"source":"iana","extensions":["geo"]},"application/vnd.dzr":{"source":"iana"},"application/vnd.easykaraoke.cdgdownload":{"source":"iana"},"application/vnd.ecdis-update":{"source":"iana"},"application/vnd.ecip.rlp":{"source":"iana"},"application/vnd.eclipse.ditto+json":{"source":"iana","compressible":true},"application/vnd.ecowin.chart":{"source":"iana","extensions":["mag"]},"application/vnd.ecowin.filerequest":{"source":"iana"},"application/vnd.ecowin.fileupdate":{"source":"iana"},"application/vnd.ecowin.series":{"source":"iana"},"application/vnd.ecowin.seriesrequest":{"source":"iana"},"application/vnd.ecowin.seriesupdate":{"source":"iana"},"application/vnd.efi.img":{"source":"iana"},"application/vnd.efi.iso":{"source":"iana"},"application/vnd.emclient.accessrequest+xml":{"source":"iana","compressible":true},"application/vnd.enliven":{"source":"iana","extensions":["nml"]},"application/vnd.enphase.envoy":{"source":"iana"},"application/vnd.eprints.data+xml":{"source":"iana","compressible":true},"application/vnd.epson.esf":{"source":"iana","extensions":["esf"]},"application/vnd.epson.msf":{"source":"iana","extensions":["msf"]},"application/vnd.epson.quickanime":{"source":"iana","extensions":["qam"]},"application/vnd.epson.salt":{"source":"iana","extensions":["slt"]},"application/vnd.epson.ssf":{"source":"iana","extensions":["ssf"]},"application/vnd.ericsson.quickcall":{"source":"iana"},"application/vnd.espass-espass+zip":{"source":"iana","compressible":false},"application/vnd.eszigno3+xml":{"source":"iana","compressible":true,"extensions":["es3","et3"]},"application/vnd.etsi.aoc+xml":{"source":"iana","compressible":true},"application/vnd.etsi.asic-e+zip":{"source":"iana","compressible":false},"application/vnd.etsi.asic-s+zip":{"source":"iana","compressible":false},"application/vnd.etsi.cug+xml":{"source":"iana","compressible":true},"application/vnd.etsi.iptvcommand+xml":{"source":"iana","compressible":true},"application/vnd.etsi.iptvdiscovery+xml":{"source":"iana","compressible":true},"application/vnd.etsi.iptvprofile+xml":{"source":"iana","compressible":true},"application/vnd.etsi.iptvsad-bc+xml":{"source":"iana","compressible":true},"application/vnd.etsi.iptvsad-cod+xml":{"source":"iana","compressible":true},"application/vnd.etsi.iptvsad-npvr+xml":{"source":"iana","compressible":true},"application/vnd.etsi.iptvservice+xml":{"source":"iana","compressible":true},"application/vnd.etsi.iptvsync+xml":{"source":"iana","compressible":true},"application/vnd.etsi.iptvueprofile+xml":{"source":"iana","compressible":true},"application/vnd.etsi.mcid+xml":{"source":"iana","compressible":true},"application/vnd.etsi.mheg5":{"source":"iana"},"application/vnd.etsi.overload-control-policy-dataset+xml":{"source":"iana","compressible":true},"application/vnd.etsi.pstn+xml":{"source":"iana","compressible":true},"application/vnd.etsi.sci+xml":{"source":"iana","compressible":true},"application/vnd.etsi.simservs+xml":{"source":"iana","compressible":true},"application/vnd.etsi.timestamp-token":{"source":"iana"},"application/vnd.etsi.tsl+xml":{"source":"iana","compressible":true},"application/vnd.etsi.tsl.der":{"source":"iana"},"application/vnd.eu.kasparian.car+json":{"source":"iana","compressible":true},"application/vnd.eudora.data":{"source":"iana"},"application/vnd.evolv.ecig.profile":{"source":"iana"},"application/vnd.evolv.ecig.settings":{"source":"iana"},"application/vnd.evolv.ecig.theme":{"source":"iana"},"application/vnd.exstream-empower+zip":{"source":"iana","compressible":false},"application/vnd.exstream-package":{"source":"iana"},"application/vnd.ezpix-album":{"source":"iana","extensions":["ez2"]},"application/vnd.ezpix-package":{"source":"iana","extensions":["ez3"]},"application/vnd.f-secure.mobile":{"source":"iana"},"application/vnd.familysearch.gedcom+zip":{"source":"iana","compressible":false},"application/vnd.fastcopy-disk-image":{"source":"iana"},"application/vnd.fdf":{"source":"iana","extensions":["fdf"]},"application/vnd.fdsn.mseed":{"source":"iana","extensions":["mseed"]},"application/vnd.fdsn.seed":{"source":"iana","extensions":["seed","dataless"]},"application/vnd.ffsns":{"source":"iana"},"application/vnd.ficlab.flb+zip":{"source":"iana","compressible":false},"application/vnd.filmit.zfc":{"source":"iana"},"application/vnd.fints":{"source":"iana"},"application/vnd.firemonkeys.cloudcell":{"source":"iana"},"application/vnd.flographit":{"source":"iana","extensions":["gph"]},"application/vnd.fluxtime.clip":{"source":"iana","extensions":["ftc"]},"application/vnd.font-fontforge-sfd":{"source":"iana"},"application/vnd.framemaker":{"source":"iana","extensions":["fm","frame","maker","book"]},"application/vnd.frogans.fnc":{"source":"iana","extensions":["fnc"]},"application/vnd.frogans.ltf":{"source":"iana","extensions":["ltf"]},"application/vnd.fsc.weblaunch":{"source":"iana","extensions":["fsc"]},"application/vnd.fujifilm.fb.docuworks":{"source":"iana"},"application/vnd.fujifilm.fb.docuworks.binder":{"source":"iana"},"application/vnd.fujifilm.fb.docuworks.container":{"source":"iana"},"application/vnd.fujifilm.fb.jfi+xml":{"source":"iana","compressible":true},"application/vnd.fujitsu.oasys":{"source":"iana","extensions":["oas"]},"application/vnd.fujitsu.oasys2":{"source":"iana","extensions":["oa2"]},"application/vnd.fujitsu.oasys3":{"source":"iana","extensions":["oa3"]},"application/vnd.fujitsu.oasysgp":{"source":"iana","extensions":["fg5"]},"application/vnd.fujitsu.oasysprs":{"source":"iana","extensions":["bh2"]},"application/vnd.fujixerox.art-ex":{"source":"iana"},"application/vnd.fujixerox.art4":{"source":"iana"},"application/vnd.fujixerox.ddd":{"source":"iana","extensions":["ddd"]},"application/vnd.fujixerox.docuworks":{"source":"iana","extensions":["xdw"]},"application/vnd.fujixerox.docuworks.binder":{"source":"iana","extensions":["xbd"]},"application/vnd.fujixerox.docuworks.container":{"source":"iana"},"application/vnd.fujixerox.hbpl":{"source":"iana"},"application/vnd.fut-misnet":{"source":"iana"},"application/vnd.futoin+cbor":{"source":"iana"},"application/vnd.futoin+json":{"source":"iana","compressible":true},"application/vnd.fuzzysheet":{"source":"iana","extensions":["fzs"]},"application/vnd.genomatix.tuxedo":{"source":"iana","extensions":["txd"]},"application/vnd.gentics.grd+json":{"source":"iana","compressible":true},"application/vnd.geo+json":{"source":"iana","compressible":true},"application/vnd.geocube+xml":{"source":"iana","compressible":true},"application/vnd.geogebra.file":{"source":"iana","extensions":["ggb"]},"application/vnd.geogebra.slides":{"source":"iana"},"application/vnd.geogebra.tool":{"source":"iana","extensions":["ggt"]},"application/vnd.geometry-explorer":{"source":"iana","extensions":["gex","gre"]},"application/vnd.geonext":{"source":"iana","extensions":["gxt"]},"application/vnd.geoplan":{"source":"iana","extensions":["g2w"]},"application/vnd.geospace":{"source":"iana","extensions":["g3w"]},"application/vnd.gerber":{"source":"iana"},"application/vnd.globalplatform.card-content-mgt":{"source":"iana"},"application/vnd.globalplatform.card-content-mgt-response":{"source":"iana"},"application/vnd.gmx":{"source":"iana","extensions":["gmx"]},"application/vnd.google-apps.document":{"compressible":false,"extensions":["gdoc"]},"application/vnd.google-apps.presentation":{"compressible":false,"extensions":["gslides"]},"application/vnd.google-apps.spreadsheet":{"compressible":false,"extensions":["gsheet"]},"application/vnd.google-earth.kml+xml":{"source":"iana","compressible":true,"extensions":["kml"]},"application/vnd.google-earth.kmz":{"source":"iana","compressible":false,"extensions":["kmz"]},"application/vnd.gov.sk.e-form+xml":{"source":"iana","compressible":true},"application/vnd.gov.sk.e-form+zip":{"source":"iana","compressible":false},"application/vnd.gov.sk.xmldatacontainer+xml":{"source":"iana","compressible":true},"application/vnd.grafeq":{"source":"iana","extensions":["gqf","gqs"]},"application/vnd.gridmp":{"source":"iana"},"application/vnd.groove-account":{"source":"iana","extensions":["gac"]},"application/vnd.groove-help":{"source":"iana","extensions":["ghf"]},"application/vnd.groove-identity-message":{"source":"iana","extensions":["gim"]},"application/vnd.groove-injector":{"source":"iana","extensions":["grv"]},"application/vnd.groove-tool-message":{"source":"iana","extensions":["gtm"]},"application/vnd.groove-tool-template":{"source":"iana","extensions":["tpl"]},"application/vnd.groove-vcard":{"source":"iana","extensions":["vcg"]},"application/vnd.hal+json":{"source":"iana","compressible":true},"application/vnd.hal+xml":{"source":"iana","compressible":true,"extensions":["hal"]},"application/vnd.handheld-entertainment+xml":{"source":"iana","compressible":true,"extensions":["zmm"]},"application/vnd.hbci":{"source":"iana","extensions":["hbci"]},"application/vnd.hc+json":{"source":"iana","compressible":true},"application/vnd.hcl-bireports":{"source":"iana"},"application/vnd.hdt":{"source":"iana"},"application/vnd.heroku+json":{"source":"iana","compressible":true},"application/vnd.hhe.lesson-player":{"source":"iana","extensions":["les"]},"application/vnd.hl7cda+xml":{"source":"iana","charset":"UTF-8","compressible":true},"application/vnd.hl7v2+xml":{"source":"iana","charset":"UTF-8","compressible":true},"application/vnd.hp-hpgl":{"source":"iana","extensions":["hpgl"]},"application/vnd.hp-hpid":{"source":"iana","extensions":["hpid"]},"application/vnd.hp-hps":{"source":"iana","extensions":["hps"]},"application/vnd.hp-jlyt":{"source":"iana","extensions":["jlt"]},"application/vnd.hp-pcl":{"source":"iana","extensions":["pcl"]},"application/vnd.hp-pclxl":{"source":"iana","extensions":["pclxl"]},"application/vnd.httphone":{"source":"iana"},"application/vnd.hydrostatix.sof-data":{"source":"iana","extensions":["sfd-hdstx"]},"application/vnd.hyper+json":{"source":"iana","compressible":true},"application/vnd.hyper-item+json":{"source":"iana","compressible":true},"application/vnd.hyperdrive+json":{"source":"iana","compressible":true},"application/vnd.hzn-3d-crossword":{"source":"iana"},"application/vnd.ibm.afplinedata":{"source":"iana"},"application/vnd.ibm.electronic-media":{"source":"iana"},"application/vnd.ibm.minipay":{"source":"iana","extensions":["mpy"]},"application/vnd.ibm.modcap":{"source":"iana","extensions":["afp","listafp","list3820"]},"application/vnd.ibm.rights-management":{"source":"iana","extensions":["irm"]},"application/vnd.ibm.secure-container":{"source":"iana","extensions":["sc"]},"application/vnd.iccprofile":{"source":"iana","extensions":["icc","icm"]},"application/vnd.ieee.1905":{"source":"iana"},"application/vnd.igloader":{"source":"iana","extensions":["igl"]},"application/vnd.imagemeter.folder+zip":{"source":"iana","compressible":false},"application/vnd.imagemeter.image+zip":{"source":"iana","compressible":false},"application/vnd.immervision-ivp":{"source":"iana","extensions":["ivp"]},"application/vnd.immervision-ivu":{"source":"iana","extensions":["ivu"]},"application/vnd.ims.imsccv1p1":{"source":"iana"},"application/vnd.ims.imsccv1p2":{"source":"iana"},"application/vnd.ims.imsccv1p3":{"source":"iana"},"application/vnd.ims.lis.v2.result+json":{"source":"iana","compressible":true},"application/vnd.ims.lti.v2.toolconsumerprofile+json":{"source":"iana","compressible":true},"application/vnd.ims.lti.v2.toolproxy+json":{"source":"iana","compressible":true},"application/vnd.ims.lti.v2.toolproxy.id+json":{"source":"iana","compressible":true},"application/vnd.ims.lti.v2.toolsettings+json":{"source":"iana","compressible":true},"application/vnd.ims.lti.v2.toolsettings.simple+json":{"source":"iana","compressible":true},"application/vnd.informedcontrol.rms+xml":{"source":"iana","compressible":true},"application/vnd.informix-visionary":{"source":"iana"},"application/vnd.infotech.project":{"source":"iana"},"application/vnd.infotech.project+xml":{"source":"iana","compressible":true},"application/vnd.innopath.wamp.notification":{"source":"iana"},"application/vnd.insors.igm":{"source":"iana","extensions":["igm"]},"application/vnd.intercon.formnet":{"source":"iana","extensions":["xpw","xpx"]},"application/vnd.intergeo":{"source":"iana","extensions":["i2g"]},"application/vnd.intertrust.digibox":{"source":"iana"},"application/vnd.intertrust.nncp":{"source":"iana"},"application/vnd.intu.qbo":{"source":"iana","extensions":["qbo"]},"application/vnd.intu.qfx":{"source":"iana","extensions":["qfx"]},"application/vnd.iptc.g2.catalogitem+xml":{"source":"iana","compressible":true},"application/vnd.iptc.g2.conceptitem+xml":{"source":"iana","compressible":true},"application/vnd.iptc.g2.knowledgeitem+xml":{"source":"iana","compressible":true},"application/vnd.iptc.g2.newsitem+xml":{"source":"iana","compressible":true},"application/vnd.iptc.g2.newsmessage+xml":{"source":"iana","compressible":true},"application/vnd.iptc.g2.packageitem+xml":{"source":"iana","compressible":true},"application/vnd.iptc.g2.planningitem+xml":{"source":"iana","compressible":true},"application/vnd.ipunplugged.rcprofile":{"source":"iana","extensions":["rcprofile"]},"application/vnd.irepository.package+xml":{"source":"iana","compressible":true,"extensions":["irp"]},"application/vnd.is-xpr":{"source":"iana","extensions":["xpr"]},"application/vnd.isac.fcs":{"source":"iana","extensions":["fcs"]},"application/vnd.iso11783-10+zip":{"source":"iana","compressible":false},"application/vnd.jam":{"source":"iana","extensions":["jam"]},"application/vnd.japannet-directory-service":{"source":"iana"},"application/vnd.japannet-jpnstore-wakeup":{"source":"iana"},"application/vnd.japannet-payment-wakeup":{"source":"iana"},"application/vnd.japannet-registration":{"source":"iana"},"application/vnd.japannet-registration-wakeup":{"source":"iana"},"application/vnd.japannet-setstore-wakeup":{"source":"iana"},"application/vnd.japannet-verification":{"source":"iana"},"application/vnd.japannet-verification-wakeup":{"source":"iana"},"application/vnd.jcp.javame.midlet-rms":{"source":"iana","extensions":["rms"]},"application/vnd.jisp":{"source":"iana","extensions":["jisp"]},"application/vnd.joost.joda-archive":{"source":"iana","extensions":["joda"]},"application/vnd.jsk.isdn-ngn":{"source":"iana"},"application/vnd.kahootz":{"source":"iana","extensions":["ktz","ktr"]},"application/vnd.kde.karbon":{"source":"iana","extensions":["karbon"]},"application/vnd.kde.kchart":{"source":"iana","extensions":["chrt"]},"application/vnd.kde.kformula":{"source":"iana","extensions":["kfo"]},"application/vnd.kde.kivio":{"source":"iana","extensions":["flw"]},"application/vnd.kde.kontour":{"source":"iana","extensions":["kon"]},"application/vnd.kde.kpresenter":{"source":"iana","extensions":["kpr","kpt"]},"application/vnd.kde.kspread":{"source":"iana","extensions":["ksp"]},"application/vnd.kde.kword":{"source":"iana","extensions":["kwd","kwt"]},"application/vnd.kenameaapp":{"source":"iana","extensions":["htke"]},"application/vnd.kidspiration":{"source":"iana","extensions":["kia"]},"application/vnd.kinar":{"source":"iana","extensions":["kne","knp"]},"application/vnd.koan":{"source":"iana","extensions":["skp","skd","skt","skm"]},"application/vnd.kodak-descriptor":{"source":"iana","extensions":["sse"]},"application/vnd.las":{"source":"iana"},"application/vnd.las.las+json":{"source":"iana","compressible":true},"application/vnd.las.las+xml":{"source":"iana","compressible":true,"extensions":["lasxml"]},"application/vnd.laszip":{"source":"iana"},"application/vnd.leap+json":{"source":"iana","compressible":true},"application/vnd.liberty-request+xml":{"source":"iana","compressible":true},"application/vnd.llamagraphics.life-balance.desktop":{"source":"iana","extensions":["lbd"]},"application/vnd.llamagraphics.life-balance.exchange+xml":{"source":"iana","compressible":true,"extensions":["lbe"]},"application/vnd.logipipe.circuit+zip":{"source":"iana","compressible":false},"application/vnd.loom":{"source":"iana"},"application/vnd.lotus-1-2-3":{"source":"iana","extensions":["123"]},"application/vnd.lotus-approach":{"source":"iana","extensions":["apr"]},"application/vnd.lotus-freelance":{"source":"iana","extensions":["pre"]},"application/vnd.lotus-notes":{"source":"iana","extensions":["nsf"]},"application/vnd.lotus-organizer":{"source":"iana","extensions":["org"]},"application/vnd.lotus-screencam":{"source":"iana","extensions":["scm"]},"application/vnd.lotus-wordpro":{"source":"iana","extensions":["lwp"]},"application/vnd.macports.portpkg":{"source":"iana","extensions":["portpkg"]},"application/vnd.mapbox-vector-tile":{"source":"iana","extensions":["mvt"]},"application/vnd.marlin.drm.actiontoken+xml":{"source":"iana","compressible":true},"application/vnd.marlin.drm.conftoken+xml":{"source":"iana","compressible":true},"application/vnd.marlin.drm.license+xml":{"source":"iana","compressible":true},"application/vnd.marlin.drm.mdcf":{"source":"iana"},"application/vnd.mason+json":{"source":"iana","compressible":true},"application/vnd.maxar.archive.3tz+zip":{"source":"iana","compressible":false},"application/vnd.maxmind.maxmind-db":{"source":"iana"},"application/vnd.mcd":{"source":"iana","extensions":["mcd"]},"application/vnd.medcalcdata":{"source":"iana","extensions":["mc1"]},"application/vnd.mediastation.cdkey":{"source":"iana","extensions":["cdkey"]},"application/vnd.meridian-slingshot":{"source":"iana"},"application/vnd.mfer":{"source":"iana","extensions":["mwf"]},"application/vnd.mfmp":{"source":"iana","extensions":["mfm"]},"application/vnd.micro+json":{"source":"iana","compressible":true},"application/vnd.micrografx.flo":{"source":"iana","extensions":["flo"]},"application/vnd.micrografx.igx":{"source":"iana","extensions":["igx"]},"application/vnd.microsoft.portable-executable":{"source":"iana"},"application/vnd.microsoft.windows.thumbnail-cache":{"source":"iana"},"application/vnd.miele+json":{"source":"iana","compressible":true},"application/vnd.mif":{"source":"iana","extensions":["mif"]},"application/vnd.minisoft-hp3000-save":{"source":"iana"},"application/vnd.mitsubishi.misty-guard.trustweb":{"source":"iana"},"application/vnd.mobius.daf":{"source":"iana","extensions":["daf"]},"application/vnd.mobius.dis":{"source":"iana","extensions":["dis"]},"application/vnd.mobius.mbk":{"source":"iana","extensions":["mbk"]},"application/vnd.mobius.mqy":{"source":"iana","extensions":["mqy"]},"application/vnd.mobius.msl":{"source":"iana","extensions":["msl"]},"application/vnd.mobius.plc":{"source":"iana","extensions":["plc"]},"application/vnd.mobius.txf":{"source":"iana","extensions":["txf"]},"application/vnd.mophun.application":{"source":"iana","extensions":["mpn"]},"application/vnd.mophun.certificate":{"source":"iana","extensions":["mpc"]},"application/vnd.motorola.flexsuite":{"source":"iana"},"application/vnd.motorola.flexsuite.adsi":{"source":"iana"},"application/vnd.motorola.flexsuite.fis":{"source":"iana"},"application/vnd.motorola.flexsuite.gotap":{"source":"iana"},"application/vnd.motorola.flexsuite.kmr":{"source":"iana"},"application/vnd.motorola.flexsuite.ttc":{"source":"iana"},"application/vnd.motorola.flexsuite.wem":{"source":"iana"},"application/vnd.motorola.iprm":{"source":"iana"},"application/vnd.mozilla.xul+xml":{"source":"iana","compressible":true,"extensions":["xul"]},"application/vnd.ms-3mfdocument":{"source":"iana"},"application/vnd.ms-artgalry":{"source":"iana","extensions":["cil"]},"application/vnd.ms-asf":{"source":"iana"},"application/vnd.ms-cab-compressed":{"source":"iana","extensions":["cab"]},"application/vnd.ms-color.iccprofile":{"source":"apache"},"application/vnd.ms-excel":{"source":"iana","compressible":false,"extensions":["xls","xlm","xla","xlc","xlt","xlw"]},"application/vnd.ms-excel.addin.macroenabled.12":{"source":"iana","extensions":["xlam"]},"application/vnd.ms-excel.sheet.binary.macroenabled.12":{"source":"iana","extensions":["xlsb"]},"application/vnd.ms-excel.sheet.macroenabled.12":{"source":"iana","extensions":["xlsm"]},"application/vnd.ms-excel.template.macroenabled.12":{"source":"iana","extensions":["xltm"]},"application/vnd.ms-fontobject":{"source":"iana","compressible":true,"extensions":["eot"]},"application/vnd.ms-htmlhelp":{"source":"iana","extensions":["chm"]},"application/vnd.ms-ims":{"source":"iana","extensions":["ims"]},"application/vnd.ms-lrm":{"source":"iana","extensions":["lrm"]},"application/vnd.ms-office.activex+xml":{"source":"iana","compressible":true},"application/vnd.ms-officetheme":{"source":"iana","extensions":["thmx"]},"application/vnd.ms-opentype":{"source":"apache","compressible":true},"application/vnd.ms-outlook":{"compressible":false,"extensions":["msg"]},"application/vnd.ms-package.obfuscated-opentype":{"source":"apache"},"application/vnd.ms-pki.seccat":{"source":"apache","extensions":["cat"]},"application/vnd.ms-pki.stl":{"source":"apache","extensions":["stl"]},"application/vnd.ms-playready.initiator+xml":{"source":"iana","compressible":true},"application/vnd.ms-powerpoint":{"source":"iana","compressible":false,"extensions":["ppt","pps","pot"]},"application/vnd.ms-powerpoint.addin.macroenabled.12":{"source":"iana","extensions":["ppam"]},"application/vnd.ms-powerpoint.presentation.macroenabled.12":{"source":"iana","extensions":["pptm"]},"application/vnd.ms-powerpoint.slide.macroenabled.12":{"source":"iana","extensions":["sldm"]},"application/vnd.ms-powerpoint.slideshow.macroenabled.12":{"source":"iana","extensions":["ppsm"]},"application/vnd.ms-powerpoint.template.macroenabled.12":{"source":"iana","extensions":["potm"]},"application/vnd.ms-printdevicecapabilities+xml":{"source":"iana","compressible":true},"application/vnd.ms-printing.printticket+xml":{"source":"apache","compressible":true},"application/vnd.ms-printschematicket+xml":{"source":"iana","compressible":true},"application/vnd.ms-project":{"source":"iana","extensions":["mpp","mpt"]},"application/vnd.ms-tnef":{"source":"iana"},"application/vnd.ms-windows.devicepairing":{"source":"iana"},"application/vnd.ms-windows.nwprinting.oob":{"source":"iana"},"application/vnd.ms-windows.printerpairing":{"source":"iana"},"application/vnd.ms-windows.wsd.oob":{"source":"iana"},"application/vnd.ms-wmdrm.lic-chlg-req":{"source":"iana"},"application/vnd.ms-wmdrm.lic-resp":{"source":"iana"},"application/vnd.ms-wmdrm.meter-chlg-req":{"source":"iana"},"application/vnd.ms-wmdrm.meter-resp":{"source":"iana"},"application/vnd.ms-word.document.macroenabled.12":{"source":"iana","extensions":["docm"]},"application/vnd.ms-word.template.macroenabled.12":{"source":"iana","extensions":["dotm"]},"application/vnd.ms-works":{"source":"iana","extensions":["wps","wks","wcm","wdb"]},"application/vnd.ms-wpl":{"source":"iana","extensions":["wpl"]},"application/vnd.ms-xpsdocument":{"source":"iana","compressible":false,"extensions":["xps"]},"application/vnd.msa-disk-image":{"source":"iana"},"application/vnd.mseq":{"source":"iana","extensions":["mseq"]},"application/vnd.msign":{"source":"iana"},"application/vnd.multiad.creator":{"source":"iana"},"application/vnd.multiad.creator.cif":{"source":"iana"},"application/vnd.music-niff":{"source":"iana"},"application/vnd.musician":{"source":"iana","extensions":["mus"]},"application/vnd.muvee.style":{"source":"iana","extensions":["msty"]},"application/vnd.mynfc":{"source":"iana","extensions":["taglet"]},"application/vnd.nacamar.ybrid+json":{"source":"iana","compressible":true},"application/vnd.ncd.control":{"source":"iana"},"application/vnd.ncd.reference":{"source":"iana"},"application/vnd.nearst.inv+json":{"source":"iana","compressible":true},"application/vnd.nebumind.line":{"source":"iana"},"application/vnd.nervana":{"source":"iana"},"application/vnd.netfpx":{"source":"iana"},"application/vnd.neurolanguage.nlu":{"source":"iana","extensions":["nlu"]},"application/vnd.nimn":{"source":"iana"},"application/vnd.nintendo.nitro.rom":{"source":"iana"},"application/vnd.nintendo.snes.rom":{"source":"iana"},"application/vnd.nitf":{"source":"iana","extensions":["ntf","nitf"]},"application/vnd.noblenet-directory":{"source":"iana","extensions":["nnd"]},"application/vnd.noblenet-sealer":{"source":"iana","extensions":["nns"]},"application/vnd.noblenet-web":{"source":"iana","extensions":["nnw"]},"application/vnd.nokia.catalogs":{"source":"iana"},"application/vnd.nokia.conml+wbxml":{"source":"iana"},"application/vnd.nokia.conml+xml":{"source":"iana","compressible":true},"application/vnd.nokia.iptv.config+xml":{"source":"iana","compressible":true},"application/vnd.nokia.isds-radio-presets":{"source":"iana"},"application/vnd.nokia.landmark+wbxml":{"source":"iana"},"application/vnd.nokia.landmark+xml":{"source":"iana","compressible":true},"application/vnd.nokia.landmarkcollection+xml":{"source":"iana","compressible":true},"application/vnd.nokia.n-gage.ac+xml":{"source":"iana","compressible":true,"extensions":["ac"]},"application/vnd.nokia.n-gage.data":{"source":"iana","extensions":["ngdat"]},"application/vnd.nokia.n-gage.symbian.install":{"source":"iana","extensions":["n-gage"]},"application/vnd.nokia.ncd":{"source":"iana"},"application/vnd.nokia.pcd+wbxml":{"source":"iana"},"application/vnd.nokia.pcd+xml":{"source":"iana","compressible":true},"application/vnd.nokia.radio-preset":{"source":"iana","extensions":["rpst"]},"application/vnd.nokia.radio-presets":{"source":"iana","extensions":["rpss"]},"application/vnd.novadigm.edm":{"source":"iana","extensions":["edm"]},"application/vnd.novadigm.edx":{"source":"iana","extensions":["edx"]},"application/vnd.novadigm.ext":{"source":"iana","extensions":["ext"]},"application/vnd.ntt-local.content-share":{"source":"iana"},"application/vnd.ntt-local.file-transfer":{"source":"iana"},"application/vnd.ntt-local.ogw_remote-access":{"source":"iana"},"application/vnd.ntt-local.sip-ta_remote":{"source":"iana"},"application/vnd.ntt-local.sip-ta_tcp_stream":{"source":"iana"},"application/vnd.oasis.opendocument.chart":{"source":"iana","extensions":["odc"]},"application/vnd.oasis.opendocument.chart-template":{"source":"iana","extensions":["otc"]},"application/vnd.oasis.opendocument.database":{"source":"iana","extensions":["odb"]},"application/vnd.oasis.opendocument.formula":{"source":"iana","extensions":["odf"]},"application/vnd.oasis.opendocument.formula-template":{"source":"iana","extensions":["odft"]},"application/vnd.oasis.opendocument.graphics":{"source":"iana","compressible":false,"extensions":["odg"]},"application/vnd.oasis.opendocument.graphics-template":{"source":"iana","extensions":["otg"]},"application/vnd.oasis.opendocument.image":{"source":"iana","extensions":["odi"]},"application/vnd.oasis.opendocument.image-template":{"source":"iana","extensions":["oti"]},"application/vnd.oasis.opendocument.presentation":{"source":"iana","compressible":false,"extensions":["odp"]},"application/vnd.oasis.opendocument.presentation-template":{"source":"iana","extensions":["otp"]},"application/vnd.oasis.opendocument.spreadsheet":{"source":"iana","compressible":false,"extensions":["ods"]},"application/vnd.oasis.opendocument.spreadsheet-template":{"source":"iana","extensions":["ots"]},"application/vnd.oasis.opendocument.text":{"source":"iana","compressible":false,"extensions":["odt"]},"application/vnd.oasis.opendocument.text-master":{"source":"iana","extensions":["odm"]},"application/vnd.oasis.opendocument.text-template":{"source":"iana","extensions":["ott"]},"application/vnd.oasis.opendocument.text-web":{"source":"iana","extensions":["oth"]},"application/vnd.obn":{"source":"iana"},"application/vnd.ocf+cbor":{"source":"iana"},"application/vnd.oci.image.manifest.v1+json":{"source":"iana","compressible":true},"application/vnd.oftn.l10n+json":{"source":"iana","compressible":true},"application/vnd.oipf.contentaccessdownload+xml":{"source":"iana","compressible":true},"application/vnd.oipf.contentaccessstreaming+xml":{"source":"iana","compressible":true},"application/vnd.oipf.cspg-hexbinary":{"source":"iana"},"application/vnd.oipf.dae.svg+xml":{"source":"iana","compressible":true},"application/vnd.oipf.dae.xhtml+xml":{"source":"iana","compressible":true},"application/vnd.oipf.mippvcontrolmessage+xml":{"source":"iana","compressible":true},"application/vnd.oipf.pae.gem":{"source":"iana"},"application/vnd.oipf.spdiscovery+xml":{"source":"iana","compressible":true},"application/vnd.oipf.spdlist+xml":{"source":"iana","compressible":true},"application/vnd.oipf.ueprofile+xml":{"source":"iana","compressible":true},"application/vnd.oipf.userprofile+xml":{"source":"iana","compressible":true},"application/vnd.olpc-sugar":{"source":"iana","extensions":["xo"]},"application/vnd.oma-scws-config":{"source":"iana"},"application/vnd.oma-scws-http-request":{"source":"iana"},"application/vnd.oma-scws-http-response":{"source":"iana"},"application/vnd.oma.bcast.associated-procedure-parameter+xml":{"source":"iana","compressible":true},"application/vnd.oma.bcast.drm-trigger+xml":{"source":"iana","compressible":true},"application/vnd.oma.bcast.imd+xml":{"source":"iana","compressible":true},"application/vnd.oma.bcast.ltkm":{"source":"iana"},"application/vnd.oma.bcast.notification+xml":{"source":"iana","compressible":true},"application/vnd.oma.bcast.provisioningtrigger":{"source":"iana"},"application/vnd.oma.bcast.sgboot":{"source":"iana"},"application/vnd.oma.bcast.sgdd+xml":{"source":"iana","compressible":true},"application/vnd.oma.bcast.sgdu":{"source":"iana"},"application/vnd.oma.bcast.simple-symbol-container":{"source":"iana"},"application/vnd.oma.bcast.smartcard-trigger+xml":{"source":"iana","compressible":true},"application/vnd.oma.bcast.sprov+xml":{"source":"iana","compressible":true},"application/vnd.oma.bcast.stkm":{"source":"iana"},"application/vnd.oma.cab-address-book+xml":{"source":"iana","compressible":true},"application/vnd.oma.cab-feature-handler+xml":{"source":"iana","compressible":true},"application/vnd.oma.cab-pcc+xml":{"source":"iana","compressible":true},"application/vnd.oma.cab-subs-invite+xml":{"source":"iana","compressible":true},"application/vnd.oma.cab-user-prefs+xml":{"source":"iana","compressible":true},"application/vnd.oma.dcd":{"source":"iana"},"application/vnd.oma.dcdc":{"source":"iana"},"application/vnd.oma.dd2+xml":{"source":"iana","compressible":true,"extensions":["dd2"]},"application/vnd.oma.drm.risd+xml":{"source":"iana","compressible":true},"application/vnd.oma.group-usage-list+xml":{"source":"iana","compressible":true},"application/vnd.oma.lwm2m+cbor":{"source":"iana"},"application/vnd.oma.lwm2m+json":{"source":"iana","compressible":true},"application/vnd.oma.lwm2m+tlv":{"source":"iana"},"application/vnd.oma.pal+xml":{"source":"iana","compressible":true},"application/vnd.oma.poc.detailed-progress-report+xml":{"source":"iana","compressible":true},"application/vnd.oma.poc.final-report+xml":{"source":"iana","compressible":true},"application/vnd.oma.poc.groups+xml":{"source":"iana","compressible":true},"application/vnd.oma.poc.invocation-descriptor+xml":{"source":"iana","compressible":true},"application/vnd.oma.poc.optimized-progress-report+xml":{"source":"iana","compressible":true},"application/vnd.oma.push":{"source":"iana"},"application/vnd.oma.scidm.messages+xml":{"source":"iana","compressible":true},"application/vnd.oma.xcap-directory+xml":{"source":"iana","compressible":true},"application/vnd.omads-email+xml":{"source":"iana","charset":"UTF-8","compressible":true},"application/vnd.omads-file+xml":{"source":"iana","charset":"UTF-8","compressible":true},"application/vnd.omads-folder+xml":{"source":"iana","charset":"UTF-8","compressible":true},"application/vnd.omaloc-supl-init":{"source":"iana"},"application/vnd.onepager":{"source":"iana"},"application/vnd.onepagertamp":{"source":"iana"},"application/vnd.onepagertamx":{"source":"iana"},"application/vnd.onepagertat":{"source":"iana"},"application/vnd.onepagertatp":{"source":"iana"},"application/vnd.onepagertatx":{"source":"iana"},"application/vnd.openblox.game+xml":{"source":"iana","compressible":true,"extensions":["obgx"]},"application/vnd.openblox.game-binary":{"source":"iana"},"application/vnd.openeye.oeb":{"source":"iana"},"application/vnd.openofficeorg.extension":{"source":"apache","extensions":["oxt"]},"application/vnd.openstreetmap.data+xml":{"source":"iana","compressible":true,"extensions":["osm"]},"application/vnd.opentimestamps.ots":{"source":"iana"},"application/vnd.openxmlformats-officedocument.custom-properties+xml":{"source":"iana","compressible":true},"application/vnd.openxmlformats-officedocument.customxmlproperties+xml":{"source":"iana","compressible":true},"application/vnd.openxmlformats-officedocument.drawing+xml":{"source":"iana","compressible":true},"application/vnd.openxmlformats-officedocument.drawingml.chart+xml":{"source":"iana","compressible":true},"application/vnd.openxmlformats-officedocument.drawingml.chartshapes+xml":{"source":"iana","compressible":true},"application/vnd.openxmlformats-officedocument.drawingml.diagramcolors+xml":{"source":"iana","compressible":true},"application/vnd.openxmlformats-officedocument.drawingml.diagramdata+xml":{"source":"iana","compressible":true},"application/vnd.openxmlformats-officedocument.drawingml.diagramlayout+xml":{"source":"iana","compressible":true},"application/vnd.openxmlformats-officedocument.drawingml.diagramstyle+xml":{"source":"iana","compressible":true},"application/vnd.openxmlformats-officedocument.extended-properties+xml":{"source":"iana","compressible":true},"application/vnd.openxmlformats-officedocument.presentationml.commentauthors+xml":{"source":"iana","compressible":true},"application/vnd.openxmlformats-officedocument.presentationml.comments+xml":{"source":"iana","compressible":true},"application/vnd.openxmlformats-officedocument.presentationml.handoutmaster+xml":{"source":"iana","compressible":true},"application/vnd.openxmlformats-officedocument.presentationml.notesmaster+xml":{"source":"iana","compressible":true},"application/vnd.openxmlformats-officedocument.presentationml.notesslide+xml":{"source":"iana","compressible":true},"application/vnd.openxmlformats-officedocument.presentationml.presentation":{"source":"iana","compressible":false,"extensions":["pptx"]},"application/vnd.openxmlformats-officedocument.presentationml.presentation.main+xml":{"source":"iana","compressible":true},"application/vnd.openxmlformats-officedocument.presentationml.presprops+xml":{"source":"iana","compressible":true},"application/vnd.openxmlformats-officedocument.presentationml.slide":{"source":"iana","extensions":["sldx"]},"application/vnd.openxmlformats-officedocument.presentationml.slide+xml":{"source":"iana","compressible":true},"application/vnd.openxmlformats-officedocument.presentationml.slidelayout+xml":{"source":"iana","compressible":true},"application/vnd.openxmlformats-officedocument.presentationml.slidemaster+xml":{"source":"iana","compressible":true},"application/vnd.openxmlformats-officedocument.presentationml.slideshow":{"source":"iana","extensions":["ppsx"]},"application/vnd.openxmlformats-officedocument.presentationml.slideshow.main+xml":{"source":"iana","compressible":true},"application/vnd.openxmlformats-officedocument.presentationml.slideupdateinfo+xml":{"source":"iana","compressible":true},"application/vnd.openxmlformats-officedocument.presentationml.tablestyles+xml":{"source":"iana","compressible":true},"application/vnd.openxmlformats-officedocument.presentationml.tags+xml":{"source":"iana","compressible":true},"application/vnd.openxmlformats-officedocument.presentationml.template":{"source":"iana","extensions":["potx"]},"application/vnd.openxmlformats-officedocument.presentationml.template.main+xml":{"source":"iana","compressible":true},"application/vnd.openxmlformats-officedocument.presentationml.viewprops+xml":{"source":"iana","compressible":true},"application/vnd.openxmlformats-officedocument.spreadsheetml.calcchain+xml":{"source":"iana","compressible":true},"application/vnd.openxmlformats-officedocument.spreadsheetml.chartsheet+xml":{"source":"iana","compressible":true},"application/vnd.openxmlformats-officedocument.spreadsheetml.comments+xml":{"source":"iana","compressible":true},"application/vnd.openxmlformats-officedocument.spreadsheetml.connections+xml":{"source":"iana","compressible":true},"application/vnd.openxmlformats-officedocument.spreadsheetml.dialogsheet+xml":{"source":"iana","compressible":true},"application/vnd.openxmlformats-officedocument.spreadsheetml.externallink+xml":{"source":"iana","compressible":true},"application/vnd.openxmlformats-officedocument.spreadsheetml.pivotcachedefinition+xml":{"source":"iana","compressible":true},"application/vnd.openxmlformats-officedocument.spreadsheetml.pivotcacherecords+xml":{"source":"iana","compressible":true},"application/vnd.openxmlformats-officedocument.spreadsheetml.pivottable+xml":{"source":"iana","compressible":true},"application/vnd.openxmlformats-officedocument.spreadsheetml.querytable+xml":{"source":"iana","compressible":true},"application/vnd.openxmlformats-officedocument.spreadsheetml.revisionheaders+xml":{"source":"iana","compressible":true},"application/vnd.openxmlformats-officedocument.spreadsheetml.revisionlog+xml":{"source":"iana","compressible":true},"application/vnd.openxmlformats-officedocument.spreadsheetml.sharedstrings+xml":{"source":"iana","compressible":true},"application/vnd.openxmlformats-officedocument.spreadsheetml.sheet":{"source":"iana","compressible":false,"extensions":["xlsx"]},"application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml":{"source":"iana","compressible":true},"application/vnd.openxmlformats-officedocument.spreadsheetml.sheetmetadata+xml":{"source":"iana","compressible":true},"application/vnd.openxmlformats-officedocument.spreadsheetml.styles+xml":{"source":"iana","compressible":true},"application/vnd.openxmlformats-officedocument.spreadsheetml.table+xml":{"source":"iana","compressible":true},"application/vnd.openxmlformats-officedocument.spreadsheetml.tablesinglecells+xml":{"source":"iana","compressible":true},"application/vnd.openxmlformats-officedocument.spreadsheetml.template":{"source":"iana","extensions":["xltx"]},"application/vnd.openxmlformats-officedocument.spreadsheetml.template.main+xml":{"source":"iana","compressible":true},"application/vnd.openxmlformats-officedocument.spreadsheetml.usernames+xml":{"source":"iana","compressible":true},"application/vnd.openxmlformats-officedocument.spreadsheetml.volatiledependencies+xml":{"source":"iana","compressible":true},"application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml":{"source":"iana","compressible":true},"application/vnd.openxmlformats-officedocument.theme+xml":{"source":"iana","compressible":true},"application/vnd.openxmlformats-officedocument.themeoverride+xml":{"source":"iana","compressible":true},"application/vnd.openxmlformats-officedocument.vmldrawing":{"source":"iana"},"application/vnd.openxmlformats-officedocument.wordprocessingml.comments+xml":{"source":"iana","compressible":true},"application/vnd.openxmlformats-officedocument.wordprocessingml.document":{"source":"iana","compressible":false,"extensions":["docx"]},"application/vnd.openxmlformats-officedocument.wordprocessingml.document.glossary+xml":{"source":"iana","compressible":true},"application/vnd.openxmlformats-officedocument.wordprocessingml.document.main+xml":{"source":"iana","compressible":true},"application/vnd.openxmlformats-officedocument.wordprocessingml.endnotes+xml":{"source":"iana","compressible":true},"application/vnd.openxmlformats-officedocument.wordprocessingml.fonttable+xml":{"source":"iana","compressible":true},"application/vnd.openxmlformats-officedocument.wordprocessingml.footer+xml":{"source":"iana","compressible":true},"application/vnd.openxmlformats-officedocument.wordprocessingml.footnotes+xml":{"source":"iana","compressible":true},"application/vnd.openxmlformats-officedocument.wordprocessingml.numbering+xml":{"source":"iana","compressible":true},"application/vnd.openxmlformats-officedocument.wordprocessingml.settings+xml":{"source":"iana","compressible":true},"application/vnd.openxmlformats-officedocument.wordprocessingml.styles+xml":{"source":"iana","compressible":true},"application/vnd.openxmlformats-officedocument.wordprocessingml.template":{"source":"iana","extensions":["dotx"]},"application/vnd.openxmlformats-officedocument.wordprocessingml.template.main+xml":{"source":"iana","compressible":true},"application/vnd.openxmlformats-officedocument.wordprocessingml.websettings+xml":{"source":"iana","compressible":true},"application/vnd.openxmlformats-package.core-properties+xml":{"source":"iana","compressible":true},"application/vnd.openxmlformats-package.digital-signature-xmlsignature+xml":{"source":"iana","compressible":true},"application/vnd.openxmlformats-package.relationships+xml":{"source":"iana","compressible":true},"application/vnd.oracle.resource+json":{"source":"iana","compressible":true},"application/vnd.orange.indata":{"source":"iana"},"application/vnd.osa.netdeploy":{"source":"iana"},"application/vnd.osgeo.mapguide.package":{"source":"iana","extensions":["mgp"]},"application/vnd.osgi.bundle":{"source":"iana"},"application/vnd.osgi.dp":{"source":"iana","extensions":["dp"]},"application/vnd.osgi.subsystem":{"source":"iana","extensions":["esa"]},"application/vnd.otps.ct-kip+xml":{"source":"iana","compressible":true},"application/vnd.oxli.countgraph":{"source":"iana"},"application/vnd.pagerduty+json":{"source":"iana","compressible":true},"application/vnd.palm":{"source":"iana","extensions":["pdb","pqa","oprc"]},"application/vnd.panoply":{"source":"iana"},"application/vnd.paos.xml":{"source":"iana"},"application/vnd.patentdive":{"source":"iana"},"application/vnd.patientecommsdoc":{"source":"iana"},"application/vnd.pawaafile":{"source":"iana","extensions":["paw"]},"application/vnd.pcos":{"source":"iana"},"application/vnd.pg.format":{"source":"iana","extensions":["str"]},"application/vnd.pg.osasli":{"source":"iana","extensions":["ei6"]},"application/vnd.piaccess.application-licence":{"source":"iana"},"application/vnd.picsel":{"source":"iana","extensions":["efif"]},"application/vnd.pmi.widget":{"source":"iana","extensions":["wg"]},"application/vnd.poc.group-advertisement+xml":{"source":"iana","compressible":true},"application/vnd.pocketlearn":{"source":"iana","extensions":["plf"]},"application/vnd.powerbuilder6":{"source":"iana","extensions":["pbd"]},"application/vnd.powerbuilder6-s":{"source":"iana"},"application/vnd.powerbuilder7":{"source":"iana"},"application/vnd.powerbuilder7-s":{"source":"iana"},"application/vnd.powerbuilder75":{"source":"iana"},"application/vnd.powerbuilder75-s":{"source":"iana"},"application/vnd.preminet":{"source":"iana"},"application/vnd.previewsystems.box":{"source":"iana","extensions":["box"]},"application/vnd.proteus.magazine":{"source":"iana","extensions":["mgz"]},"application/vnd.psfs":{"source":"iana"},"application/vnd.publishare-delta-tree":{"source":"iana","extensions":["qps"]},"application/vnd.pvi.ptid1":{"source":"iana","extensions":["ptid"]},"application/vnd.pwg-multiplexed":{"source":"iana"},"application/vnd.pwg-xhtml-print+xml":{"source":"iana","compressible":true},"application/vnd.qualcomm.brew-app-res":{"source":"iana"},"application/vnd.quarantainenet":{"source":"iana"},"application/vnd.quark.quarkxpress":{"source":"iana","extensions":["qxd","qxt","qwd","qwt","qxl","qxb"]},"application/vnd.quobject-quoxdocument":{"source":"iana"},"application/vnd.radisys.moml+xml":{"source":"iana","compressible":true},"application/vnd.radisys.msml+xml":{"source":"iana","compressible":true},"application/vnd.radisys.msml-audit+xml":{"source":"iana","compressible":true},"application/vnd.radisys.msml-audit-conf+xml":{"source":"iana","compressible":true},"application/vnd.radisys.msml-audit-conn+xml":{"source":"iana","compressible":true},"application/vnd.radisys.msml-audit-dialog+xml":{"source":"iana","compressible":true},"application/vnd.radisys.msml-audit-stream+xml":{"source":"iana","compressible":true},"application/vnd.radisys.msml-conf+xml":{"source":"iana","compressible":true},"application/vnd.radisys.msml-dialog+xml":{"source":"iana","compressible":true},"application/vnd.radisys.msml-dialog-base+xml":{"source":"iana","compressible":true},"application/vnd.radisys.msml-dialog-fax-detect+xml":{"source":"iana","compressible":true},"application/vnd.radisys.msml-dialog-fax-sendrecv+xml":{"source":"iana","compressible":true},"application/vnd.radisys.msml-dialog-group+xml":{"source":"iana","compressible":true},"application/vnd.radisys.msml-dialog-speech+xml":{"source":"iana","compressible":true},"application/vnd.radisys.msml-dialog-transform+xml":{"source":"iana","compressible":true},"application/vnd.rainstor.data":{"source":"iana"},"application/vnd.rapid":{"source":"iana"},"application/vnd.rar":{"source":"iana","extensions":["rar"]},"application/vnd.realvnc.bed":{"source":"iana","extensions":["bed"]},"application/vnd.recordare.musicxml":{"source":"iana","extensions":["mxl"]},"application/vnd.recordare.musicxml+xml":{"source":"iana","compressible":true,"extensions":["musicxml"]},"application/vnd.renlearn.rlprint":{"source":"iana"},"application/vnd.resilient.logic":{"source":"iana"},"application/vnd.restful+json":{"source":"iana","compressible":true},"application/vnd.rig.cryptonote":{"source":"iana","extensions":["cryptonote"]},"application/vnd.rim.cod":{"source":"apache","extensions":["cod"]},"application/vnd.rn-realmedia":{"source":"apache","extensions":["rm"]},"application/vnd.rn-realmedia-vbr":{"source":"apache","extensions":["rmvb"]},"application/vnd.route66.link66+xml":{"source":"iana","compressible":true,"extensions":["link66"]},"application/vnd.rs-274x":{"source":"iana"},"application/vnd.ruckus.download":{"source":"iana"},"application/vnd.s3sms":{"source":"iana"},"application/vnd.sailingtracker.track":{"source":"iana","extensions":["st"]},"application/vnd.sar":{"source":"iana"},"application/vnd.sbm.cid":{"source":"iana"},"application/vnd.sbm.mid2":{"source":"iana"},"application/vnd.scribus":{"source":"iana"},"application/vnd.sealed.3df":{"source":"iana"},"application/vnd.sealed.csf":{"source":"iana"},"application/vnd.sealed.doc":{"source":"iana"},"application/vnd.sealed.eml":{"source":"iana"},"application/vnd.sealed.mht":{"source":"iana"},"application/vnd.sealed.net":{"source":"iana"},"application/vnd.sealed.ppt":{"source":"iana"},"application/vnd.sealed.tiff":{"source":"iana"},"application/vnd.sealed.xls":{"source":"iana"},"application/vnd.sealedmedia.softseal.html":{"source":"iana"},"application/vnd.sealedmedia.softseal.pdf":{"source":"iana"},"application/vnd.seemail":{"source":"iana","extensions":["see"]},"application/vnd.seis+json":{"source":"iana","compressible":true},"application/vnd.sema":{"source":"iana","extensions":["sema"]},"application/vnd.semd":{"source":"iana","extensions":["semd"]},"application/vnd.semf":{"source":"iana","extensions":["semf"]},"application/vnd.shade-save-file":{"source":"iana"},"application/vnd.shana.informed.formdata":{"source":"iana","extensions":["ifm"]},"application/vnd.shana.informed.formtemplate":{"source":"iana","extensions":["itp"]},"application/vnd.shana.informed.interchange":{"source":"iana","extensions":["iif"]},"application/vnd.shana.informed.package":{"source":"iana","extensions":["ipk"]},"application/vnd.shootproof+json":{"source":"iana","compressible":true},"application/vnd.shopkick+json":{"source":"iana","compressible":true},"application/vnd.shp":{"source":"iana"},"application/vnd.shx":{"source":"iana"},"application/vnd.sigrok.session":{"source":"iana"},"application/vnd.simtech-mindmapper":{"source":"iana","extensions":["twd","twds"]},"application/vnd.siren+json":{"source":"iana","compressible":true},"application/vnd.smaf":{"source":"iana","extensions":["mmf"]},"application/vnd.smart.notebook":{"source":"iana"},"application/vnd.smart.teacher":{"source":"iana","extensions":["teacher"]},"application/vnd.snesdev-page-table":{"source":"iana"},"application/vnd.software602.filler.form+xml":{"source":"iana","compressible":true,"extensions":["fo"]},"application/vnd.software602.filler.form-xml-zip":{"source":"iana"},"application/vnd.solent.sdkm+xml":{"source":"iana","compressible":true,"extensions":["sdkm","sdkd"]},"application/vnd.spotfire.dxp":{"source":"iana","extensions":["dxp"]},"application/vnd.spotfire.sfs":{"source":"iana","extensions":["sfs"]},"application/vnd.sqlite3":{"source":"iana"},"application/vnd.sss-cod":{"source":"iana"},"application/vnd.sss-dtf":{"source":"iana"},"application/vnd.sss-ntf":{"source":"iana"},"application/vnd.stardivision.calc":{"source":"apache","extensions":["sdc"]},"application/vnd.stardivision.draw":{"source":"apache","extensions":["sda"]},"application/vnd.stardivision.impress":{"source":"apache","extensions":["sdd"]},"application/vnd.stardivision.math":{"source":"apache","extensions":["smf"]},"application/vnd.stardivision.writer":{"source":"apache","extensions":["sdw","vor"]},"application/vnd.stardivision.writer-global":{"source":"apache","extensions":["sgl"]},"application/vnd.stepmania.package":{"source":"iana","extensions":["smzip"]},"application/vnd.stepmania.stepchart":{"source":"iana","extensions":["sm"]},"application/vnd.street-stream":{"source":"iana"},"application/vnd.sun.wadl+xml":{"source":"iana","compressible":true,"extensions":["wadl"]},"application/vnd.sun.xml.calc":{"source":"apache","extensions":["sxc"]},"application/vnd.sun.xml.calc.template":{"source":"apache","extensions":["stc"]},"application/vnd.sun.xml.draw":{"source":"apache","extensions":["sxd"]},"application/vnd.sun.xml.draw.template":{"source":"apache","extensions":["std"]},"application/vnd.sun.xml.impress":{"source":"apache","extensions":["sxi"]},"application/vnd.sun.xml.impress.template":{"source":"apache","extensions":["sti"]},"application/vnd.sun.xml.math":{"source":"apache","extensions":["sxm"]},"application/vnd.sun.xml.writer":{"source":"apache","extensions":["sxw"]},"application/vnd.sun.xml.writer.global":{"source":"apache","extensions":["sxg"]},"application/vnd.sun.xml.writer.template":{"source":"apache","extensions":["stw"]},"application/vnd.sus-calendar":{"source":"iana","extensions":["sus","susp"]},"application/vnd.svd":{"source":"iana","extensions":["svd"]},"application/vnd.swiftview-ics":{"source":"iana"},"application/vnd.sycle+xml":{"source":"iana","compressible":true},"application/vnd.syft+json":{"source":"iana","compressible":true},"application/vnd.symbian.install":{"source":"apache","extensions":["sis","sisx"]},"application/vnd.syncml+xml":{"source":"iana","charset":"UTF-8","compressible":true,"extensions":["xsm"]},"application/vnd.syncml.dm+wbxml":{"source":"iana","charset":"UTF-8","extensions":["bdm"]},"application/vnd.syncml.dm+xml":{"source":"iana","charset":"UTF-8","compressible":true,"extensions":["xdm"]},"application/vnd.syncml.dm.notification":{"source":"iana"},"application/vnd.syncml.dmddf+wbxml":{"source":"iana"},"application/vnd.syncml.dmddf+xml":{"source":"iana","charset":"UTF-8","compressible":true,"extensions":["ddf"]},"application/vnd.syncml.dmtnds+wbxml":{"source":"iana"},"application/vnd.syncml.dmtnds+xml":{"source":"iana","charset":"UTF-8","compressible":true},"application/vnd.syncml.ds.notification":{"source":"iana"},"application/vnd.tableschema+json":{"source":"iana","compressible":true},"application/vnd.tao.intent-module-archive":{"source":"iana","extensions":["tao"]},"application/vnd.tcpdump.pcap":{"source":"iana","extensions":["pcap","cap","dmp"]},"application/vnd.think-cell.ppttc+json":{"source":"iana","compressible":true},"application/vnd.tmd.mediaflex.api+xml":{"source":"iana","compressible":true},"application/vnd.tml":{"source":"iana"},"application/vnd.tmobile-livetv":{"source":"iana","extensions":["tmo"]},"application/vnd.tri.onesource":{"source":"iana"},"application/vnd.trid.tpt":{"source":"iana","extensions":["tpt"]},"application/vnd.triscape.mxs":{"source":"iana","extensions":["mxs"]},"application/vnd.trueapp":{"source":"iana","extensions":["tra"]},"application/vnd.truedoc":{"source":"iana"},"application/vnd.ubisoft.webplayer":{"source":"iana"},"application/vnd.ufdl":{"source":"iana","extensions":["ufd","ufdl"]},"application/vnd.uiq.theme":{"source":"iana","extensions":["utz"]},"application/vnd.umajin":{"source":"iana","extensions":["umj"]},"application/vnd.unity":{"source":"iana","extensions":["unityweb"]},"application/vnd.uoml+xml":{"source":"iana","compressible":true,"extensions":["uoml"]},"application/vnd.uplanet.alert":{"source":"iana"},"application/vnd.uplanet.alert-wbxml":{"source":"iana"},"application/vnd.uplanet.bearer-choice":{"source":"iana"},"application/vnd.uplanet.bearer-choice-wbxml":{"source":"iana"},"application/vnd.uplanet.cacheop":{"source":"iana"},"application/vnd.uplanet.cacheop-wbxml":{"source":"iana"},"application/vnd.uplanet.channel":{"source":"iana"},"application/vnd.uplanet.channel-wbxml":{"source":"iana"},"application/vnd.uplanet.list":{"source":"iana"},"application/vnd.uplanet.list-wbxml":{"source":"iana"},"application/vnd.uplanet.listcmd":{"source":"iana"},"application/vnd.uplanet.listcmd-wbxml":{"source":"iana"},"application/vnd.uplanet.signal":{"source":"iana"},"application/vnd.uri-map":{"source":"iana"},"application/vnd.valve.source.material":{"source":"iana"},"application/vnd.vcx":{"source":"iana","extensions":["vcx"]},"application/vnd.vd-study":{"source":"iana"},"application/vnd.vectorworks":{"source":"iana"},"application/vnd.vel+json":{"source":"iana","compressible":true},"application/vnd.verimatrix.vcas":{"source":"iana"},"application/vnd.veritone.aion+json":{"source":"iana","compressible":true},"application/vnd.veryant.thin":{"source":"iana"},"application/vnd.ves.encrypted":{"source":"iana"},"application/vnd.vidsoft.vidconference":{"source":"iana"},"application/vnd.visio":{"source":"iana","extensions":["vsd","vst","vss","vsw"]},"application/vnd.visionary":{"source":"iana","extensions":["vis"]},"application/vnd.vividence.scriptfile":{"source":"iana"},"application/vnd.vsf":{"source":"iana","extensions":["vsf"]},"application/vnd.wap.sic":{"source":"iana"},"application/vnd.wap.slc":{"source":"iana"},"application/vnd.wap.wbxml":{"source":"iana","charset":"UTF-8","extensions":["wbxml"]},"application/vnd.wap.wmlc":{"source":"iana","extensions":["wmlc"]},"application/vnd.wap.wmlscriptc":{"source":"iana","extensions":["wmlsc"]},"application/vnd.webturbo":{"source":"iana","extensions":["wtb"]},"application/vnd.wfa.dpp":{"source":"iana"},"application/vnd.wfa.p2p":{"source":"iana"},"application/vnd.wfa.wsc":{"source":"iana"},"application/vnd.windows.devicepairing":{"source":"iana"},"application/vnd.wmc":{"source":"iana"},"application/vnd.wmf.bootstrap":{"source":"iana"},"application/vnd.wolfram.mathematica":{"source":"iana"},"application/vnd.wolfram.mathematica.package":{"source":"iana"},"application/vnd.wolfram.player":{"source":"iana","extensions":["nbp"]},"application/vnd.wordperfect":{"source":"iana","extensions":["wpd"]},"application/vnd.wqd":{"source":"iana","extensions":["wqd"]},"application/vnd.wrq-hp3000-labelled":{"source":"iana"},"application/vnd.wt.stf":{"source":"iana","extensions":["stf"]},"application/vnd.wv.csp+wbxml":{"source":"iana"},"application/vnd.wv.csp+xml":{"source":"iana","compressible":true},"application/vnd.wv.ssp+xml":{"source":"iana","compressible":true},"application/vnd.xacml+json":{"source":"iana","compressible":true},"application/vnd.xara":{"source":"iana","extensions":["xar"]},"application/vnd.xfdl":{"source":"iana","extensions":["xfdl"]},"application/vnd.xfdl.webform":{"source":"iana"},"application/vnd.xmi+xml":{"source":"iana","compressible":true},"application/vnd.xmpie.cpkg":{"source":"iana"},"application/vnd.xmpie.dpkg":{"source":"iana"},"application/vnd.xmpie.plan":{"source":"iana"},"application/vnd.xmpie.ppkg":{"source":"iana"},"application/vnd.xmpie.xlim":{"source":"iana"},"application/vnd.yamaha.hv-dic":{"source":"iana","extensions":["hvd"]},"application/vnd.yamaha.hv-script":{"source":"iana","extensions":["hvs"]},"application/vnd.yamaha.hv-voice":{"source":"iana","extensions":["hvp"]},"application/vnd.yamaha.openscoreformat":{"source":"iana","extensions":["osf"]},"application/vnd.yamaha.openscoreformat.osfpvg+xml":{"source":"iana","compressible":true,"extensions":["osfpvg"]},"application/vnd.yamaha.remote-setup":{"source":"iana"},"application/vnd.yamaha.smaf-audio":{"source":"iana","extensions":["saf"]},"application/vnd.yamaha.smaf-phrase":{"source":"iana","extensions":["spf"]},"application/vnd.yamaha.through-ngn":{"source":"iana"},"application/vnd.yamaha.tunnel-udpencap":{"source":"iana"},"application/vnd.yaoweme":{"source":"iana"},"application/vnd.yellowriver-custom-menu":{"source":"iana","extensions":["cmp"]},"application/vnd.youtube.yt":{"source":"iana"},"application/vnd.zul":{"source":"iana","extensions":["zir","zirz"]},"application/vnd.zzazz.deck+xml":{"source":"iana","compressible":true,"extensions":["zaz"]},"application/voicexml+xml":{"source":"iana","compressible":true,"extensions":["vxml"]},"application/voucher-cms+json":{"source":"iana","compressible":true},"application/vq-rtcpxr":{"source":"iana"},"application/wasm":{"source":"iana","compressible":true,"extensions":["wasm"]},"application/watcherinfo+xml":{"source":"iana","compressible":true,"extensions":["wif"]},"application/webpush-options+json":{"source":"iana","compressible":true},"application/whoispp-query":{"source":"iana"},"application/whoispp-response":{"source":"iana"},"application/widget":{"source":"iana","extensions":["wgt"]},"application/winhlp":{"source":"apache","extensions":["hlp"]},"application/wita":{"source":"iana"},"application/wordperfect5.1":{"source":"iana"},"application/wsdl+xml":{"source":"iana","compressible":true,"extensions":["wsdl"]},"application/wspolicy+xml":{"source":"iana","compressible":true,"extensions":["wspolicy"]},"application/x-7z-compressed":{"source":"apache","compressible":false,"extensions":["7z"]},"application/x-abiword":{"source":"apache","extensions":["abw"]},"application/x-ace-compressed":{"source":"apache","extensions":["ace"]},"application/x-amf":{"source":"apache"},"application/x-apple-diskimage":{"source":"apache","extensions":["dmg"]},"application/x-arj":{"compressible":false,"extensions":["arj"]},"application/x-authorware-bin":{"source":"apache","extensions":["aab","x32","u32","vox"]},"application/x-authorware-map":{"source":"apache","extensions":["aam"]},"application/x-authorware-seg":{"source":"apache","extensions":["aas"]},"application/x-bcpio":{"source":"apache","extensions":["bcpio"]},"application/x-bdoc":{"compressible":false,"extensions":["bdoc"]},"application/x-bittorrent":{"source":"apache","extensions":["torrent"]},"application/x-blorb":{"source":"apache","extensions":["blb","blorb"]},"application/x-bzip":{"source":"apache","compressible":false,"extensions":["bz"]},"application/x-bzip2":{"source":"apache","compressible":false,"extensions":["bz2","boz"]},"application/x-cbr":{"source":"apache","extensions":["cbr","cba","cbt","cbz","cb7"]},"application/x-cdlink":{"source":"apache","extensions":["vcd"]},"application/x-cfs-compressed":{"source":"apache","extensions":["cfs"]},"application/x-chat":{"source":"apache","extensions":["chat"]},"application/x-chess-pgn":{"source":"apache","extensions":["pgn"]},"application/x-chrome-extension":{"extensions":["crx"]},"application/x-cocoa":{"source":"nginx","extensions":["cco"]},"application/x-compress":{"source":"apache"},"application/x-conference":{"source":"apache","extensions":["nsc"]},"application/x-cpio":{"source":"apache","extensions":["cpio"]},"application/x-csh":{"source":"apache","extensions":["csh"]},"application/x-deb":{"compressible":false},"application/x-debian-package":{"source":"apache","extensions":["deb","udeb"]},"application/x-dgc-compressed":{"source":"apache","extensions":["dgc"]},"application/x-director":{"source":"apache","extensions":["dir","dcr","dxr","cst","cct","cxt","w3d","fgd","swa"]},"application/x-doom":{"source":"apache","extensions":["wad"]},"application/x-dtbncx+xml":{"source":"apache","compressible":true,"extensions":["ncx"]},"application/x-dtbook+xml":{"source":"apache","compressible":true,"extensions":["dtb"]},"application/x-dtbresource+xml":{"source":"apache","compressible":true,"extensions":["res"]},"application/x-dvi":{"source":"apache","compressible":false,"extensions":["dvi"]},"application/x-envoy":{"source":"apache","extensions":["evy"]},"application/x-eva":{"source":"apache","extensions":["eva"]},"application/x-font-bdf":{"source":"apache","extensions":["bdf"]},"application/x-font-dos":{"source":"apache"},"application/x-font-framemaker":{"source":"apache"},"application/x-font-ghostscript":{"source":"apache","extensions":["gsf"]},"application/x-font-libgrx":{"source":"apache"},"application/x-font-linux-psf":{"source":"apache","extensions":["psf"]},"application/x-font-pcf":{"source":"apache","extensions":["pcf"]},"application/x-font-snf":{"source":"apache","extensions":["snf"]},"application/x-font-speedo":{"source":"apache"},"application/x-font-sunos-news":{"source":"apache"},"application/x-font-type1":{"source":"apache","extensions":["pfa","pfb","pfm","afm"]},"application/x-font-vfont":{"source":"apache"},"application/x-freearc":{"source":"apache","extensions":["arc"]},"application/x-futuresplash":{"source":"apache","extensions":["spl"]},"application/x-gca-compressed":{"source":"apache","extensions":["gca"]},"application/x-glulx":{"source":"apache","extensions":["ulx"]},"application/x-gnumeric":{"source":"apache","extensions":["gnumeric"]},"application/x-gramps-xml":{"source":"apache","extensions":["gramps"]},"application/x-gtar":{"source":"apache","extensions":["gtar"]},"application/x-gzip":{"source":"apache"},"application/x-hdf":{"source":"apache","extensions":["hdf"]},"application/x-httpd-php":{"compressible":true,"extensions":["php"]},"application/x-install-instructions":{"source":"apache","extensions":["install"]},"application/x-iso9660-image":{"source":"apache","extensions":["iso"]},"application/x-iwork-keynote-sffkey":{"extensions":["key"]},"application/x-iwork-numbers-sffnumbers":{"extensions":["numbers"]},"application/x-iwork-pages-sffpages":{"extensions":["pages"]},"application/x-java-archive-diff":{"source":"nginx","extensions":["jardiff"]},"application/x-java-jnlp-file":{"source":"apache","compressible":false,"extensions":["jnlp"]},"application/x-javascript":{"compressible":true},"application/x-keepass2":{"extensions":["kdbx"]},"application/x-latex":{"source":"apache","compressible":false,"extensions":["latex"]},"application/x-lua-bytecode":{"extensions":["luac"]},"application/x-lzh-compressed":{"source":"apache","extensions":["lzh","lha"]},"application/x-makeself":{"source":"nginx","extensions":["run"]},"application/x-mie":{"source":"apache","extensions":["mie"]},"application/x-mobipocket-ebook":{"source":"apache","extensions":["prc","mobi"]},"application/x-mpegurl":{"compressible":false},"application/x-ms-application":{"source":"apache","extensions":["application"]},"application/x-ms-shortcut":{"source":"apache","extensions":["lnk"]},"application/x-ms-wmd":{"source":"apache","extensions":["wmd"]},"application/x-ms-wmz":{"source":"apache","extensions":["wmz"]},"application/x-ms-xbap":{"source":"apache","extensions":["xbap"]},"application/x-msaccess":{"source":"apache","extensions":["mdb"]},"application/x-msbinder":{"source":"apache","extensions":["obd"]},"application/x-mscardfile":{"source":"apache","extensions":["crd"]},"application/x-msclip":{"source":"apache","extensions":["clp"]},"application/x-msdos-program":{"extensions":["exe"]},"application/x-msdownload":{"source":"apache","extensions":["exe","dll","com","bat","msi"]},"application/x-msmediaview":{"source":"apache","extensions":["mvb","m13","m14"]},"application/x-msmetafile":{"source":"apache","extensions":["wmf","wmz","emf","emz"]},"application/x-msmoney":{"source":"apache","extensions":["mny"]},"application/x-mspublisher":{"source":"apache","extensions":["pub"]},"application/x-msschedule":{"source":"apache","extensions":["scd"]},"application/x-msterminal":{"source":"apache","extensions":["trm"]},"application/x-mswrite":{"source":"apache","extensions":["wri"]},"application/x-netcdf":{"source":"apache","extensions":["nc","cdf"]},"application/x-ns-proxy-autoconfig":{"compressible":true,"extensions":["pac"]},"application/x-nzb":{"source":"apache","extensions":["nzb"]},"application/x-perl":{"source":"nginx","extensions":["pl","pm"]},"application/x-pilot":{"source":"nginx","extensions":["prc","pdb"]},"application/x-pkcs12":{"source":"apache","compressible":false,"extensions":["p12","pfx"]},"application/x-pkcs7-certificates":{"source":"apache","extensions":["p7b","spc"]},"application/x-pkcs7-certreqresp":{"source":"apache","extensions":["p7r"]},"application/x-pki-message":{"source":"iana"},"application/x-rar-compressed":{"source":"apache","compressible":false,"extensions":["rar"]},"application/x-redhat-package-manager":{"source":"nginx","extensions":["rpm"]},"application/x-research-info-systems":{"source":"apache","extensions":["ris"]},"application/x-sea":{"source":"nginx","extensions":["sea"]},"application/x-sh":{"source":"apache","compressible":true,"extensions":["sh"]},"application/x-shar":{"source":"apache","extensions":["shar"]},"application/x-shockwave-flash":{"source":"apache","compressible":false,"extensions":["swf"]},"application/x-silverlight-app":{"source":"apache","extensions":["xap"]},"application/x-sql":{"source":"apache","extensions":["sql"]},"application/x-stuffit":{"source":"apache","compressible":false,"extensions":["sit"]},"application/x-stuffitx":{"source":"apache","extensions":["sitx"]},"application/x-subrip":{"source":"apache","extensions":["srt"]},"application/x-sv4cpio":{"source":"apache","extensions":["sv4cpio"]},"application/x-sv4crc":{"source":"apache","extensions":["sv4crc"]},"application/x-t3vm-image":{"source":"apache","extensions":["t3"]},"application/x-tads":{"source":"apache","extensions":["gam"]},"application/x-tar":{"source":"apache","compressible":true,"extensions":["tar"]},"application/x-tcl":{"source":"apache","extensions":["tcl","tk"]},"application/x-tex":{"source":"apache","extensions":["tex"]},"application/x-tex-tfm":{"source":"apache","extensions":["tfm"]},"application/x-texinfo":{"source":"apache","extensions":["texinfo","texi"]},"application/x-tgif":{"source":"apache","extensions":["obj"]},"application/x-ustar":{"source":"apache","extensions":["ustar"]},"application/x-virtualbox-hdd":{"compressible":true,"extensions":["hdd"]},"application/x-virtualbox-ova":{"compressible":true,"extensions":["ova"]},"application/x-virtualbox-ovf":{"compressible":true,"extensions":["ovf"]},"application/x-virtualbox-vbox":{"compressible":true,"extensions":["vbox"]},"application/x-virtualbox-vbox-extpack":{"compressible":false,"extensions":["vbox-extpack"]},"application/x-virtualbox-vdi":{"compressible":true,"extensions":["vdi"]},"application/x-virtualbox-vhd":{"compressible":true,"extensions":["vhd"]},"application/x-virtualbox-vmdk":{"compressible":true,"extensions":["vmdk"]},"application/x-wais-source":{"source":"apache","extensions":["src"]},"application/x-web-app-manifest+json":{"compressible":true,"extensions":["webapp"]},"application/x-www-form-urlencoded":{"source":"iana","compressible":true},"application/x-x509-ca-cert":{"source":"iana","extensions":["der","crt","pem"]},"application/x-x509-ca-ra-cert":{"source":"iana"},"application/x-x509-next-ca-cert":{"source":"iana"},"application/x-xfig":{"source":"apache","extensions":["fig"]},"application/x-xliff+xml":{"source":"apache","compressible":true,"extensions":["xlf"]},"application/x-xpinstall":{"source":"apache","compressible":false,"extensions":["xpi"]},"application/x-xz":{"source":"apache","extensions":["xz"]},"application/x-zmachine":{"source":"apache","extensions":["z1","z2","z3","z4","z5","z6","z7","z8"]},"application/x400-bp":{"source":"iana"},"application/xacml+xml":{"source":"iana","compressible":true},"application/xaml+xml":{"source":"apache","compressible":true,"extensions":["xaml"]},"application/xcap-att+xml":{"source":"iana","compressible":true,"extensions":["xav"]},"application/xcap-caps+xml":{"source":"iana","compressible":true,"extensions":["xca"]},"application/xcap-diff+xml":{"source":"iana","compressible":true,"extensions":["xdf"]},"application/xcap-el+xml":{"source":"iana","compressible":true,"extensions":["xel"]},"application/xcap-error+xml":{"source":"iana","compressible":true},"application/xcap-ns+xml":{"source":"iana","compressible":true,"extensions":["xns"]},"application/xcon-conference-info+xml":{"source":"iana","compressible":true},"application/xcon-conference-info-diff+xml":{"source":"iana","compressible":true},"application/xenc+xml":{"source":"iana","compressible":true,"extensions":["xenc"]},"application/xhtml+xml":{"source":"iana","compressible":true,"extensions":["xhtml","xht"]},"application/xhtml-voice+xml":{"source":"apache","compressible":true},"application/xliff+xml":{"source":"iana","compressible":true,"extensions":["xlf"]},"application/xml":{"source":"iana","compressible":true,"extensions":["xml","xsl","xsd","rng"]},"application/xml-dtd":{"source":"iana","compressible":true,"extensions":["dtd"]},"application/xml-external-parsed-entity":{"source":"iana"},"application/xml-patch+xml":{"source":"iana","compressible":true},"application/xmpp+xml":{"source":"iana","compressible":true},"application/xop+xml":{"source":"iana","compressible":true,"extensions":["xop"]},"application/xproc+xml":{"source":"apache","compressible":true,"extensions":["xpl"]},"application/xslt+xml":{"source":"iana","compressible":true,"extensions":["xsl","xslt"]},"application/xspf+xml":{"source":"apache","compressible":true,"extensions":["xspf"]},"application/xv+xml":{"source":"iana","compressible":true,"extensions":["mxml","xhvml","xvml","xvm"]},"application/yang":{"source":"iana","extensions":["yang"]},"application/yang-data+json":{"source":"iana","compressible":true},"application/yang-data+xml":{"source":"iana","compressible":true},"application/yang-patch+json":{"source":"iana","compressible":true},"application/yang-patch+xml":{"source":"iana","compressible":true},"application/yin+xml":{"source":"iana","compressible":true,"extensions":["yin"]},"application/zip":{"source":"iana","compressible":false,"extensions":["zip"]},"application/zlib":{"source":"iana"},"application/zstd":{"source":"iana"},"audio/1d-interleaved-parityfec":{"source":"iana"},"audio/32kadpcm":{"source":"iana"},"audio/3gpp":{"source":"iana","compressible":false,"extensions":["3gpp"]},"audio/3gpp2":{"source":"iana"},"audio/aac":{"source":"iana"},"audio/ac3":{"source":"iana"},"audio/adpcm":{"source":"apache","extensions":["adp"]},"audio/amr":{"source":"iana","extensions":["amr"]},"audio/amr-wb":{"source":"iana"},"audio/amr-wb+":{"source":"iana"},"audio/aptx":{"source":"iana"},"audio/asc":{"source":"iana"},"audio/atrac-advanced-lossless":{"source":"iana"},"audio/atrac-x":{"source":"iana"},"audio/atrac3":{"source":"iana"},"audio/basic":{"source":"iana","compressible":false,"extensions":["au","snd"]},"audio/bv16":{"source":"iana"},"audio/bv32":{"source":"iana"},"audio/clearmode":{"source":"iana"},"audio/cn":{"source":"iana"},"audio/dat12":{"source":"iana"},"audio/dls":{"source":"iana"},"audio/dsr-es201108":{"source":"iana"},"audio/dsr-es202050":{"source":"iana"},"audio/dsr-es202211":{"source":"iana"},"audio/dsr-es202212":{"source":"iana"},"audio/dv":{"source":"iana"},"audio/dvi4":{"source":"iana"},"audio/eac3":{"source":"iana"},"audio/encaprtp":{"source":"iana"},"audio/evrc":{"source":"iana"},"audio/evrc-qcp":{"source":"iana"},"audio/evrc0":{"source":"iana"},"audio/evrc1":{"source":"iana"},"audio/evrcb":{"source":"iana"},"audio/evrcb0":{"source":"iana"},"audio/evrcb1":{"source":"iana"},"audio/evrcnw":{"source":"iana"},"audio/evrcnw0":{"source":"iana"},"audio/evrcnw1":{"source":"iana"},"audio/evrcwb":{"source":"iana"},"audio/evrcwb0":{"source":"iana"},"audio/evrcwb1":{"source":"iana"},"audio/evs":{"source":"iana"},"audio/flexfec":{"source":"iana"},"audio/fwdred":{"source":"iana"},"audio/g711-0":{"source":"iana"},"audio/g719":{"source":"iana"},"audio/g722":{"source":"iana"},"audio/g7221":{"source":"iana"},"audio/g723":{"source":"iana"},"audio/g726-16":{"source":"iana"},"audio/g726-24":{"source":"iana"},"audio/g726-32":{"source":"iana"},"audio/g726-40":{"source":"iana"},"audio/g728":{"source":"iana"},"audio/g729":{"source":"iana"},"audio/g7291":{"source":"iana"},"audio/g729d":{"source":"iana"},"audio/g729e":{"source":"iana"},"audio/gsm":{"source":"iana"},"audio/gsm-efr":{"source":"iana"},"audio/gsm-hr-08":{"source":"iana"},"audio/ilbc":{"source":"iana"},"audio/ip-mr_v2.5":{"source":"iana"},"audio/isac":{"source":"apache"},"audio/l16":{"source":"iana"},"audio/l20":{"source":"iana"},"audio/l24":{"source":"iana","compressible":false},"audio/l8":{"source":"iana"},"audio/lpc":{"source":"iana"},"audio/melp":{"source":"iana"},"audio/melp1200":{"source":"iana"},"audio/melp2400":{"source":"iana"},"audio/melp600":{"source":"iana"},"audio/mhas":{"source":"iana"},"audio/midi":{"source":"apache","extensions":["mid","midi","kar","rmi"]},"audio/mobile-xmf":{"source":"iana","extensions":["mxmf"]},"audio/mp3":{"compressible":false,"extensions":["mp3"]},"audio/mp4":{"source":"iana","compressible":false,"extensions":["m4a","mp4a"]},"audio/mp4a-latm":{"source":"iana"},"audio/mpa":{"source":"iana"},"audio/mpa-robust":{"source":"iana"},"audio/mpeg":{"source":"iana","compressible":false,"extensions":["mpga","mp2","mp2a","mp3","m2a","m3a"]},"audio/mpeg4-generic":{"source":"iana"},"audio/musepack":{"source":"apache"},"audio/ogg":{"source":"iana","compressible":false,"extensions":["oga","ogg","spx","opus"]},"audio/opus":{"source":"iana"},"audio/parityfec":{"source":"iana"},"audio/pcma":{"source":"iana"},"audio/pcma-wb":{"source":"iana"},"audio/pcmu":{"source":"iana"},"audio/pcmu-wb":{"source":"iana"},"audio/prs.sid":{"source":"iana"},"audio/qcelp":{"source":"iana"},"audio/raptorfec":{"source":"iana"},"audio/red":{"source":"iana"},"audio/rtp-enc-aescm128":{"source":"iana"},"audio/rtp-midi":{"source":"iana"},"audio/rtploopback":{"source":"iana"},"audio/rtx":{"source":"iana"},"audio/s3m":{"source":"apache","extensions":["s3m"]},"audio/scip":{"source":"iana"},"audio/silk":{"source":"apache","extensions":["sil"]},"audio/smv":{"source":"iana"},"audio/smv-qcp":{"source":"iana"},"audio/smv0":{"source":"iana"},"audio/sofa":{"source":"iana"},"audio/sp-midi":{"source":"iana"},"audio/speex":{"source":"iana"},"audio/t140c":{"source":"iana"},"audio/t38":{"source":"iana"},"audio/telephone-event":{"source":"iana"},"audio/tetra_acelp":{"source":"iana"},"audio/tetra_acelp_bb":{"source":"iana"},"audio/tone":{"source":"iana"},"audio/tsvcis":{"source":"iana"},"audio/uemclip":{"source":"iana"},"audio/ulpfec":{"source":"iana"},"audio/usac":{"source":"iana"},"audio/vdvi":{"source":"iana"},"audio/vmr-wb":{"source":"iana"},"audio/vnd.3gpp.iufp":{"source":"iana"},"audio/vnd.4sb":{"source":"iana"},"audio/vnd.audiokoz":{"source":"iana"},"audio/vnd.celp":{"source":"iana"},"audio/vnd.cisco.nse":{"source":"iana"},"audio/vnd.cmles.radio-events":{"source":"iana"},"audio/vnd.cns.anp1":{"source":"iana"},"audio/vnd.cns.inf1":{"source":"iana"},"audio/vnd.dece.audio":{"source":"iana","extensions":["uva","uvva"]},"audio/vnd.digital-winds":{"source":"iana","extensions":["eol"]},"audio/vnd.dlna.adts":{"source":"iana"},"audio/vnd.dolby.heaac.1":{"source":"iana"},"audio/vnd.dolby.heaac.2":{"source":"iana"},"audio/vnd.dolby.mlp":{"source":"iana"},"audio/vnd.dolby.mps":{"source":"iana"},"audio/vnd.dolby.pl2":{"source":"iana"},"audio/vnd.dolby.pl2x":{"source":"iana"},"audio/vnd.dolby.pl2z":{"source":"iana"},"audio/vnd.dolby.pulse.1":{"source":"iana"},"audio/vnd.dra":{"source":"iana","extensions":["dra"]},"audio/vnd.dts":{"source":"iana","extensions":["dts"]},"audio/vnd.dts.hd":{"source":"iana","extensions":["dtshd"]},"audio/vnd.dts.uhd":{"source":"iana"},"audio/vnd.dvb.file":{"source":"iana"},"audio/vnd.everad.plj":{"source":"iana"},"audio/vnd.hns.audio":{"source":"iana"},"audio/vnd.lucent.voice":{"source":"iana","extensions":["lvp"]},"audio/vnd.ms-playready.media.pya":{"source":"iana","extensions":["pya"]},"audio/vnd.nokia.mobile-xmf":{"source":"iana"},"audio/vnd.nortel.vbk":{"source":"iana"},"audio/vnd.nuera.ecelp4800":{"source":"iana","extensions":["ecelp4800"]},"audio/vnd.nuera.ecelp7470":{"source":"iana","extensions":["ecelp7470"]},"audio/vnd.nuera.ecelp9600":{"source":"iana","extensions":["ecelp9600"]},"audio/vnd.octel.sbc":{"source":"iana"},"audio/vnd.presonus.multitrack":{"source":"iana"},"audio/vnd.qcelp":{"source":"iana"},"audio/vnd.rhetorex.32kadpcm":{"source":"iana"},"audio/vnd.rip":{"source":"iana","extensions":["rip"]},"audio/vnd.rn-realaudio":{"compressible":false},"audio/vnd.sealedmedia.softseal.mpeg":{"source":"iana"},"audio/vnd.vmx.cvsd":{"source":"iana"},"audio/vnd.wave":{"compressible":false},"audio/vorbis":{"source":"iana","compressible":false},"audio/vorbis-config":{"source":"iana"},"audio/wav":{"compressible":false,"extensions":["wav"]},"audio/wave":{"compressible":false,"extensions":["wav"]},"audio/webm":{"source":"apache","compressible":false,"extensions":["weba"]},"audio/x-aac":{"source":"apache","compressible":false,"extensions":["aac"]},"audio/x-aiff":{"source":"apache","extensions":["aif","aiff","aifc"]},"audio/x-caf":{"source":"apache","compressible":false,"extensions":["caf"]},"audio/x-flac":{"source":"apache","extensions":["flac"]},"audio/x-m4a":{"source":"nginx","extensions":["m4a"]},"audio/x-matroska":{"source":"apache","extensions":["mka"]},"audio/x-mpegurl":{"source":"apache","extensions":["m3u"]},"audio/x-ms-wax":{"source":"apache","extensions":["wax"]},"audio/x-ms-wma":{"source":"apache","extensions":["wma"]},"audio/x-pn-realaudio":{"source":"apache","extensions":["ram","ra"]},"audio/x-pn-realaudio-plugin":{"source":"apache","extensions":["rmp"]},"audio/x-realaudio":{"source":"nginx","extensions":["ra"]},"audio/x-tta":{"source":"apache"},"audio/x-wav":{"source":"apache","extensions":["wav"]},"audio/xm":{"source":"apache","extensions":["xm"]},"chemical/x-cdx":{"source":"apache","extensions":["cdx"]},"chemical/x-cif":{"source":"apache","extensions":["cif"]},"chemical/x-cmdf":{"source":"apache","extensions":["cmdf"]},"chemical/x-cml":{"source":"apache","extensions":["cml"]},"chemical/x-csml":{"source":"apache","extensions":["csml"]},"chemical/x-pdb":{"source":"apache"},"chemical/x-xyz":{"source":"apache","extensions":["xyz"]},"font/collection":{"source":"iana","extensions":["ttc"]},"font/otf":{"source":"iana","compressible":true,"extensions":["otf"]},"font/sfnt":{"source":"iana"},"font/ttf":{"source":"iana","compressible":true,"extensions":["ttf"]},"font/woff":{"source":"iana","extensions":["woff"]},"font/woff2":{"source":"iana","extensions":["woff2"]},"image/aces":{"source":"iana","extensions":["exr"]},"image/apng":{"compressible":false,"extensions":["apng"]},"image/avci":{"source":"iana","extensions":["avci"]},"image/avcs":{"source":"iana","extensions":["avcs"]},"image/avif":{"source":"iana","compressible":false,"extensions":["avif"]},"image/bmp":{"source":"iana","compressible":true,"extensions":["bmp"]},"image/cgm":{"source":"iana","extensions":["cgm"]},"image/dicom-rle":{"source":"iana","extensions":["drle"]},"image/emf":{"source":"iana","extensions":["emf"]},"image/fits":{"source":"iana","extensions":["fits"]},"image/g3fax":{"source":"iana","extensions":["g3"]},"image/gif":{"source":"iana","compressible":false,"extensions":["gif"]},"image/heic":{"source":"iana","extensions":["heic"]},"image/heic-sequence":{"source":"iana","extensions":["heics"]},"image/heif":{"source":"iana","extensions":["heif"]},"image/heif-sequence":{"source":"iana","extensions":["heifs"]},"image/hej2k":{"source":"iana","extensions":["hej2"]},"image/hsj2":{"source":"iana","extensions":["hsj2"]},"image/ief":{"source":"iana","extensions":["ief"]},"image/jls":{"source":"iana","extensions":["jls"]},"image/jp2":{"source":"iana","compressible":false,"extensions":["jp2","jpg2"]},"image/jpeg":{"source":"iana","compressible":false,"extensions":["jpeg","jpg","jpe"]},"image/jph":{"source":"iana","extensions":["jph"]},"image/jphc":{"source":"iana","extensions":["jhc"]},"image/jpm":{"source":"iana","compressible":false,"extensions":["jpm"]},"image/jpx":{"source":"iana","compressible":false,"extensions":["jpx","jpf"]},"image/jxr":{"source":"iana","extensions":["jxr"]},"image/jxra":{"source":"iana","extensions":["jxra"]},"image/jxrs":{"source":"iana","extensions":["jxrs"]},"image/jxs":{"source":"iana","extensions":["jxs"]},"image/jxsc":{"source":"iana","extensions":["jxsc"]},"image/jxsi":{"source":"iana","extensions":["jxsi"]},"image/jxss":{"source":"iana","extensions":["jxss"]},"image/ktx":{"source":"iana","extensions":["ktx"]},"image/ktx2":{"source":"iana","extensions":["ktx2"]},"image/naplps":{"source":"iana"},"image/pjpeg":{"compressible":false},"image/png":{"source":"iana","compressible":false,"extensions":["png"]},"image/prs.btif":{"source":"iana","extensions":["btif"]},"image/prs.pti":{"source":"iana","extensions":["pti"]},"image/pwg-raster":{"source":"iana"},"image/sgi":{"source":"apache","extensions":["sgi"]},"image/svg+xml":{"source":"iana","compressible":true,"extensions":["svg","svgz"]},"image/t38":{"source":"iana","extensions":["t38"]},"image/tiff":{"source":"iana","compressible":false,"extensions":["tif","tiff"]},"image/tiff-fx":{"source":"iana","extensions":["tfx"]},"image/vnd.adobe.photoshop":{"source":"iana","compressible":true,"extensions":["psd"]},"image/vnd.airzip.accelerator.azv":{"source":"iana","extensions":["azv"]},"image/vnd.cns.inf2":{"source":"iana"},"image/vnd.dece.graphic":{"source":"iana","extensions":["uvi","uvvi","uvg","uvvg"]},"image/vnd.djvu":{"source":"iana","extensions":["djvu","djv"]},"image/vnd.dvb.subtitle":{"source":"iana","extensions":["sub"]},"image/vnd.dwg":{"source":"iana","extensions":["dwg"]},"image/vnd.dxf":{"source":"iana","extensions":["dxf"]},"image/vnd.fastbidsheet":{"source":"iana","extensions":["fbs"]},"image/vnd.fpx":{"source":"iana","extensions":["fpx"]},"image/vnd.fst":{"source":"iana","extensions":["fst"]},"image/vnd.fujixerox.edmics-mmr":{"source":"iana","extensions":["mmr"]},"image/vnd.fujixerox.edmics-rlc":{"source":"iana","extensions":["rlc"]},"image/vnd.globalgraphics.pgb":{"source":"iana"},"image/vnd.microsoft.icon":{"source":"iana","compressible":true,"extensions":["ico"]},"image/vnd.mix":{"source":"iana"},"image/vnd.mozilla.apng":{"source":"iana"},"image/vnd.ms-dds":{"compressible":true,"extensions":["dds"]},"image/vnd.ms-modi":{"source":"iana","extensions":["mdi"]},"image/vnd.ms-photo":{"source":"apache","extensions":["wdp"]},"image/vnd.net-fpx":{"source":"iana","extensions":["npx"]},"image/vnd.pco.b16":{"source":"iana","extensions":["b16"]},"image/vnd.radiance":{"source":"iana"},"image/vnd.sealed.png":{"source":"iana"},"image/vnd.sealedmedia.softseal.gif":{"source":"iana"},"image/vnd.sealedmedia.softseal.jpg":{"source":"iana"},"image/vnd.svf":{"source":"iana"},"image/vnd.tencent.tap":{"source":"iana","extensions":["tap"]},"image/vnd.valve.source.texture":{"source":"iana","extensions":["vtf"]},"image/vnd.wap.wbmp":{"source":"iana","extensions":["wbmp"]},"image/vnd.xiff":{"source":"iana","extensions":["xif"]},"image/vnd.zbrush.pcx":{"source":"iana","extensions":["pcx"]},"image/webp":{"source":"apache","extensions":["webp"]},"image/wmf":{"source":"iana","extensions":["wmf"]},"image/x-3ds":{"source":"apache","extensions":["3ds"]},"image/x-cmu-raster":{"source":"apache","extensions":["ras"]},"image/x-cmx":{"source":"apache","extensions":["cmx"]},"image/x-freehand":{"source":"apache","extensions":["fh","fhc","fh4","fh5","fh7"]},"image/x-icon":{"source":"apache","compressible":true,"extensions":["ico"]},"image/x-jng":{"source":"nginx","extensions":["jng"]},"image/x-mrsid-image":{"source":"apache","extensions":["sid"]},"image/x-ms-bmp":{"source":"nginx","compressible":true,"extensions":["bmp"]},"image/x-pcx":{"source":"apache","extensions":["pcx"]},"image/x-pict":{"source":"apache","extensions":["pic","pct"]},"image/x-portable-anymap":{"source":"apache","extensions":["pnm"]},"image/x-portable-bitmap":{"source":"apache","extensions":["pbm"]},"image/x-portable-graymap":{"source":"apache","extensions":["pgm"]},"image/x-portable-pixmap":{"source":"apache","extensions":["ppm"]},"image/x-rgb":{"source":"apache","extensions":["rgb"]},"image/x-tga":{"source":"apache","extensions":["tga"]},"image/x-xbitmap":{"source":"apache","extensions":["xbm"]},"image/x-xcf":{"compressible":false},"image/x-xpixmap":{"source":"apache","extensions":["xpm"]},"image/x-xwindowdump":{"source":"apache","extensions":["xwd"]},"message/cpim":{"source":"iana"},"message/delivery-status":{"source":"iana"},"message/disposition-notification":{"source":"iana","extensions":["disposition-notification"]},"message/external-body":{"source":"iana"},"message/feedback-report":{"source":"iana"},"message/global":{"source":"iana","extensions":["u8msg"]},"message/global-delivery-status":{"source":"iana","extensions":["u8dsn"]},"message/global-disposition-notification":{"source":"iana","extensions":["u8mdn"]},"message/global-headers":{"source":"iana","extensions":["u8hdr"]},"message/http":{"source":"iana","compressible":false},"message/imdn+xml":{"source":"iana","compressible":true},"message/news":{"source":"iana"},"message/partial":{"source":"iana","compressible":false},"message/rfc822":{"source":"iana","compressible":true,"extensions":["eml","mime"]},"message/s-http":{"source":"iana"},"message/sip":{"source":"iana"},"message/sipfrag":{"source":"iana"},"message/tracking-status":{"source":"iana"},"message/vnd.si.simp":{"source":"iana"},"message/vnd.wfa.wsc":{"source":"iana","extensions":["wsc"]},"model/3mf":{"source":"iana","extensions":["3mf"]},"model/e57":{"source":"iana"},"model/gltf+json":{"source":"iana","compressible":true,"extensions":["gltf"]},"model/gltf-binary":{"source":"iana","compressible":true,"extensions":["glb"]},"model/iges":{"source":"iana","compressible":false,"extensions":["igs","iges"]},"model/mesh":{"source":"iana","compressible":false,"extensions":["msh","mesh","silo"]},"model/mtl":{"source":"iana","extensions":["mtl"]},"model/obj":{"source":"iana","extensions":["obj"]},"model/step":{"source":"iana"},"model/step+xml":{"source":"iana","compressible":true,"extensions":["stpx"]},"model/step+zip":{"source":"iana","compressible":false,"extensions":["stpz"]},"model/step-xml+zip":{"source":"iana","compressible":false,"extensions":["stpxz"]},"model/stl":{"source":"iana","extensions":["stl"]},"model/vnd.collada+xml":{"source":"iana","compressible":true,"extensions":["dae"]},"model/vnd.dwf":{"source":"iana","extensions":["dwf"]},"model/vnd.flatland.3dml":{"source":"iana"},"model/vnd.gdl":{"source":"iana","extensions":["gdl"]},"model/vnd.gs-gdl":{"source":"apache"},"model/vnd.gs.gdl":{"source":"iana"},"model/vnd.gtw":{"source":"iana","extensions":["gtw"]},"model/vnd.moml+xml":{"source":"iana","compressible":true},"model/vnd.mts":{"source":"iana","extensions":["mts"]},"model/vnd.opengex":{"source":"iana","extensions":["ogex"]},"model/vnd.parasolid.transmit.binary":{"source":"iana","extensions":["x_b"]},"model/vnd.parasolid.transmit.text":{"source":"iana","extensions":["x_t"]},"model/vnd.pytha.pyox":{"source":"iana"},"model/vnd.rosette.annotated-data-model":{"source":"iana"},"model/vnd.sap.vds":{"source":"iana","extensions":["vds"]},"model/vnd.usdz+zip":{"source":"iana","compressible":false,"extensions":["usdz"]},"model/vnd.valve.source.compiled-map":{"source":"iana","extensions":["bsp"]},"model/vnd.vtu":{"source":"iana","extensions":["vtu"]},"model/vrml":{"source":"iana","compressible":false,"extensions":["wrl","vrml"]},"model/x3d+binary":{"source":"apache","compressible":false,"extensions":["x3db","x3dbz"]},"model/x3d+fastinfoset":{"source":"iana","extensions":["x3db"]},"model/x3d+vrml":{"source":"apache","compressible":false,"extensions":["x3dv","x3dvz"]},"model/x3d+xml":{"source":"iana","compressible":true,"extensions":["x3d","x3dz"]},"model/x3d-vrml":{"source":"iana","extensions":["x3dv"]},"multipart/alternative":{"source":"iana","compressible":false},"multipart/appledouble":{"source":"iana"},"multipart/byteranges":{"source":"iana"},"multipart/digest":{"source":"iana"},"multipart/encrypted":{"source":"iana","compressible":false},"multipart/form-data":{"source":"iana","compressible":false},"multipart/header-set":{"source":"iana"},"multipart/mixed":{"source":"iana"},"multipart/multilingual":{"source":"iana"},"multipart/parallel":{"source":"iana"},"multipart/related":{"source":"iana","compressible":false},"multipart/report":{"source":"iana"},"multipart/signed":{"source":"iana","compressible":false},"multipart/vnd.bint.med-plus":{"source":"iana"},"multipart/voice-message":{"source":"iana"},"multipart/x-mixed-replace":{"source":"iana"},"text/1d-interleaved-parityfec":{"source":"iana"},"text/cache-manifest":{"source":"iana","compressible":true,"extensions":["appcache","manifest"]},"text/calendar":{"source":"iana","extensions":["ics","ifb"]},"text/calender":{"compressible":true},"text/cmd":{"compressible":true},"text/coffeescript":{"extensions":["coffee","litcoffee"]},"text/cql":{"source":"iana"},"text/cql-expression":{"source":"iana"},"text/cql-identifier":{"source":"iana"},"text/css":{"source":"iana","charset":"UTF-8","compressible":true,"extensions":["css"]},"text/csv":{"source":"iana","compressible":true,"extensions":["csv"]},"text/csv-schema":{"source":"iana"},"text/directory":{"source":"iana"},"text/dns":{"source":"iana"},"text/ecmascript":{"source":"iana"},"text/encaprtp":{"source":"iana"},"text/enriched":{"source":"iana"},"text/fhirpath":{"source":"iana"},"text/flexfec":{"source":"iana"},"text/fwdred":{"source":"iana"},"text/gff3":{"source":"iana"},"text/grammar-ref-list":{"source":"iana"},"text/html":{"source":"iana","compressible":true,"extensions":["html","htm","shtml"]},"text/jade":{"extensions":["jade"]},"text/javascript":{"source":"iana","compressible":true},"text/jcr-cnd":{"source":"iana"},"text/jsx":{"compressible":true,"extensions":["jsx"]},"text/less":{"compressible":true,"extensions":["less"]},"text/markdown":{"source":"iana","compressible":true,"extensions":["markdown","md"]},"text/mathml":{"source":"nginx","extensions":["mml"]},"text/mdx":{"compressible":true,"extensions":["mdx"]},"text/mizar":{"source":"iana"},"text/n3":{"source":"iana","charset":"UTF-8","compressible":true,"extensions":["n3"]},"text/parameters":{"source":"iana","charset":"UTF-8"},"text/parityfec":{"source":"iana"},"text/plain":{"source":"iana","compressible":true,"extensions":["txt","text","conf","def","list","log","in","ini"]},"text/provenance-notation":{"source":"iana","charset":"UTF-8"},"text/prs.fallenstein.rst":{"source":"iana"},"text/prs.lines.tag":{"source":"iana","extensions":["dsc"]},"text/prs.prop.logic":{"source":"iana"},"text/raptorfec":{"source":"iana"},"text/red":{"source":"iana"},"text/rfc822-headers":{"source":"iana"},"text/richtext":{"source":"iana","compressible":true,"extensions":["rtx"]},"text/rtf":{"source":"iana","compressible":true,"extensions":["rtf"]},"text/rtp-enc-aescm128":{"source":"iana"},"text/rtploopback":{"source":"iana"},"text/rtx":{"source":"iana"},"text/sgml":{"source":"iana","extensions":["sgml","sgm"]},"text/shaclc":{"source":"iana"},"text/shex":{"source":"iana","extensions":["shex"]},"text/slim":{"extensions":["slim","slm"]},"text/spdx":{"source":"iana","extensions":["spdx"]},"text/strings":{"source":"iana"},"text/stylus":{"extensions":["stylus","styl"]},"text/t140":{"source":"iana"},"text/tab-separated-values":{"source":"iana","compressible":true,"extensions":["tsv"]},"text/troff":{"source":"iana","extensions":["t","tr","roff","man","me","ms"]},"text/turtle":{"source":"iana","charset":"UTF-8","extensions":["ttl"]},"text/ulpfec":{"source":"iana"},"text/uri-list":{"source":"iana","compressible":true,"extensions":["uri","uris","urls"]},"text/vcard":{"source":"iana","compressible":true,"extensions":["vcard"]},"text/vnd.a":{"source":"iana"},"text/vnd.abc":{"source":"iana"},"text/vnd.ascii-art":{"source":"iana"},"text/vnd.curl":{"source":"iana","extensions":["curl"]},"text/vnd.curl.dcurl":{"source":"apache","extensions":["dcurl"]},"text/vnd.curl.mcurl":{"source":"apache","extensions":["mcurl"]},"text/vnd.curl.scurl":{"source":"apache","extensions":["scurl"]},"text/vnd.debian.copyright":{"source":"iana","charset":"UTF-8"},"text/vnd.dmclientscript":{"source":"iana"},"text/vnd.dvb.subtitle":{"source":"iana","extensions":["sub"]},"text/vnd.esmertec.theme-descriptor":{"source":"iana","charset":"UTF-8"},"text/vnd.familysearch.gedcom":{"source":"iana","extensions":["ged"]},"text/vnd.ficlab.flt":{"source":"iana"},"text/vnd.fly":{"source":"iana","extensions":["fly"]},"text/vnd.fmi.flexstor":{"source":"iana","extensions":["flx"]},"text/vnd.gml":{"source":"iana"},"text/vnd.graphviz":{"source":"iana","extensions":["gv"]},"text/vnd.hans":{"source":"iana"},"text/vnd.hgl":{"source":"iana"},"text/vnd.in3d.3dml":{"source":"iana","extensions":["3dml"]},"text/vnd.in3d.spot":{"source":"iana","extensions":["spot"]},"text/vnd.iptc.newsml":{"source":"iana"},"text/vnd.iptc.nitf":{"source":"iana"},"text/vnd.latex-z":{"source":"iana"},"text/vnd.motorola.reflex":{"source":"iana"},"text/vnd.ms-mediapackage":{"source":"iana"},"text/vnd.net2phone.commcenter.command":{"source":"iana"},"text/vnd.radisys.msml-basic-layout":{"source":"iana"},"text/vnd.senx.warpscript":{"source":"iana"},"text/vnd.si.uricatalogue":{"source":"iana"},"text/vnd.sosi":{"source":"iana"},"text/vnd.sun.j2me.app-descriptor":{"source":"iana","charset":"UTF-8","extensions":["jad"]},"text/vnd.trolltech.linguist":{"source":"iana","charset":"UTF-8"},"text/vnd.wap.si":{"source":"iana"},"text/vnd.wap.sl":{"source":"iana"},"text/vnd.wap.wml":{"source":"iana","extensions":["wml"]},"text/vnd.wap.wmlscript":{"source":"iana","extensions":["wmls"]},"text/vtt":{"source":"iana","charset":"UTF-8","compressible":true,"extensions":["vtt"]},"text/x-asm":{"source":"apache","extensions":["s","asm"]},"text/x-c":{"source":"apache","extensions":["c","cc","cxx","cpp","h","hh","dic"]},"text/x-component":{"source":"nginx","extensions":["htc"]},"text/x-fortran":{"source":"apache","extensions":["f","for","f77","f90"]},"text/x-gwt-rpc":{"compressible":true},"text/x-handlebars-template":{"extensions":["hbs"]},"text/x-java-source":{"source":"apache","extensions":["java"]},"text/x-jquery-tmpl":{"compressible":true},"text/x-lua":{"extensions":["lua"]},"text/x-markdown":{"compressible":true,"extensions":["mkd"]},"text/x-nfo":{"source":"apache","extensions":["nfo"]},"text/x-opml":{"source":"apache","extensions":["opml"]},"text/x-org":{"compressible":true,"extensions":["org"]},"text/x-pascal":{"source":"apache","extensions":["p","pas"]},"text/x-processing":{"compressible":true,"extensions":["pde"]},"text/x-sass":{"extensions":["sass"]},"text/x-scss":{"extensions":["scss"]},"text/x-setext":{"source":"apache","extensions":["etx"]},"text/x-sfv":{"source":"apache","extensions":["sfv"]},"text/x-suse-ymp":{"compressible":true,"extensions":["ymp"]},"text/x-uuencode":{"source":"apache","extensions":["uu"]},"text/x-vcalendar":{"source":"apache","extensions":["vcs"]},"text/x-vcard":{"source":"apache","extensions":["vcf"]},"text/xml":{"source":"iana","compressible":true,"extensions":["xml"]},"text/xml-external-parsed-entity":{"source":"iana"},"text/yaml":{"compressible":true,"extensions":["yaml","yml"]},"video/1d-interleaved-parityfec":{"source":"iana"},"video/3gpp":{"source":"iana","extensions":["3gp","3gpp"]},"video/3gpp-tt":{"source":"iana"},"video/3gpp2":{"source":"iana","extensions":["3g2"]},"video/av1":{"source":"iana"},"video/bmpeg":{"source":"iana"},"video/bt656":{"source":"iana"},"video/celb":{"source":"iana"},"video/dv":{"source":"iana"},"video/encaprtp":{"source":"iana"},"video/ffv1":{"source":"iana"},"video/flexfec":{"source":"iana"},"video/h261":{"source":"iana","extensions":["h261"]},"video/h263":{"source":"iana","extensions":["h263"]},"video/h263-1998":{"source":"iana"},"video/h263-2000":{"source":"iana"},"video/h264":{"source":"iana","extensions":["h264"]},"video/h264-rcdo":{"source":"iana"},"video/h264-svc":{"source":"iana"},"video/h265":{"source":"iana"},"video/iso.segment":{"source":"iana","extensions":["m4s"]},"video/jpeg":{"source":"iana","extensions":["jpgv"]},"video/jpeg2000":{"source":"iana"},"video/jpm":{"source":"apache","extensions":["jpm","jpgm"]},"video/jxsv":{"source":"iana"},"video/mj2":{"source":"iana","extensions":["mj2","mjp2"]},"video/mp1s":{"source":"iana"},"video/mp2p":{"source":"iana"},"video/mp2t":{"source":"iana","extensions":["ts"]},"video/mp4":{"source":"iana","compressible":false,"extensions":["mp4","mp4v","mpg4"]},"video/mp4v-es":{"source":"iana"},"video/mpeg":{"source":"iana","compressible":false,"extensions":["mpeg","mpg","mpe","m1v","m2v"]},"video/mpeg4-generic":{"source":"iana"},"video/mpv":{"source":"iana"},"video/nv":{"source":"iana"},"video/ogg":{"source":"iana","compressible":false,"extensions":["ogv"]},"video/parityfec":{"source":"iana"},"video/pointer":{"source":"iana"},"video/quicktime":{"source":"iana","compressible":false,"extensions":["qt","mov"]},"video/raptorfec":{"source":"iana"},"video/raw":{"source":"iana"},"video/rtp-enc-aescm128":{"source":"iana"},"video/rtploopback":{"source":"iana"},"video/rtx":{"source":"iana"},"video/scip":{"source":"iana"},"video/smpte291":{"source":"iana"},"video/smpte292m":{"source":"iana"},"video/ulpfec":{"source":"iana"},"video/vc1":{"source":"iana"},"video/vc2":{"source":"iana"},"video/vnd.cctv":{"source":"iana"},"video/vnd.dece.hd":{"source":"iana","extensions":["uvh","uvvh"]},"video/vnd.dece.mobile":{"source":"iana","extensions":["uvm","uvvm"]},"video/vnd.dece.mp4":{"source":"iana"},"video/vnd.dece.pd":{"source":"iana","extensions":["uvp","uvvp"]},"video/vnd.dece.sd":{"source":"iana","extensions":["uvs","uvvs"]},"video/vnd.dece.video":{"source":"iana","extensions":["uvv","uvvv"]},"video/vnd.directv.mpeg":{"source":"iana"},"video/vnd.directv.mpeg-tts":{"source":"iana"},"video/vnd.dlna.mpeg-tts":{"source":"iana"},"video/vnd.dvb.file":{"source":"iana","extensions":["dvb"]},"video/vnd.fvt":{"source":"iana","extensions":["fvt"]},"video/vnd.hns.video":{"source":"iana"},"video/vnd.iptvforum.1dparityfec-1010":{"source":"iana"},"video/vnd.iptvforum.1dparityfec-2005":{"source":"iana"},"video/vnd.iptvforum.2dparityfec-1010":{"source":"iana"},"video/vnd.iptvforum.2dparityfec-2005":{"source":"iana"},"video/vnd.iptvforum.ttsavc":{"source":"iana"},"video/vnd.iptvforum.ttsmpeg2":{"source":"iana"},"video/vnd.motorola.video":{"source":"iana"},"video/vnd.motorola.videop":{"source":"iana"},"video/vnd.mpegurl":{"source":"iana","extensions":["mxu","m4u"]},"video/vnd.ms-playready.media.pyv":{"source":"iana","extensions":["pyv"]},"video/vnd.nokia.interleaved-multimedia":{"source":"iana"},"video/vnd.nokia.mp4vr":{"source":"iana"},"video/vnd.nokia.videovoip":{"source":"iana"},"video/vnd.objectvideo":{"source":"iana"},"video/vnd.radgamettools.bink":{"source":"iana"},"video/vnd.radgamettools.smacker":{"source":"iana"},"video/vnd.sealed.mpeg1":{"source":"iana"},"video/vnd.sealed.mpeg4":{"source":"iana"},"video/vnd.sealed.swf":{"source":"iana"},"video/vnd.sealedmedia.softseal.mov":{"source":"iana"},"video/vnd.uvvu.mp4":{"source":"iana","extensions":["uvu","uvvu"]},"video/vnd.vivo":{"source":"iana","extensions":["viv"]},"video/vnd.youtube.yt":{"source":"iana"},"video/vp8":{"source":"iana"},"video/vp9":{"source":"iana"},"video/webm":{"source":"apache","compressible":false,"extensions":["webm"]},"video/x-f4v":{"source":"apache","extensions":["f4v"]},"video/x-fli":{"source":"apache","extensions":["fli"]},"video/x-flv":{"source":"apache","compressible":false,"extensions":["flv"]},"video/x-m4v":{"source":"apache","extensions":["m4v"]},"video/x-matroska":{"source":"apache","compressible":false,"extensions":["mkv","mk3d","mks"]},"video/x-mng":{"source":"apache","extensions":["mng"]},"video/x-ms-asf":{"source":"apache","extensions":["asf","asx"]},"video/x-ms-vob":{"source":"apache","extensions":["vob"]},"video/x-ms-wm":{"source":"apache","extensions":["wm"]},"video/x-ms-wmv":{"source":"apache","compressible":false,"extensions":["wmv"]},"video/x-ms-wmx":{"source":"apache","extensions":["wmx"]},"video/x-ms-wvx":{"source":"apache","extensions":["wvx"]},"video/x-msvideo":{"source":"apache","extensions":["avi"]},"video/x-sgi-movie":{"source":"apache","extensions":["movie"]},"video/x-smv":{"source":"apache","extensions":["smv"]},"x-conference/x-cooltalk":{"source":"apache","extensions":["ice"]},"x-shader/x-fragment":{"compressible":true},"x-shader/x-vertex":{"compressible":true}};
 
 /***/ }),
 /* 513 */,
@@ -37428,51 +40316,7 @@ module.exports = {"application/1d-interleaved-parityfec":{"source":"iana"},"appl
 /* 516 */,
 /* 517 */,
 /* 518 */,
-/* 519 */
-/***/ (function(__unusedmodule, exports, __webpack_require__) {
-
-"use strict";
-/*!
- * Copyright (c) 2018, Salesforce.com, Inc.
- * All rights reserved.
- *
- * Redistribution and use in source and binary forms, with or without
- * modification, are permitted provided that the following conditions are met:
- *
- * 1. Redistributions of source code must retain the above copyright notice,
- * this list of conditions and the following disclaimer.
- *
- * 2. Redistributions in binary form must reproduce the above copyright notice,
- * this list of conditions and the following disclaimer in the documentation
- * and/or other materials provided with the distribution.
- *
- * 3. Neither the name of Salesforce.com nor the names of its contributors may
- * be used to endorse or promote products derived from this software without
- * specific prior written permission.
- *
- * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
- * AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
- * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
- * ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE
- * LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
- * CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
- * SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
- * INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
- * CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
- * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
- * POSSIBILITY OF SUCH DAMAGE.
- */
-
-const psl = __webpack_require__(632);
-
-function getPublicSuffix(domain) {
-  return psl.get(domain);
-}
-
-exports.getPublicSuffix = getPublicSuffix;
-
-
-/***/ }),
+/* 519 */,
 /* 520 */,
 /* 521 */,
 /* 522 */,
@@ -38849,7 +41693,51 @@ exports.baggageEntryMetadataSymbol = Symbol('BaggageEntryMetadata');
 //# sourceMappingURL=symbol.js.map
 
 /***/ }),
-/* 562 */,
+/* 562 */
+/***/ (function(__unusedmodule, exports, __webpack_require__) {
+
+"use strict";
+/*!
+ * Copyright (c) 2018, Salesforce.com, Inc.
+ * All rights reserved.
+ *
+ * Redistribution and use in source and binary forms, with or without
+ * modification, are permitted provided that the following conditions are met:
+ *
+ * 1. Redistributions of source code must retain the above copyright notice,
+ * this list of conditions and the following disclaimer.
+ *
+ * 2. Redistributions in binary form must reproduce the above copyright notice,
+ * this list of conditions and the following disclaimer in the documentation
+ * and/or other materials provided with the distribution.
+ *
+ * 3. Neither the name of Salesforce.com nor the names of its contributors may
+ * be used to endorse or promote products derived from this software without
+ * specific prior written permission.
+ *
+ * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
+ * AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+ * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
+ * ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE
+ * LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
+ * CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
+ * SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
+ * INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
+ * CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
+ * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
+ * POSSIBILITY OF SUCH DAMAGE.
+ */
+
+const psl = __webpack_require__(632);
+
+function getPublicSuffix(domain) {
+  return psl.get(domain);
+}
+
+exports.getPublicSuffix = getPublicSuffix;
+
+
+/***/ }),
 /* 563 */,
 /* 564 */,
 /* 565 */,
@@ -39875,89 +42763,7 @@ module.exports = require("path");
 /* 624 */,
 /* 625 */,
 /* 626 */,
-/* 627 */
-/***/ (function(__unusedmodule, exports) {
-
-"use strict";
-/*!
- * Copyright (c) 2015, Salesforce.com, Inc.
- * All rights reserved.
- *
- * Redistribution and use in source and binary forms, with or without
- * modification, are permitted provided that the following conditions are met:
- *
- * 1. Redistributions of source code must retain the above copyright notice,
- * this list of conditions and the following disclaimer.
- *
- * 2. Redistributions in binary form must reproduce the above copyright notice,
- * this list of conditions and the following disclaimer in the documentation
- * and/or other materials provided with the distribution.
- *
- * 3. Neither the name of Salesforce.com nor the names of its contributors may
- * be used to endorse or promote products derived from this software without
- * specific prior written permission.
- *
- * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
- * AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
- * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
- * ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE
- * LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
- * CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
- * SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
- * INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
- * CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
- * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
- * POSSIBILITY OF SUCH DAMAGE.
- */
-
-/*jshint unused:false */
-
-class Store {
-  constructor() {
-    this.synchronous = false;
-  }
-
-  findCookie(domain, path, key, cb) {
-    throw new Error("findCookie is not implemented");
-  }
-
-  findCookies(domain, path, allowSpecialUseDomain, cb) {
-    throw new Error("findCookies is not implemented");
-  }
-
-  putCookie(cookie, cb) {
-    throw new Error("putCookie is not implemented");
-  }
-
-  updateCookie(oldCookie, newCookie, cb) {
-    // recommended default implementation:
-    // return this.putCookie(newCookie, cb);
-    throw new Error("updateCookie is not implemented");
-  }
-
-  removeCookie(domain, path, key, cb) {
-    throw new Error("removeCookie is not implemented");
-  }
-
-  removeCookies(domain, path, cb) {
-    throw new Error("removeCookies is not implemented");
-  }
-
-  removeAllCookies(cb) {
-    throw new Error("removeAllCookies is not implemented");
-  }
-
-  getAllCookies(cb) {
-    throw new Error(
-      "getAllCookies is not implemented (therefore jar cannot be serialized)"
-    );
-  }
-}
-
-exports.Store = Store;
-
-
-/***/ }),
+/* 627 */,
 /* 628 */,
 /* 629 */
 /***/ (function(__unusedmodule, exports, __webpack_require__) {
@@ -43154,6 +45960,25 @@ var __createBinding;
 
 "use strict";
 
+var __createBinding = (this && this.__createBinding) || (Object.create ? (function(o, m, k, k2) {
+    if (k2 === undefined) k2 = k;
+    Object.defineProperty(o, k2, { enumerable: true, get: function() { return m[k]; } });
+}) : (function(o, m, k, k2) {
+    if (k2 === undefined) k2 = k;
+    o[k2] = m[k];
+}));
+var __setModuleDefault = (this && this.__setModuleDefault) || (Object.create ? (function(o, v) {
+    Object.defineProperty(o, "default", { enumerable: true, value: v });
+}) : function(o, v) {
+    o["default"] = v;
+});
+var __importStar = (this && this.__importStar) || function (mod) {
+    if (mod && mod.__esModule) return mod;
+    var result = {};
+    if (mod != null) for (var k in mod) if (k !== "default" && Object.hasOwnProperty.call(mod, k)) __createBinding(result, mod, k);
+    __setModuleDefault(result, mod);
+    return result;
+};
 var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, generator) {
     function adopt(value) { return value instanceof P ? value : new P(function (resolve) { resolve(value); }); }
     return new (P || (P = Promise))(function (resolve, reject) {
@@ -43165,9 +45990,9 @@ var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, ge
 };
 var _a;
 Object.defineProperty(exports, "__esModule", { value: true });
-const assert_1 = __webpack_require__(357);
-const fs = __webpack_require__(747);
-const path = __webpack_require__(622);
+exports.getCmdPath = exports.tryGetExecutablePath = exports.isRooted = exports.isDirectory = exports.exists = exports.IS_WINDOWS = exports.unlink = exports.symlink = exports.stat = exports.rmdir = exports.rename = exports.readlink = exports.readdir = exports.mkdir = exports.lstat = exports.copyFile = exports.chmod = void 0;
+const fs = __importStar(__webpack_require__(747));
+const path = __importStar(__webpack_require__(622));
 _a = fs.promises, exports.chmod = _a.chmod, exports.copyFile = _a.copyFile, exports.lstat = _a.lstat, exports.mkdir = _a.mkdir, exports.readdir = _a.readdir, exports.readlink = _a.readlink, exports.rename = _a.rename, exports.rmdir = _a.rmdir, exports.stat = _a.stat, exports.symlink = _a.symlink, exports.unlink = _a.unlink;
 exports.IS_WINDOWS = process.platform === 'win32';
 function exists(fsPath) {
@@ -43208,49 +46033,6 @@ function isRooted(p) {
     return p.startsWith('/');
 }
 exports.isRooted = isRooted;
-/**
- * Recursively create a directory at `fsPath`.
- *
- * This implementation is optimistic, meaning it attempts to create the full
- * path first, and backs up the path stack from there.
- *
- * @param fsPath The path to create
- * @param maxDepth The maximum recursion depth
- * @param depth The current recursion depth
- */
-function mkdirP(fsPath, maxDepth = 1000, depth = 1) {
-    return __awaiter(this, void 0, void 0, function* () {
-        assert_1.ok(fsPath, 'a path argument must be provided');
-        fsPath = path.resolve(fsPath);
-        if (depth >= maxDepth)
-            return exports.mkdir(fsPath);
-        try {
-            yield exports.mkdir(fsPath);
-            return;
-        }
-        catch (err) {
-            switch (err.code) {
-                case 'ENOENT': {
-                    yield mkdirP(path.dirname(fsPath), maxDepth, depth + 1);
-                    yield exports.mkdir(fsPath);
-                    return;
-                }
-                default: {
-                    let stats;
-                    try {
-                        stats = yield exports.stat(fsPath);
-                    }
-                    catch (err2) {
-                        throw err;
-                    }
-                    if (!stats.isDirectory())
-                        throw err;
-                }
-            }
-        }
-    });
-}
-exports.mkdirP = mkdirP;
 /**
  * Best effort attempt to determine whether a file exists and is executable.
  * @param filePath    file path to check
@@ -43347,6 +46129,12 @@ function isUnixExecutable(stats) {
         ((stats.mode & 8) > 0 && stats.gid === process.getgid()) ||
         ((stats.mode & 64) > 0 && stats.uid === process.getuid()));
 }
+// Get the path of cmd.exe in windows
+function getCmdPath() {
+    var _a;
+    return (_a = process.env['COMSPEC']) !== null && _a !== void 0 ? _a : `cmd.exe`;
+}
+exports.getCmdPath = getCmdPath;
 //# sourceMappingURL=io-util.js.map
 
 /***/ }),
@@ -43601,18 +46389,12 @@ exports.restoreCache = restoreCache;
  * @returns number returns cacheId if the cache was saved successfully and throws an error if save fails
  */
 function saveCache(paths, key, options) {
+    var _a, _b, _c, _d, _e;
     return __awaiter(this, void 0, void 0, function* () {
         checkPaths(paths);
         checkKey(key);
         const compressionMethod = yield utils.getCompressionMethod();
-        core.debug('Reserving Cache');
-        const cacheId = yield cacheHttpClient.reserveCache(key, paths, {
-            compressionMethod
-        });
-        if (cacheId === -1) {
-            throw new ReserveCacheError(`Unable to reserve cache with key ${key}, another job may be creating this cache.`);
-        }
-        core.debug(`Cache ID: ${cacheId}`);
+        let cacheId = null;
         const cachePaths = yield utils.resolvePaths(paths);
         core.debug('Cache Paths:');
         core.debug(`${JSON.stringify(cachePaths)}`);
@@ -43627,8 +46409,23 @@ function saveCache(paths, key, options) {
             const fileSizeLimit = 10 * 1024 * 1024 * 1024; // 10GB per repo limit
             const archiveFileSize = utils.getArchiveFileSizeInBytes(archivePath);
             core.debug(`File Size: ${archiveFileSize}`);
-            if (archiveFileSize > fileSizeLimit) {
+            // For GHES, this check will take place in ReserveCache API with enterprise file size limit
+            if (archiveFileSize > fileSizeLimit && !utils.isGhes()) {
                 throw new Error(`Cache size of ~${Math.round(archiveFileSize / (1024 * 1024))} MB (${archiveFileSize} B) is over the 10GB limit, not saving cache.`);
+            }
+            core.debug('Reserving Cache');
+            const reserveCacheResponse = yield cacheHttpClient.reserveCache(key, paths, {
+                compressionMethod,
+                cacheSize: archiveFileSize
+            });
+            if ((_a = reserveCacheResponse === null || reserveCacheResponse === void 0 ? void 0 : reserveCacheResponse.result) === null || _a === void 0 ? void 0 : _a.cacheId) {
+                cacheId = (_b = reserveCacheResponse === null || reserveCacheResponse === void 0 ? void 0 : reserveCacheResponse.result) === null || _b === void 0 ? void 0 : _b.cacheId;
+            }
+            else if ((reserveCacheResponse === null || reserveCacheResponse === void 0 ? void 0 : reserveCacheResponse.statusCode) === 400) {
+                throw new Error((_d = (_c = reserveCacheResponse === null || reserveCacheResponse === void 0 ? void 0 : reserveCacheResponse.error) === null || _c === void 0 ? void 0 : _c.message) !== null && _d !== void 0 ? _d : `Cache size of ~${Math.round(archiveFileSize / (1024 * 1024))} MB (${archiveFileSize} B) is over the data cap limit, not saving cache.`);
+            }
+            else {
+                throw new ReserveCacheError(`Unable to reserve cache with key ${key}, another job may be creating this cache. More details: ${(_e = reserveCacheResponse === null || reserveCacheResponse === void 0 ? void 0 : reserveCacheResponse.error) === null || _e === void 0 ? void 0 : _e.message}`);
             }
             core.debug(`Saving Cache (ID: ${cacheId})`);
             yield cacheHttpClient.saveCache(cacheId, archivePath, options);
@@ -46661,6 +49458,7 @@ Object.defineProperty(exports, "__esModule", { value: true });
 /*!
  * mime-db
  * Copyright(c) 2014 Jonathan Ong
+ * Copyright(c) 2015-2022 Douglas Christopher Wilson
  * MIT Licensed
  */
 
@@ -48133,7 +50931,6 @@ class Poller {
         });
     }
     /**
-     * @internal
      * Starts a loop that will break only if the poller is done
      * or if the poller is stopped.
      */
@@ -48147,7 +50944,6 @@ class Poller {
         }
     }
     /**
-     * @internal
      * pollOnce does one polling, by calling to the update method of the underlying
      * poll operation to make any relevant change effective.
      *
@@ -48181,7 +50977,6 @@ class Poller {
         }
     }
     /**
-     * @internal
      * fireProgress calls the functions passed in via onProgress the method of the poller.
      *
      * It loops over all of the callbacks received from onProgress, and executes them, sending them
@@ -48195,7 +50990,6 @@ class Poller {
         }
     }
     /**
-     * @internal
      * Invokes the underlying operation's cancel method, and rejects the
      * pollUntilDone promise.
      */
@@ -48369,7 +51163,7 @@ class Poller {
  */
 function getPollingUrl(rawResponse, defaultPath) {
     var _a, _b, _c;
-    return ((_c = (_b = (_a = getAzureAsyncOperation(rawResponse)) !== null && _a !== void 0 ? _a : getLocation(rawResponse)) !== null && _b !== void 0 ? _b : getOperationLocation(rawResponse)) !== null && _c !== void 0 ? _c : defaultPath);
+    return ((_c = (_b = (_a = getAzureAsyncOperation(rawResponse)) !== null && _a !== void 0 ? _a : getOperationLocation(rawResponse)) !== null && _b !== void 0 ? _b : getLocation(rawResponse)) !== null && _c !== void 0 ? _c : defaultPath);
 }
 function getLocation(rawResponse) {
     return rawResponse.headers["location"];
@@ -48380,19 +51174,29 @@ function getOperationLocation(rawResponse) {
 function getAzureAsyncOperation(rawResponse) {
     return rawResponse.headers["azure-asyncoperation"];
 }
+function findResourceLocation(requestMethod, rawResponse, requestPath) {
+    switch (requestMethod) {
+        case "PUT": {
+            return requestPath;
+        }
+        case "POST":
+        case "PATCH": {
+            return getLocation(rawResponse);
+        }
+        default: {
+            return undefined;
+        }
+    }
+}
 function inferLroMode(requestPath, requestMethod, rawResponse) {
-    if (getAzureAsyncOperation(rawResponse) !== undefined) {
+    if (getAzureAsyncOperation(rawResponse) !== undefined ||
+        getOperationLocation(rawResponse) !== undefined) {
         return {
-            mode: "AzureAsync",
-            resourceLocation: requestMethod === "PUT"
-                ? requestPath
-                : requestMethod === "POST" || requestMethod === "PATCH"
-                    ? getLocation(rawResponse)
-                    : undefined,
+            mode: "Location",
+            resourceLocation: findResourceLocation(requestMethod, rawResponse, requestPath),
         };
     }
-    else if (getLocation(rawResponse) !== undefined ||
-        getOperationLocation(rawResponse) !== undefined) {
+    else if (getLocation(rawResponse) !== undefined) {
         return {
             mode: "Location",
         };
@@ -48462,13 +51266,13 @@ function processBodyPollingOperationResult(response) {
 const logger = logger$1.createClientLogger("core-lro");
 
 // Copyright (c) Microsoft Corporation.
-function getResponseStatus(rawResponse) {
+function isPollingDone(rawResponse) {
     var _a;
+    if (isUnexpectedPollingResponse(rawResponse) || rawResponse.statusCode === 202) {
+        return false;
+    }
     const { status } = (_a = rawResponse.body) !== null && _a !== void 0 ? _a : {};
-    return typeof status === "string" ? status.toLowerCase() : "succeeded";
-}
-function isAzureAsyncPollingDone(rawResponse) {
-    const state = getResponseStatus(rawResponse);
+    const state = typeof status === "string" ? status.toLowerCase() : "succeeded";
     if (isUnexpectedPollingResponse(rawResponse) || failureStates.includes(state)) {
         throw new Error(`The long running operation has failed. The provisioning state: ${state}.`);
     }
@@ -48488,9 +51292,9 @@ async function sendFinalRequest(lro, resourceLocation, lroResourceLocationConfig
             return lro.sendPollRequest(resourceLocation !== null && resourceLocation !== void 0 ? resourceLocation : lro.requestPath);
     }
 }
-function processAzureAsyncOperationResult(lro, resourceLocation, lroResourceLocationConfig) {
+function processLocationPollingOperationResult(lro, resourceLocation, lroResourceLocationConfig) {
     return (response) => {
-        if (isAzureAsyncPollingDone(response.rawResponse)) {
+        if (isPollingDone(response.rawResponse)) {
             if (resourceLocation === undefined) {
                 return Object.assign(Object.assign({}, response), { done: true });
             }
@@ -48506,14 +51310,6 @@ function processAzureAsyncOperationResult(lro, resourceLocation, lroResourceLoca
 }
 
 // Copyright (c) Microsoft Corporation.
-function isLocationPollingDone(rawResponse) {
-    return !isUnexpectedPollingResponse(rawResponse) && rawResponse.statusCode !== 202;
-}
-function processLocationPollingOperationResult(response) {
-    return Object.assign(Object.assign({}, response), { done: isLocationPollingDone(response.rawResponse) });
-}
-
-// Copyright (c) Microsoft Corporation.
 // Licensed under the MIT license.
 function processPassthroughOperationResult(response) {
     return Object.assign(Object.assign({}, response), { done: true });
@@ -48525,11 +51321,8 @@ function processPassthroughOperationResult(response) {
  */
 function createGetLroStatusFromResponse(lroPrimitives, config, lroResourceLocationConfig) {
     switch (config.mode) {
-        case "AzureAsync": {
-            return processAzureAsyncOperationResult(lroPrimitives, config.resourceLocation, lroResourceLocationConfig);
-        }
         case "Location": {
-            return processLocationPollingOperationResult;
+            return processLocationPollingOperationResult(lroPrimitives, config.resourceLocation, lroResourceLocationConfig);
         }
         case "Body": {
             return processBodyPollingOperationResult;
@@ -48721,1680 +51514,83 @@ exports.PollerStoppedError = PollerStoppedError;
 /* 890 */,
 /* 891 */,
 /* 892 */
-/***/ (function(__unusedmodule, exports, __webpack_require__) {
+/***/ (function(module, __unusedexports, __webpack_require__) {
 
-"use strict";
-/*!
- * Copyright (c) 2015, Salesforce.com, Inc.
- * All rights reserved.
+var iterate    = __webpack_require__(157)
+  , initState  = __webpack_require__(903)
+  , terminator = __webpack_require__(939)
+  ;
+
+// Public API
+module.exports = serialOrdered;
+// sorting helpers
+module.exports.ascending  = ascending;
+module.exports.descending = descending;
+
+/**
+ * Runs iterator over provided sorted array elements in series
  *
- * Redistribution and use in source and binary forms, with or without
- * modification, are permitted provided that the following conditions are met:
- *
- * 1. Redistributions of source code must retain the above copyright notice,
- * this list of conditions and the following disclaimer.
- *
- * 2. Redistributions in binary form must reproduce the above copyright notice,
- * this list of conditions and the following disclaimer in the documentation
- * and/or other materials provided with the distribution.
- *
- * 3. Neither the name of Salesforce.com nor the names of its contributors may
- * be used to endorse or promote products derived from this software without
- * specific prior written permission.
- *
- * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
- * AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
- * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
- * ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE
- * LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
- * CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
- * SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
- * INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
- * CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
- * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
- * POSSIBILITY OF SUCH DAMAGE.
+ * @param   {array|object} list - array or object (named list) to iterate over
+ * @param   {function} iterator - iterator to run
+ * @param   {function} sortMethod - custom sort function
+ * @param   {function} callback - invoked when all elements processed
+ * @returns {function} - jobs terminator
  */
+function serialOrdered(list, iterator, sortMethod, callback)
+{
+  var state = initState(list, sortMethod);
 
-const punycode = __webpack_require__(815);
-const urlParse = __webpack_require__(835).parse;
-const util = __webpack_require__(669);
-const pubsuffix = __webpack_require__(519);
-const Store = __webpack_require__(627).Store;
-const MemoryCookieStore = __webpack_require__(349).MemoryCookieStore;
-const pathMatch = __webpack_require__(54).pathMatch;
-const VERSION = __webpack_require__(459);
-const { fromCallback } = __webpack_require__(147);
-
-// From RFC6265 S4.1.1
-// note that it excludes \x3B ";"
-const COOKIE_OCTETS = /^[\x21\x23-\x2B\x2D-\x3A\x3C-\x5B\x5D-\x7E]+$/;
-
-const CONTROL_CHARS = /[\x00-\x1F]/;
-
-// From Chromium // '\r', '\n' and '\0' should be treated as a terminator in
-// the "relaxed" mode, see:
-// https://github.com/ChromiumWebApps/chromium/blob/b3d3b4da8bb94c1b2e061600df106d590fda3620/net/cookies/parsed_cookie.cc#L60
-const TERMINATORS = ["\n", "\r", "\0"];
-
-// RFC6265 S4.1.1 defines path value as 'any CHAR except CTLs or ";"'
-// Note ';' is \x3B
-const PATH_VALUE = /[\x20-\x3A\x3C-\x7E]+/;
-
-// date-time parsing constants (RFC6265 S5.1.1)
-
-const DATE_DELIM = /[\x09\x20-\x2F\x3B-\x40\x5B-\x60\x7B-\x7E]/;
-
-const MONTH_TO_NUM = {
-  jan: 0,
-  feb: 1,
-  mar: 2,
-  apr: 3,
-  may: 4,
-  jun: 5,
-  jul: 6,
-  aug: 7,
-  sep: 8,
-  oct: 9,
-  nov: 10,
-  dec: 11
-};
-
-const MAX_TIME = 2147483647000; // 31-bit max
-const MIN_TIME = 0; // 31-bit min
-const SAME_SITE_CONTEXT_VAL_ERR =
-  'Invalid sameSiteContext option for getCookies(); expected one of "strict", "lax", or "none"';
-
-function checkSameSiteContext(value) {
-  const context = String(value).toLowerCase();
-  if (context === "none" || context === "lax" || context === "strict") {
-    return context;
-  } else {
-    return null;
-  }
-}
-
-const PrefixSecurityEnum = Object.freeze({
-  SILENT: "silent",
-  STRICT: "strict",
-  DISABLED: "unsafe-disabled"
-});
-
-// Dumped from ip-regex@4.0.0, with the following changes:
-// * all capturing groups converted to non-capturing -- "(?:)"
-// * support for IPv6 Scoped Literal ("%eth1") removed
-// * lowercase hexadecimal only
-var IP_REGEX_LOWERCASE =/(?:^(?:25[0-5]|2[0-4]\d|1\d\d|[1-9]\d|\d)(?:\.(?:25[0-5]|2[0-4]\d|1\d\d|[1-9]\d|\d)){3}$)|(?:^(?:(?:[a-f\d]{1,4}:){7}(?:[a-f\d]{1,4}|:)|(?:[a-f\d]{1,4}:){6}(?:(?:25[0-5]|2[0-4]\d|1\d\d|[1-9]\d|\d)(?:\.(?:25[0-5]|2[0-4]\d|1\d\d|[1-9]\d|\d)){3}|:[a-f\d]{1,4}|:)|(?:[a-f\d]{1,4}:){5}(?::(?:25[0-5]|2[0-4]\d|1\d\d|[1-9]\d|\d)(?:\.(?:25[0-5]|2[0-4]\d|1\d\d|[1-9]\d|\d)){3}|(?::[a-f\d]{1,4}){1,2}|:)|(?:[a-f\d]{1,4}:){4}(?:(?::[a-f\d]{1,4}){0,1}:(?:25[0-5]|2[0-4]\d|1\d\d|[1-9]\d|\d)(?:\.(?:25[0-5]|2[0-4]\d|1\d\d|[1-9]\d|\d)){3}|(?::[a-f\d]{1,4}){1,3}|:)|(?:[a-f\d]{1,4}:){3}(?:(?::[a-f\d]{1,4}){0,2}:(?:25[0-5]|2[0-4]\d|1\d\d|[1-9]\d|\d)(?:\.(?:25[0-5]|2[0-4]\d|1\d\d|[1-9]\d|\d)){3}|(?::[a-f\d]{1,4}){1,4}|:)|(?:[a-f\d]{1,4}:){2}(?:(?::[a-f\d]{1,4}){0,3}:(?:25[0-5]|2[0-4]\d|1\d\d|[1-9]\d|\d)(?:\.(?:25[0-5]|2[0-4]\d|1\d\d|[1-9]\d|\d)){3}|(?::[a-f\d]{1,4}){1,5}|:)|(?:[a-f\d]{1,4}:){1}(?:(?::[a-f\d]{1,4}){0,4}:(?:25[0-5]|2[0-4]\d|1\d\d|[1-9]\d|\d)(?:\.(?:25[0-5]|2[0-4]\d|1\d\d|[1-9]\d|\d)){3}|(?::[a-f\d]{1,4}){1,6}|:)|(?::(?:(?::[a-f\d]{1,4}){0,5}:(?:25[0-5]|2[0-4]\d|1\d\d|[1-9]\d|\d)(?:\.(?:25[0-5]|2[0-4]\d|1\d\d|[1-9]\d|\d)){3}|(?::[a-f\d]{1,4}){1,7}|:)))$)/;
-
-/*
- * Parses a Natural number (i.e., non-negative integer) with either the
- *    <min>*<max>DIGIT ( non-digit *OCTET )
- * or
- *    <min>*<max>DIGIT
- * grammar (RFC6265 S5.1.1).
- *
- * The "trailingOK" boolean controls if the grammar accepts a
- * "( non-digit *OCTET )" trailer.
- */
-function parseDigits(token, minDigits, maxDigits, trailingOK) {
-  let count = 0;
-  while (count < token.length) {
-    const c = token.charCodeAt(count);
-    // "non-digit = %x00-2F / %x3A-FF"
-    if (c <= 0x2f || c >= 0x3a) {
-      break;
+  iterate(list, iterator, state, function iteratorHandler(error, result)
+  {
+    if (error)
+    {
+      callback(error, result);
+      return;
     }
-    count++;
-  }
 
-  // constrain to a minimum and maximum number of digits.
-  if (count < minDigits || count > maxDigits) {
-    return null;
-  }
+    state.index++;
 
-  if (!trailingOK && count != token.length) {
-    return null;
-  }
-
-  return parseInt(token.substr(0, count), 10);
-}
-
-function parseTime(token) {
-  const parts = token.split(":");
-  const result = [0, 0, 0];
-
-  /* RF6256 S5.1.1:
-   *      time            = hms-time ( non-digit *OCTET )
-   *      hms-time        = time-field ":" time-field ":" time-field
-   *      time-field      = 1*2DIGIT
-   */
-
-  if (parts.length !== 3) {
-    return null;
-  }
-
-  for (let i = 0; i < 3; i++) {
-    // "time-field" must be strictly "1*2DIGIT", HOWEVER, "hms-time" can be
-    // followed by "( non-digit *OCTET )" so therefore the last time-field can
-    // have a trailer
-    const trailingOK = i == 2;
-    const num = parseDigits(parts[i], 1, 2, trailingOK);
-    if (num === null) {
-      return null;
+    // are we there yet?
+    if (state.index < (state['keyedList'] || list).length)
+    {
+      iterate(list, iterator, state, iteratorHandler);
+      return;
     }
-    result[i] = num;
-  }
 
-  return result;
-}
+    // done here
+    callback(null, state.results);
+  });
 
-function parseMonth(token) {
-  token = String(token)
-    .substr(0, 3)
-    .toLowerCase();
-  const num = MONTH_TO_NUM[token];
-  return num >= 0 ? num : null;
+  return terminator.bind(state, callback);
 }
 
 /*
- * RFC6265 S5.1.1 date parser (see RFC for full grammar)
+ * -- Sort methods
  */
-function parseDate(str) {
-  if (!str) {
-    return;
-  }
 
-  /* RFC6265 S5.1.1:
-   * 2. Process each date-token sequentially in the order the date-tokens
-   * appear in the cookie-date
-   */
-  const tokens = str.split(DATE_DELIM);
-  if (!tokens) {
-    return;
-  }
-
-  let hour = null;
-  let minute = null;
-  let second = null;
-  let dayOfMonth = null;
-  let month = null;
-  let year = null;
-
-  for (let i = 0; i < tokens.length; i++) {
-    const token = tokens[i].trim();
-    if (!token.length) {
-      continue;
-    }
-
-    let result;
-
-    /* 2.1. If the found-time flag is not set and the token matches the time
-     * production, set the found-time flag and set the hour- value,
-     * minute-value, and second-value to the numbers denoted by the digits in
-     * the date-token, respectively.  Skip the remaining sub-steps and continue
-     * to the next date-token.
-     */
-    if (second === null) {
-      result = parseTime(token);
-      if (result) {
-        hour = result[0];
-        minute = result[1];
-        second = result[2];
-        continue;
-      }
-    }
-
-    /* 2.2. If the found-day-of-month flag is not set and the date-token matches
-     * the day-of-month production, set the found-day-of- month flag and set
-     * the day-of-month-value to the number denoted by the date-token.  Skip
-     * the remaining sub-steps and continue to the next date-token.
-     */
-    if (dayOfMonth === null) {
-      // "day-of-month = 1*2DIGIT ( non-digit *OCTET )"
-      result = parseDigits(token, 1, 2, true);
-      if (result !== null) {
-        dayOfMonth = result;
-        continue;
-      }
-    }
-
-    /* 2.3. If the found-month flag is not set and the date-token matches the
-     * month production, set the found-month flag and set the month-value to
-     * the month denoted by the date-token.  Skip the remaining sub-steps and
-     * continue to the next date-token.
-     */
-    if (month === null) {
-      result = parseMonth(token);
-      if (result !== null) {
-        month = result;
-        continue;
-      }
-    }
-
-    /* 2.4. If the found-year flag is not set and the date-token matches the
-     * year production, set the found-year flag and set the year-value to the
-     * number denoted by the date-token.  Skip the remaining sub-steps and
-     * continue to the next date-token.
-     */
-    if (year === null) {
-      // "year = 2*4DIGIT ( non-digit *OCTET )"
-      result = parseDigits(token, 2, 4, true);
-      if (result !== null) {
-        year = result;
-        /* From S5.1.1:
-         * 3.  If the year-value is greater than or equal to 70 and less
-         * than or equal to 99, increment the year-value by 1900.
-         * 4.  If the year-value is greater than or equal to 0 and less
-         * than or equal to 69, increment the year-value by 2000.
-         */
-        if (year >= 70 && year <= 99) {
-          year += 1900;
-        } else if (year >= 0 && year <= 69) {
-          year += 2000;
-        }
-      }
-    }
-  }
-
-  /* RFC 6265 S5.1.1
-   * "5. Abort these steps and fail to parse the cookie-date if:
-   *     *  at least one of the found-day-of-month, found-month, found-
-   *        year, or found-time flags is not set,
-   *     *  the day-of-month-value is less than 1 or greater than 31,
-   *     *  the year-value is less than 1601,
-   *     *  the hour-value is greater than 23,
-   *     *  the minute-value is greater than 59, or
-   *     *  the second-value is greater than 59.
-   *     (Note that leap seconds cannot be represented in this syntax.)"
-   *
-   * So, in order as above:
-   */
-  if (
-    dayOfMonth === null ||
-    month === null ||
-    year === null ||
-    second === null ||
-    dayOfMonth < 1 ||
-    dayOfMonth > 31 ||
-    year < 1601 ||
-    hour > 23 ||
-    minute > 59 ||
-    second > 59
-  ) {
-    return;
-  }
-
-  return new Date(Date.UTC(year, month, dayOfMonth, hour, minute, second));
-}
-
-function formatDate(date) {
-  return date.toUTCString();
-}
-
-// S5.1.2 Canonicalized Host Names
-function canonicalDomain(str) {
-  if (str == null) {
-    return null;
-  }
-  str = str.trim().replace(/^\./, ""); // S4.1.2.3 & S5.2.3: ignore leading .
-
-  // convert to IDN if any non-ASCII characters
-  if (punycode && /[^\u0001-\u007f]/.test(str)) {
-    str = punycode.toASCII(str);
-  }
-
-  return str.toLowerCase();
-}
-
-// S5.1.3 Domain Matching
-function domainMatch(str, domStr, canonicalize) {
-  if (str == null || domStr == null) {
-    return null;
-  }
-  if (canonicalize !== false) {
-    str = canonicalDomain(str);
-    domStr = canonicalDomain(domStr);
-  }
-
-  /*
-   * S5.1.3:
-   * "A string domain-matches a given domain string if at least one of the
-   * following conditions hold:"
-   *
-   * " o The domain string and the string are identical. (Note that both the
-   * domain string and the string will have been canonicalized to lower case at
-   * this point)"
-   */
-  if (str == domStr) {
-    return true;
-  }
-
-  /* " o All of the following [three] conditions hold:" */
-
-  /* "* The domain string is a suffix of the string" */
-  const idx = str.indexOf(domStr);
-  if (idx <= 0) {
-    return false; // it's a non-match (-1) or prefix (0)
-  }
-
-  // next, check it's a proper suffix
-  // e.g., "a.b.c".indexOf("b.c") === 2
-  // 5 === 3+2
-  if (str.length !== domStr.length + idx) {
-    return false; // it's not a suffix
-  }
-
-  /* "  * The last character of the string that is not included in the
-   * domain string is a %x2E (".") character." */
-  if (str.substr(idx-1,1) !== '.') {
-    return false; // doesn't align on "."
-  }
-
-  /* "  * The string is a host name (i.e., not an IP address)." */
-  if (IP_REGEX_LOWERCASE.test(str)) {
-    return false; // it's an IP address
-  }
-
-  return true;
-}
-
-// RFC6265 S5.1.4 Paths and Path-Match
-
-/*
- * "The user agent MUST use an algorithm equivalent to the following algorithm
- * to compute the default-path of a cookie:"
+/**
+ * sort helper to sort array elements in ascending order
  *
- * Assumption: the path (and not query part or absolute uri) is passed in.
+ * @param   {mixed} a - an item to compare
+ * @param   {mixed} b - an item to compare
+ * @returns {number} - comparison result
  */
-function defaultPath(path) {
-  // "2. If the uri-path is empty or if the first character of the uri-path is not
-  // a %x2F ("/") character, output %x2F ("/") and skip the remaining steps.
-  if (!path || path.substr(0, 1) !== "/") {
-    return "/";
-  }
-
-  // "3. If the uri-path contains no more than one %x2F ("/") character, output
-  // %x2F ("/") and skip the remaining step."
-  if (path === "/") {
-    return path;
-  }
-
-  const rightSlash = path.lastIndexOf("/");
-  if (rightSlash === 0) {
-    return "/";
-  }
-
-  // "4. Output the characters of the uri-path from the first character up to,
-  // but not including, the right-most %x2F ("/")."
-  return path.slice(0, rightSlash);
-}
-
-function trimTerminator(str) {
-  for (let t = 0; t < TERMINATORS.length; t++) {
-    const terminatorIdx = str.indexOf(TERMINATORS[t]);
-    if (terminatorIdx !== -1) {
-      str = str.substr(0, terminatorIdx);
-    }
-  }
-
-  return str;
-}
-
-function parseCookiePair(cookiePair, looseMode) {
-  cookiePair = trimTerminator(cookiePair);
-
-  let firstEq = cookiePair.indexOf("=");
-  if (looseMode) {
-    if (firstEq === 0) {
-      // '=' is immediately at start
-      cookiePair = cookiePair.substr(1);
-      firstEq = cookiePair.indexOf("="); // might still need to split on '='
-    }
-  } else {
-    // non-loose mode
-    if (firstEq <= 0) {
-      // no '=' or is at start
-      return; // needs to have non-empty "cookie-name"
-    }
-  }
-
-  let cookieName, cookieValue;
-  if (firstEq <= 0) {
-    cookieName = "";
-    cookieValue = cookiePair.trim();
-  } else {
-    cookieName = cookiePair.substr(0, firstEq).trim();
-    cookieValue = cookiePair.substr(firstEq + 1).trim();
-  }
-
-  if (CONTROL_CHARS.test(cookieName) || CONTROL_CHARS.test(cookieValue)) {
-    return;
-  }
-
-  const c = new Cookie();
-  c.key = cookieName;
-  c.value = cookieValue;
-  return c;
-}
-
-function parse(str, options) {
-  if (!options || typeof options !== "object") {
-    options = {};
-  }
-  str = str.trim();
-
-  // We use a regex to parse the "name-value-pair" part of S5.2
-  const firstSemi = str.indexOf(";"); // S5.2 step 1
-  const cookiePair = firstSemi === -1 ? str : str.substr(0, firstSemi);
-  const c = parseCookiePair(cookiePair, !!options.loose);
-  if (!c) {
-    return;
-  }
-
-  if (firstSemi === -1) {
-    return c;
-  }
-
-  // S5.2.3 "unparsed-attributes consist of the remainder of the set-cookie-string
-  // (including the %x3B (";") in question)." plus later on in the same section
-  // "discard the first ";" and trim".
-  const unparsed = str.slice(firstSemi + 1).trim();
-
-  // "If the unparsed-attributes string is empty, skip the rest of these
-  // steps."
-  if (unparsed.length === 0) {
-    return c;
-  }
-
-  /*
-   * S5.2 says that when looping over the items "[p]rocess the attribute-name
-   * and attribute-value according to the requirements in the following
-   * subsections" for every item.  Plus, for many of the individual attributes
-   * in S5.3 it says to use the "attribute-value of the last attribute in the
-   * cookie-attribute-list".  Therefore, in this implementation, we overwrite
-   * the previous value.
-   */
-  const cookie_avs = unparsed.split(";");
-  while (cookie_avs.length) {
-    const av = cookie_avs.shift().trim();
-    if (av.length === 0) {
-      // happens if ";;" appears
-      continue;
-    }
-    const av_sep = av.indexOf("=");
-    let av_key, av_value;
-
-    if (av_sep === -1) {
-      av_key = av;
-      av_value = null;
-    } else {
-      av_key = av.substr(0, av_sep);
-      av_value = av.substr(av_sep + 1);
-    }
-
-    av_key = av_key.trim().toLowerCase();
-
-    if (av_value) {
-      av_value = av_value.trim();
-    }
-
-    switch (av_key) {
-      case "expires": // S5.2.1
-        if (av_value) {
-          const exp = parseDate(av_value);
-          // "If the attribute-value failed to parse as a cookie date, ignore the
-          // cookie-av."
-          if (exp) {
-            // over and underflow not realistically a concern: V8's getTime() seems to
-            // store something larger than a 32-bit time_t (even with 32-bit node)
-            c.expires = exp;
-          }
-        }
-        break;
-
-      case "max-age": // S5.2.2
-        if (av_value) {
-          // "If the first character of the attribute-value is not a DIGIT or a "-"
-          // character ...[or]... If the remainder of attribute-value contains a
-          // non-DIGIT character, ignore the cookie-av."
-          if (/^-?[0-9]+$/.test(av_value)) {
-            const delta = parseInt(av_value, 10);
-            // "If delta-seconds is less than or equal to zero (0), let expiry-time
-            // be the earliest representable date and time."
-            c.setMaxAge(delta);
-          }
-        }
-        break;
-
-      case "domain": // S5.2.3
-        // "If the attribute-value is empty, the behavior is undefined.  However,
-        // the user agent SHOULD ignore the cookie-av entirely."
-        if (av_value) {
-          // S5.2.3 "Let cookie-domain be the attribute-value without the leading %x2E
-          // (".") character."
-          const domain = av_value.trim().replace(/^\./, "");
-          if (domain) {
-            // "Convert the cookie-domain to lower case."
-            c.domain = domain.toLowerCase();
-          }
-        }
-        break;
-
-      case "path": // S5.2.4
-        /*
-         * "If the attribute-value is empty or if the first character of the
-         * attribute-value is not %x2F ("/"):
-         *   Let cookie-path be the default-path.
-         * Otherwise:
-         *   Let cookie-path be the attribute-value."
-         *
-         * We'll represent the default-path as null since it depends on the
-         * context of the parsing.
-         */
-        c.path = av_value && av_value[0] === "/" ? av_value : null;
-        break;
-
-      case "secure": // S5.2.5
-        /*
-         * "If the attribute-name case-insensitively matches the string "Secure",
-         * the user agent MUST append an attribute to the cookie-attribute-list
-         * with an attribute-name of Secure and an empty attribute-value."
-         */
-        c.secure = true;
-        break;
-
-      case "httponly": // S5.2.6 -- effectively the same as 'secure'
-        c.httpOnly = true;
-        break;
-
-      case "samesite": // RFC6265bis-02 S5.3.7
-        const enforcement = av_value ? av_value.toLowerCase() : "";
-        switch (enforcement) {
-          case "strict":
-            c.sameSite = "strict";
-            break;
-          case "lax":
-            c.sameSite = "lax";
-            break;
-          default:
-            // RFC6265bis-02 S5.3.7 step 1:
-            // "If cookie-av's attribute-value is not a case-insensitive match
-            //  for "Strict" or "Lax", ignore the "cookie-av"."
-            // This effectively sets it to 'none' from the prototype.
-            break;
-        }
-        break;
-
-      default:
-        c.extensions = c.extensions || [];
-        c.extensions.push(av);
-        break;
-    }
-  }
-
-  return c;
+function ascending(a, b)
+{
+  return a < b ? -1 : a > b ? 1 : 0;
 }
 
 /**
- *  If the cookie-name begins with a case-sensitive match for the
- *  string "__Secure-", abort these steps and ignore the cookie
- *  entirely unless the cookie's secure-only-flag is true.
- * @param cookie
- * @returns boolean
- */
-function isSecurePrefixConditionMet(cookie) {
-  return !cookie.key.startsWith("__Secure-") || cookie.secure;
-}
-
-/**
- *  If the cookie-name begins with a case-sensitive match for the
- *  string "__Host-", abort these steps and ignore the cookie
- *  entirely unless the cookie meets all the following criteria:
- *    1.  The cookie's secure-only-flag is true.
- *    2.  The cookie's host-only-flag is true.
- *    3.  The cookie-attribute-list contains an attribute with an
- *        attribute-name of "Path", and the cookie's path is "/".
- * @param cookie
- * @returns boolean
- */
-function isHostPrefixConditionMet(cookie) {
-  return (
-    !cookie.key.startsWith("__Host-") ||
-    (cookie.secure &&
-      cookie.hostOnly &&
-      cookie.path != null &&
-      cookie.path === "/")
-  );
-}
-
-// avoid the V8 deoptimization monster!
-function jsonParse(str) {
-  let obj;
-  try {
-    obj = JSON.parse(str);
-  } catch (e) {
-    return e;
-  }
-  return obj;
-}
-
-function fromJSON(str) {
-  if (!str) {
-    return null;
-  }
-
-  let obj;
-  if (typeof str === "string") {
-    obj = jsonParse(str);
-    if (obj instanceof Error) {
-      return null;
-    }
-  } else {
-    // assume it's an Object
-    obj = str;
-  }
-
-  const c = new Cookie();
-  for (let i = 0; i < Cookie.serializableProperties.length; i++) {
-    const prop = Cookie.serializableProperties[i];
-    if (obj[prop] === undefined || obj[prop] === cookieDefaults[prop]) {
-      continue; // leave as prototype default
-    }
-
-    if (prop === "expires" || prop === "creation" || prop === "lastAccessed") {
-      if (obj[prop] === null) {
-        c[prop] = null;
-      } else {
-        c[prop] = obj[prop] == "Infinity" ? "Infinity" : new Date(obj[prop]);
-      }
-    } else {
-      c[prop] = obj[prop];
-    }
-  }
-
-  return c;
-}
-
-/* Section 5.4 part 2:
- * "*  Cookies with longer paths are listed before cookies with
- *     shorter paths.
+ * sort helper to sort array elements in descending order
  *
- *  *  Among cookies that have equal-length path fields, cookies with
- *     earlier creation-times are listed before cookies with later
- *     creation-times."
+ * @param   {mixed} a - an item to compare
+ * @param   {mixed} b - an item to compare
+ * @returns {number} - comparison result
  */
-
-function cookieCompare(a, b) {
-  let cmp = 0;
-
-  // descending for length: b CMP a
-  const aPathLen = a.path ? a.path.length : 0;
-  const bPathLen = b.path ? b.path.length : 0;
-  cmp = bPathLen - aPathLen;
-  if (cmp !== 0) {
-    return cmp;
-  }
-
-  // ascending for time: a CMP b
-  const aTime = a.creation ? a.creation.getTime() : MAX_TIME;
-  const bTime = b.creation ? b.creation.getTime() : MAX_TIME;
-  cmp = aTime - bTime;
-  if (cmp !== 0) {
-    return cmp;
-  }
-
-  // break ties for the same millisecond (precision of JavaScript's clock)
-  cmp = a.creationIndex - b.creationIndex;
-
-  return cmp;
+function descending(a, b)
+{
+  return -1 * ascending(a, b);
 }
-
-// Gives the permutation of all possible pathMatch()es of a given path. The
-// array is in longest-to-shortest order.  Handy for indexing.
-function permutePath(path) {
-  if (path === "/") {
-    return ["/"];
-  }
-  const permutations = [path];
-  while (path.length > 1) {
-    const lindex = path.lastIndexOf("/");
-    if (lindex === 0) {
-      break;
-    }
-    path = path.substr(0, lindex);
-    permutations.push(path);
-  }
-  permutations.push("/");
-  return permutations;
-}
-
-function getCookieContext(url) {
-  if (url instanceof Object) {
-    return url;
-  }
-  // NOTE: decodeURI will throw on malformed URIs (see GH-32).
-  // Therefore, we will just skip decoding for such URIs.
-  try {
-    url = decodeURI(url);
-  } catch (err) {
-    // Silently swallow error
-  }
-
-  return urlParse(url);
-}
-
-const cookieDefaults = {
-  // the order in which the RFC has them:
-  key: "",
-  value: "",
-  expires: "Infinity",
-  maxAge: null,
-  domain: null,
-  path: null,
-  secure: false,
-  httpOnly: false,
-  extensions: null,
-  // set by the CookieJar:
-  hostOnly: null,
-  pathIsDefault: null,
-  creation: null,
-  lastAccessed: null,
-  sameSite: "none"
-};
-
-class Cookie {
-  constructor(options = {}) {
-    if (util.inspect.custom) {
-      this[util.inspect.custom] = this.inspect;
-    }
-
-    Object.assign(this, cookieDefaults, options);
-    this.creation = this.creation || new Date();
-
-    // used to break creation ties in cookieCompare():
-    Object.defineProperty(this, "creationIndex", {
-      configurable: false,
-      enumerable: false, // important for assert.deepEqual checks
-      writable: true,
-      value: ++Cookie.cookiesCreated
-    });
-  }
-
-  inspect() {
-    const now = Date.now();
-    const hostOnly = this.hostOnly != null ? this.hostOnly : "?";
-    const createAge = this.creation
-      ? `${now - this.creation.getTime()}ms`
-      : "?";
-    const accessAge = this.lastAccessed
-      ? `${now - this.lastAccessed.getTime()}ms`
-      : "?";
-    return `Cookie="${this.toString()}; hostOnly=${hostOnly}; aAge=${accessAge}; cAge=${createAge}"`;
-  }
-
-  toJSON() {
-    const obj = {};
-
-    for (const prop of Cookie.serializableProperties) {
-      if (this[prop] === cookieDefaults[prop]) {
-        continue; // leave as prototype default
-      }
-
-      if (
-        prop === "expires" ||
-        prop === "creation" ||
-        prop === "lastAccessed"
-      ) {
-        if (this[prop] === null) {
-          obj[prop] = null;
-        } else {
-          obj[prop] =
-            this[prop] == "Infinity" // intentionally not ===
-              ? "Infinity"
-              : this[prop].toISOString();
-        }
-      } else if (prop === "maxAge") {
-        if (this[prop] !== null) {
-          // again, intentionally not ===
-          obj[prop] =
-            this[prop] == Infinity || this[prop] == -Infinity
-              ? this[prop].toString()
-              : this[prop];
-        }
-      } else {
-        if (this[prop] !== cookieDefaults[prop]) {
-          obj[prop] = this[prop];
-        }
-      }
-    }
-
-    return obj;
-  }
-
-  clone() {
-    return fromJSON(this.toJSON());
-  }
-
-  validate() {
-    if (!COOKIE_OCTETS.test(this.value)) {
-      return false;
-    }
-    if (
-      this.expires != Infinity &&
-      !(this.expires instanceof Date) &&
-      !parseDate(this.expires)
-    ) {
-      return false;
-    }
-    if (this.maxAge != null && this.maxAge <= 0) {
-      return false; // "Max-Age=" non-zero-digit *DIGIT
-    }
-    if (this.path != null && !PATH_VALUE.test(this.path)) {
-      return false;
-    }
-
-    const cdomain = this.cdomain();
-    if (cdomain) {
-      if (cdomain.match(/\.$/)) {
-        return false; // S4.1.2.3 suggests that this is bad. domainMatch() tests confirm this
-      }
-      const suffix = pubsuffix.getPublicSuffix(cdomain);
-      if (suffix == null) {
-        // it's a public suffix
-        return false;
-      }
-    }
-    return true;
-  }
-
-  setExpires(exp) {
-    if (exp instanceof Date) {
-      this.expires = exp;
-    } else {
-      this.expires = parseDate(exp) || "Infinity";
-    }
-  }
-
-  setMaxAge(age) {
-    if (age === Infinity || age === -Infinity) {
-      this.maxAge = age.toString(); // so JSON.stringify() works
-    } else {
-      this.maxAge = age;
-    }
-  }
-
-  cookieString() {
-    let val = this.value;
-    if (val == null) {
-      val = "";
-    }
-    if (this.key === "") {
-      return val;
-    }
-    return `${this.key}=${val}`;
-  }
-
-  // gives Set-Cookie header format
-  toString() {
-    let str = this.cookieString();
-
-    if (this.expires != Infinity) {
-      if (this.expires instanceof Date) {
-        str += `; Expires=${formatDate(this.expires)}`;
-      } else {
-        str += `; Expires=${this.expires}`;
-      }
-    }
-
-    if (this.maxAge != null && this.maxAge != Infinity) {
-      str += `; Max-Age=${this.maxAge}`;
-    }
-
-    if (this.domain && !this.hostOnly) {
-      str += `; Domain=${this.domain}`;
-    }
-    if (this.path) {
-      str += `; Path=${this.path}`;
-    }
-
-    if (this.secure) {
-      str += "; Secure";
-    }
-    if (this.httpOnly) {
-      str += "; HttpOnly";
-    }
-    if (this.sameSite && this.sameSite !== "none") {
-      const ssCanon = Cookie.sameSiteCanonical[this.sameSite.toLowerCase()];
-      str += `; SameSite=${ssCanon ? ssCanon : this.sameSite}`;
-    }
-    if (this.extensions) {
-      this.extensions.forEach(ext => {
-        str += `; ${ext}`;
-      });
-    }
-
-    return str;
-  }
-
-  // TTL() partially replaces the "expiry-time" parts of S5.3 step 3 (setCookie()
-  // elsewhere)
-  // S5.3 says to give the "latest representable date" for which we use Infinity
-  // For "expired" we use 0
-  TTL(now) {
-    /* RFC6265 S4.1.2.2 If a cookie has both the Max-Age and the Expires
-     * attribute, the Max-Age attribute has precedence and controls the
-     * expiration date of the cookie.
-     * (Concurs with S5.3 step 3)
-     */
-    if (this.maxAge != null) {
-      return this.maxAge <= 0 ? 0 : this.maxAge * 1000;
-    }
-
-    let expires = this.expires;
-    if (expires != Infinity) {
-      if (!(expires instanceof Date)) {
-        expires = parseDate(expires) || Infinity;
-      }
-
-      if (expires == Infinity) {
-        return Infinity;
-      }
-
-      return expires.getTime() - (now || Date.now());
-    }
-
-    return Infinity;
-  }
-
-  // expiryTime() replaces the "expiry-time" parts of S5.3 step 3 (setCookie()
-  // elsewhere)
-  expiryTime(now) {
-    if (this.maxAge != null) {
-      const relativeTo = now || this.creation || new Date();
-      const age = this.maxAge <= 0 ? -Infinity : this.maxAge * 1000;
-      return relativeTo.getTime() + age;
-    }
-
-    if (this.expires == Infinity) {
-      return Infinity;
-    }
-    return this.expires.getTime();
-  }
-
-  // expiryDate() replaces the "expiry-time" parts of S5.3 step 3 (setCookie()
-  // elsewhere), except it returns a Date
-  expiryDate(now) {
-    const millisec = this.expiryTime(now);
-    if (millisec == Infinity) {
-      return new Date(MAX_TIME);
-    } else if (millisec == -Infinity) {
-      return new Date(MIN_TIME);
-    } else {
-      return new Date(millisec);
-    }
-  }
-
-  // This replaces the "persistent-flag" parts of S5.3 step 3
-  isPersistent() {
-    return this.maxAge != null || this.expires != Infinity;
-  }
-
-  // Mostly S5.1.2 and S5.2.3:
-  canonicalizedDomain() {
-    if (this.domain == null) {
-      return null;
-    }
-    return canonicalDomain(this.domain);
-  }
-
-  cdomain() {
-    return this.canonicalizedDomain();
-  }
-}
-
-Cookie.cookiesCreated = 0;
-Cookie.parse = parse;
-Cookie.fromJSON = fromJSON;
-Cookie.serializableProperties = Object.keys(cookieDefaults);
-Cookie.sameSiteLevel = {
-  strict: 3,
-  lax: 2,
-  none: 1
-};
-
-Cookie.sameSiteCanonical = {
-  strict: "Strict",
-  lax: "Lax"
-};
-
-function getNormalizedPrefixSecurity(prefixSecurity) {
-  if (prefixSecurity != null) {
-    const normalizedPrefixSecurity = prefixSecurity.toLowerCase();
-    /* The three supported options */
-    switch (normalizedPrefixSecurity) {
-      case PrefixSecurityEnum.STRICT:
-      case PrefixSecurityEnum.SILENT:
-      case PrefixSecurityEnum.DISABLED:
-        return normalizedPrefixSecurity;
-    }
-  }
-  /* Default is SILENT */
-  return PrefixSecurityEnum.SILENT;
-}
-
-class CookieJar {
-  constructor(store, options = { rejectPublicSuffixes: true }) {
-    if (typeof options === "boolean") {
-      options = { rejectPublicSuffixes: options };
-    }
-    this.rejectPublicSuffixes = options.rejectPublicSuffixes;
-    this.enableLooseMode = !!options.looseMode;
-    this.allowSpecialUseDomain = !!options.allowSpecialUseDomain;
-    this.store = store || new MemoryCookieStore();
-    this.prefixSecurity = getNormalizedPrefixSecurity(options.prefixSecurity);
-    this._cloneSync = syncWrap("clone");
-    this._importCookiesSync = syncWrap("_importCookies");
-    this.getCookiesSync = syncWrap("getCookies");
-    this.getCookieStringSync = syncWrap("getCookieString");
-    this.getSetCookieStringsSync = syncWrap("getSetCookieStrings");
-    this.removeAllCookiesSync = syncWrap("removeAllCookies");
-    this.setCookieSync = syncWrap("setCookie");
-    this.serializeSync = syncWrap("serialize");
-  }
-
-  setCookie(cookie, url, options, cb) {
-    let err;
-    const context = getCookieContext(url);
-    if (typeof options === "function") {
-      cb = options;
-      options = {};
-    }
-
-    const host = canonicalDomain(context.hostname);
-    const loose = options.loose || this.enableLooseMode;
-
-    let sameSiteContext = null;
-    if (options.sameSiteContext) {
-      sameSiteContext = checkSameSiteContext(options.sameSiteContext);
-      if (!sameSiteContext) {
-        return cb(new Error(SAME_SITE_CONTEXT_VAL_ERR));
-      }
-    }
-
-    // S5.3 step 1
-    if (typeof cookie === "string" || cookie instanceof String) {
-      cookie = Cookie.parse(cookie, { loose: loose });
-      if (!cookie) {
-        err = new Error("Cookie failed to parse");
-        return cb(options.ignoreError ? null : err);
-      }
-    } else if (!(cookie instanceof Cookie)) {
-      // If you're seeing this error, and are passing in a Cookie object,
-      // it *might* be a Cookie object from another loaded version of tough-cookie.
-      err = new Error(
-        "First argument to setCookie must be a Cookie object or string"
-      );
-      return cb(options.ignoreError ? null : err);
-    }
-
-    // S5.3 step 2
-    const now = options.now || new Date(); // will assign later to save effort in the face of errors
-
-    // S5.3 step 3: NOOP; persistent-flag and expiry-time is handled by getCookie()
-
-    // S5.3 step 4: NOOP; domain is null by default
-
-    // S5.3 step 5: public suffixes
-    if (this.rejectPublicSuffixes && cookie.domain) {
-      const suffix = pubsuffix.getPublicSuffix(cookie.cdomain());
-      if (suffix == null) {
-        // e.g. "com"
-        err = new Error("Cookie has domain set to a public suffix");
-        return cb(options.ignoreError ? null : err);
-      }
-    }
-
-    // S5.3 step 6:
-    if (cookie.domain) {
-      if (!domainMatch(host, cookie.cdomain(), false)) {
-        err = new Error(
-          `Cookie not in this host's domain. Cookie:${cookie.cdomain()} Request:${host}`
-        );
-        return cb(options.ignoreError ? null : err);
-      }
-
-      if (cookie.hostOnly == null) {
-        // don't reset if already set
-        cookie.hostOnly = false;
-      }
-    } else {
-      cookie.hostOnly = true;
-      cookie.domain = host;
-    }
-
-    //S5.2.4 If the attribute-value is empty or if the first character of the
-    //attribute-value is not %x2F ("/"):
-    //Let cookie-path be the default-path.
-    if (!cookie.path || cookie.path[0] !== "/") {
-      cookie.path = defaultPath(context.pathname);
-      cookie.pathIsDefault = true;
-    }
-
-    // S5.3 step 8: NOOP; secure attribute
-    // S5.3 step 9: NOOP; httpOnly attribute
-
-    // S5.3 step 10
-    if (options.http === false && cookie.httpOnly) {
-      err = new Error("Cookie is HttpOnly and this isn't an HTTP API");
-      return cb(options.ignoreError ? null : err);
-    }
-
-    // 6252bis-02 S5.4 Step 13 & 14:
-    if (cookie.sameSite !== "none" && sameSiteContext) {
-      // "If the cookie's "same-site-flag" is not "None", and the cookie
-      //  is being set from a context whose "site for cookies" is not an
-      //  exact match for request-uri's host's registered domain, then
-      //  abort these steps and ignore the newly created cookie entirely."
-      if (sameSiteContext === "none") {
-        err = new Error(
-          "Cookie is SameSite but this is a cross-origin request"
-        );
-        return cb(options.ignoreError ? null : err);
-      }
-    }
-
-    /* 6265bis-02 S5.4 Steps 15 & 16 */
-    const ignoreErrorForPrefixSecurity =
-      this.prefixSecurity === PrefixSecurityEnum.SILENT;
-    const prefixSecurityDisabled =
-      this.prefixSecurity === PrefixSecurityEnum.DISABLED;
-    /* If prefix checking is not disabled ...*/
-    if (!prefixSecurityDisabled) {
-      let errorFound = false;
-      let errorMsg;
-      /* Check secure prefix condition */
-      if (!isSecurePrefixConditionMet(cookie)) {
-        errorFound = true;
-        errorMsg = "Cookie has __Secure prefix but Secure attribute is not set";
-      } else if (!isHostPrefixConditionMet(cookie)) {
-        /* Check host prefix condition */
-        errorFound = true;
-        errorMsg =
-          "Cookie has __Host prefix but either Secure or HostOnly attribute is not set or Path is not '/'";
-      }
-      if (errorFound) {
-        return cb(
-          options.ignoreError || ignoreErrorForPrefixSecurity
-            ? null
-            : new Error(errorMsg)
-        );
-      }
-    }
-
-    const store = this.store;
-
-    if (!store.updateCookie) {
-      store.updateCookie = function(oldCookie, newCookie, cb) {
-        this.putCookie(newCookie, cb);
-      };
-    }
-
-    function withCookie(err, oldCookie) {
-      if (err) {
-        return cb(err);
-      }
-
-      const next = function(err) {
-        if (err) {
-          return cb(err);
-        } else {
-          cb(null, cookie);
-        }
-      };
-
-      if (oldCookie) {
-        // S5.3 step 11 - "If the cookie store contains a cookie with the same name,
-        // domain, and path as the newly created cookie:"
-        if (options.http === false && oldCookie.httpOnly) {
-          // step 11.2
-          err = new Error("old Cookie is HttpOnly and this isn't an HTTP API");
-          return cb(options.ignoreError ? null : err);
-        }
-        cookie.creation = oldCookie.creation; // step 11.3
-        cookie.creationIndex = oldCookie.creationIndex; // preserve tie-breaker
-        cookie.lastAccessed = now;
-        // Step 11.4 (delete cookie) is implied by just setting the new one:
-        store.updateCookie(oldCookie, cookie, next); // step 12
-      } else {
-        cookie.creation = cookie.lastAccessed = now;
-        store.putCookie(cookie, next); // step 12
-      }
-    }
-
-    store.findCookie(cookie.domain, cookie.path, cookie.key, withCookie);
-  }
-
-  // RFC6365 S5.4
-  getCookies(url, options, cb) {
-    const context = getCookieContext(url);
-    if (typeof options === "function") {
-      cb = options;
-      options = {};
-    }
-
-    const host = canonicalDomain(context.hostname);
-    const path = context.pathname || "/";
-
-    let secure = options.secure;
-    if (
-      secure == null &&
-      context.protocol &&
-      (context.protocol == "https:" || context.protocol == "wss:")
-    ) {
-      secure = true;
-    }
-
-    let sameSiteLevel = 0;
-    if (options.sameSiteContext) {
-      const sameSiteContext = checkSameSiteContext(options.sameSiteContext);
-      sameSiteLevel = Cookie.sameSiteLevel[sameSiteContext];
-      if (!sameSiteLevel) {
-        return cb(new Error(SAME_SITE_CONTEXT_VAL_ERR));
-      }
-    }
-
-    let http = options.http;
-    if (http == null) {
-      http = true;
-    }
-
-    const now = options.now || Date.now();
-    const expireCheck = options.expire !== false;
-    const allPaths = !!options.allPaths;
-    const store = this.store;
-
-    function matchingCookie(c) {
-      // "Either:
-      //   The cookie's host-only-flag is true and the canonicalized
-      //   request-host is identical to the cookie's domain.
-      // Or:
-      //   The cookie's host-only-flag is false and the canonicalized
-      //   request-host domain-matches the cookie's domain."
-      if (c.hostOnly) {
-        if (c.domain != host) {
-          return false;
-        }
-      } else {
-        if (!domainMatch(host, c.domain, false)) {
-          return false;
-        }
-      }
-
-      // "The request-uri's path path-matches the cookie's path."
-      if (!allPaths && !pathMatch(path, c.path)) {
-        return false;
-      }
-
-      // "If the cookie's secure-only-flag is true, then the request-uri's
-      // scheme must denote a "secure" protocol"
-      if (c.secure && !secure) {
-        return false;
-      }
-
-      // "If the cookie's http-only-flag is true, then exclude the cookie if the
-      // cookie-string is being generated for a "non-HTTP" API"
-      if (c.httpOnly && !http) {
-        return false;
-      }
-
-      // RFC6265bis-02 S5.3.7
-      if (sameSiteLevel) {
-        const cookieLevel = Cookie.sameSiteLevel[c.sameSite || "none"];
-        if (cookieLevel > sameSiteLevel) {
-          // only allow cookies at or below the request level
-          return false;
-        }
-      }
-
-      // deferred from S5.3
-      // non-RFC: allow retention of expired cookies by choice
-      if (expireCheck && c.expiryTime() <= now) {
-        store.removeCookie(c.domain, c.path, c.key, () => {}); // result ignored
-        return false;
-      }
-
-      return true;
-    }
-
-    store.findCookies(
-      host,
-      allPaths ? null : path,
-      this.allowSpecialUseDomain,
-      (err, cookies) => {
-        if (err) {
-          return cb(err);
-        }
-
-        cookies = cookies.filter(matchingCookie);
-
-        // sorting of S5.4 part 2
-        if (options.sort !== false) {
-          cookies = cookies.sort(cookieCompare);
-        }
-
-        // S5.4 part 3
-        const now = new Date();
-        for (const cookie of cookies) {
-          cookie.lastAccessed = now;
-        }
-        // TODO persist lastAccessed
-
-        cb(null, cookies);
-      }
-    );
-  }
-
-  getCookieString(...args) {
-    const cb = args.pop();
-    const next = function(err, cookies) {
-      if (err) {
-        cb(err);
-      } else {
-        cb(
-          null,
-          cookies
-            .sort(cookieCompare)
-            .map(c => c.cookieString())
-            .join("; ")
-        );
-      }
-    };
-    args.push(next);
-    this.getCookies.apply(this, args);
-  }
-
-  getSetCookieStrings(...args) {
-    const cb = args.pop();
-    const next = function(err, cookies) {
-      if (err) {
-        cb(err);
-      } else {
-        cb(
-          null,
-          cookies.map(c => {
-            return c.toString();
-          })
-        );
-      }
-    };
-    args.push(next);
-    this.getCookies.apply(this, args);
-  }
-
-  serialize(cb) {
-    let type = this.store.constructor.name;
-    if (type === "Object") {
-      type = null;
-    }
-
-    // update README.md "Serialization Format" if you change this, please!
-    const serialized = {
-      // The version of tough-cookie that serialized this jar. Generally a good
-      // practice since future versions can make data import decisions based on
-      // known past behavior. When/if this matters, use `semver`.
-      version: `tough-cookie@${VERSION}`,
-
-      // add the store type, to make humans happy:
-      storeType: type,
-
-      // CookieJar configuration:
-      rejectPublicSuffixes: !!this.rejectPublicSuffixes,
-
-      // this gets filled from getAllCookies:
-      cookies: []
-    };
-
-    if (
-      !(
-        this.store.getAllCookies &&
-        typeof this.store.getAllCookies === "function"
-      )
-    ) {
-      return cb(
-        new Error(
-          "store does not support getAllCookies and cannot be serialized"
-        )
-      );
-    }
-
-    this.store.getAllCookies((err, cookies) => {
-      if (err) {
-        return cb(err);
-      }
-
-      serialized.cookies = cookies.map(cookie => {
-        // convert to serialized 'raw' cookies
-        cookie = cookie instanceof Cookie ? cookie.toJSON() : cookie;
-
-        // Remove the index so new ones get assigned during deserialization
-        delete cookie.creationIndex;
-
-        return cookie;
-      });
-
-      return cb(null, serialized);
-    });
-  }
-
-  toJSON() {
-    return this.serializeSync();
-  }
-
-  // use the class method CookieJar.deserialize instead of calling this directly
-  _importCookies(serialized, cb) {
-    let cookies = serialized.cookies;
-    if (!cookies || !Array.isArray(cookies)) {
-      return cb(new Error("serialized jar has no cookies array"));
-    }
-    cookies = cookies.slice(); // do not modify the original
-
-    const putNext = err => {
-      if (err) {
-        return cb(err);
-      }
-
-      if (!cookies.length) {
-        return cb(err, this);
-      }
-
-      let cookie;
-      try {
-        cookie = fromJSON(cookies.shift());
-      } catch (e) {
-        return cb(e);
-      }
-
-      if (cookie === null) {
-        return putNext(null); // skip this cookie
-      }
-
-      this.store.putCookie(cookie, putNext);
-    };
-
-    putNext();
-  }
-
-  clone(newStore, cb) {
-    if (arguments.length === 1) {
-      cb = newStore;
-      newStore = null;
-    }
-
-    this.serialize((err, serialized) => {
-      if (err) {
-        return cb(err);
-      }
-      CookieJar.deserialize(serialized, newStore, cb);
-    });
-  }
-
-  cloneSync(newStore) {
-    if (arguments.length === 0) {
-      return this._cloneSync();
-    }
-    if (!newStore.synchronous) {
-      throw new Error(
-        "CookieJar clone destination store is not synchronous; use async API instead."
-      );
-    }
-    return this._cloneSync(newStore);
-  }
-
-  removeAllCookies(cb) {
-    const store = this.store;
-
-    // Check that the store implements its own removeAllCookies(). The default
-    // implementation in Store will immediately call the callback with a "not
-    // implemented" Error.
-    if (
-      typeof store.removeAllCookies === "function" &&
-      store.removeAllCookies !== Store.prototype.removeAllCookies
-    ) {
-      return store.removeAllCookies(cb);
-    }
-
-    store.getAllCookies((err, cookies) => {
-      if (err) {
-        return cb(err);
-      }
-
-      if (cookies.length === 0) {
-        return cb(null);
-      }
-
-      let completedCount = 0;
-      const removeErrors = [];
-
-      function removeCookieCb(removeErr) {
-        if (removeErr) {
-          removeErrors.push(removeErr);
-        }
-
-        completedCount++;
-
-        if (completedCount === cookies.length) {
-          return cb(removeErrors.length ? removeErrors[0] : null);
-        }
-      }
-
-      cookies.forEach(cookie => {
-        store.removeCookie(
-          cookie.domain,
-          cookie.path,
-          cookie.key,
-          removeCookieCb
-        );
-      });
-    });
-  }
-
-  static deserialize(strOrObj, store, cb) {
-    if (arguments.length !== 3) {
-      // store is optional
-      cb = store;
-      store = null;
-    }
-
-    let serialized;
-    if (typeof strOrObj === "string") {
-      serialized = jsonParse(strOrObj);
-      if (serialized instanceof Error) {
-        return cb(serialized);
-      }
-    } else {
-      serialized = strOrObj;
-    }
-
-    const jar = new CookieJar(store, serialized.rejectPublicSuffixes);
-    jar._importCookies(serialized, err => {
-      if (err) {
-        return cb(err);
-      }
-      cb(null, jar);
-    });
-  }
-
-  static deserializeSync(strOrObj, store) {
-    const serialized =
-      typeof strOrObj === "string" ? JSON.parse(strOrObj) : strOrObj;
-    const jar = new CookieJar(store, serialized.rejectPublicSuffixes);
-
-    // catch this mistake early:
-    if (!jar.store.synchronous) {
-      throw new Error(
-        "CookieJar store is not synchronous; use async API instead."
-      );
-    }
-
-    jar._importCookiesSync(serialized);
-    return jar;
-  }
-}
-CookieJar.fromJSON = CookieJar.deserializeSync;
-
-[
-  "_importCookies",
-  "clone",
-  "getCookies",
-  "getCookieString",
-  "getSetCookieStrings",
-  "removeAllCookies",
-  "serialize",
-  "setCookie"
-].forEach(name => {
-  CookieJar.prototype[name] = fromCallback(CookieJar.prototype[name]);
-});
-CookieJar.deserialize = fromCallback(CookieJar.deserialize);
-
-// Use a closure to provide a true imperative API for synchronous stores.
-function syncWrap(method) {
-  return function(...args) {
-    if (!this.store.synchronous) {
-      throw new Error(
-        "CookieJar store is not synchronous; use async API instead."
-      );
-    }
-
-    let syncErr, syncResult;
-    this[method](...args, (err, result) => {
-      syncErr = err;
-      syncResult = result;
-    });
-
-    if (syncErr) {
-      throw syncErr;
-    }
-    return syncResult;
-  };
-}
-
-exports.version = VERSION;
-exports.CookieJar = CookieJar;
-exports.Cookie = Cookie;
-exports.Store = Store;
-exports.MemoryCookieStore = MemoryCookieStore;
-exports.parseDate = parseDate;
-exports.formatDate = formatDate;
-exports.parse = parse;
-exports.fromJSON = fromJSON;
-exports.domainMatch = domainMatch;
-exports.defaultPath = defaultPath;
-exports.pathMatch = pathMatch;
-exports.getPublicSuffix = pubsuffix.getPublicSuffix;
-exports.cookieCompare = cookieCompare;
-exports.permuteDomain = __webpack_require__(383).permuteDomain;
-exports.permutePath = permutePath;
-exports.canonicalDomain = canonicalDomain;
-exports.PrefixSecurityEnum = PrefixSecurityEnum;
 
 
 /***/ }),
@@ -50576,7 +51772,8 @@ function retryTypedResponse(name, method, maxAttempts = constants_1.DefaultRetry
                 return {
                     statusCode: error.statusCode,
                     result: null,
-                    headers: {}
+                    headers: {},
+                    error
                 };
             }
             else {
@@ -53395,7 +54592,7 @@ var coreAuth = __webpack_require__(229);
 var os = __webpack_require__(87);
 var http = __webpack_require__(605);
 var https = __webpack_require__(211);
-var tough = __webpack_require__(892);
+var tough = __webpack_require__(393);
 var tunnel = __webpack_require__(413);
 var stream = __webpack_require__(794);
 var FormData = __webpack_require__(790);
