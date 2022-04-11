@@ -3689,9 +3689,9 @@ const installer = __importStar(__webpack_require__(923));
 const semver = __importStar(__webpack_require__(280));
 const path_1 = __importDefault(__webpack_require__(622));
 const cache_restore_1 = __webpack_require__(409);
+const cache_utils_1 = __webpack_require__(143);
 const child_process_1 = __importDefault(__webpack_require__(129));
 const fs_1 = __importDefault(__webpack_require__(747));
-const url_1 = __webpack_require__(835);
 function run() {
     return __awaiter(this, void 0, void 0, function* () {
         try {
@@ -3700,11 +3700,11 @@ function run() {
             // If not supplied then problem matchers will still be setup.  Useful for self-hosted.
             //
             let versionSpec = core.getInput('go-version');
-            const cache = core.getInput('cache');
+            const cache = core.getBooleanInput('cache');
             core.info(`Setup go version spec ${versionSpec}`);
             if (versionSpec) {
                 let token = core.getInput('token');
-                let auth = !token || isGhes() ? undefined : `token ${token}`;
+                let auth = !token || cache_utils_1.isGhes() ? undefined : `token ${token}`;
                 const checkLatest = core.getBooleanInput('check-latest');
                 const installDir = yield installer.getGo(versionSpec, checkLatest, auth);
                 core.addPath(path_1.default.join(installDir, 'bin'));
@@ -3719,11 +3719,8 @@ function run() {
                 core.debug(`add bin ${added}`);
                 core.info(`Successfully setup go version ${versionSpec}`);
             }
-            if (cache) {
-                if (isGhes()) {
-                    throw new Error('Caching is not supported on GHES');
-                }
-                const packageManager = cache.toUpperCase() === 'TRUE' ? 'default' : cache;
+            if (cache && cache_utils_1.isCacheFeatureAvailable()) {
+                const packageManager = 'default';
                 const cacheDependencyPath = core.getInput('cache-dependency-path');
                 yield cache_restore_1.restoreCache(packageManager, cacheDependencyPath);
             }
@@ -3775,10 +3772,6 @@ function addBinToPath() {
     });
 }
 exports.addBinToPath = addBinToPath;
-function isGhes() {
-    const ghUrl = new url_1.URL(process.env['GITHUB_SERVER_URL'] || 'https://github.com');
-    return ghUrl.hostname.toUpperCase() !== 'GITHUB.COM';
-}
 
 
 /***/ }),
@@ -4171,7 +4164,9 @@ var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, ge
     });
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.getCacheDirectoryPath = exports.getPackageManagerInfo = exports.getCommandOutput = void 0;
+exports.isCacheFeatureAvailable = exports.isGhes = exports.getCacheDirectoryPath = exports.getPackageManagerInfo = exports.getCommandOutput = void 0;
+const cache = __importStar(__webpack_require__(692));
+const core = __importStar(__webpack_require__(470));
 const exec = __importStar(__webpack_require__(986));
 const package_managers_1 = __webpack_require__(813);
 exports.getCommandOutput = (toolCommand) => __awaiter(void 0, void 0, void 0, function* () {
@@ -4198,6 +4193,24 @@ exports.getCacheDirectoryPath = (packageManagerInfo) => __awaiter(void 0, void 0
     }
     return stdout;
 });
+function isGhes() {
+    const ghUrl = new URL(process.env['GITHUB_SERVER_URL'] || 'https://github.com');
+    return ghUrl.hostname.toUpperCase() !== 'GITHUB.COM';
+}
+exports.isGhes = isGhes;
+function isCacheFeatureAvailable() {
+    if (!cache.isFeatureAvailable()) {
+        if (isGhes()) {
+            throw new Error('Cache action is only supported on GHES version >= 3.5. If you are on version >=3.5 Please check with GHES admin if Actions cache service is enabled or not.');
+        }
+        else {
+            core.warning('The runner was not able to contact the cache service. Caching will be skipped');
+        }
+        return false;
+    }
+    return true;
+}
+exports.isCacheFeatureAvailable = isCacheFeatureAvailable;
 
 
 /***/ }),
@@ -34244,6 +34257,7 @@ const cache_utils_1 = __webpack_require__(143);
 exports.restoreCache = (packageManager, cacheDependencyPath) => __awaiter(void 0, void 0, void 0, function* () {
     const packageManagerInfo = yield cache_utils_1.getPackageManagerInfo(packageManager);
     const platform = process.env.RUNNER_OS;
+    const versionSpec = core.getInput('go-version');
     const cachePath = yield cache_utils_1.getCacheDirectoryPath(packageManagerInfo);
     const dependencyFilePath = cacheDependencyPath
         ? cacheDependencyPath
@@ -34252,7 +34266,7 @@ exports.restoreCache = (packageManager, cacheDependencyPath) => __awaiter(void 0
     if (!fileHash) {
         throw new Error('Some specified paths were not resolved, unable to cache dependencies.');
     }
-    const primaryKey = `go-cache-${platform}-${fileHash}`;
+    const primaryKey = `${platform}-go${versionSpec}-${fileHash}`;
     core.debug(`primary key is ${primaryKey}`);
     core.saveState(constants_1.State.CachePrimaryKey, primaryKey);
     const cacheKey = yield cache.restoreCache([cachePath], primaryKey);

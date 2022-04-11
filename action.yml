@@ -12,11 +12,14 @@ inputs:
     default: ${{ github.token }}
   cache:
     description: Used to specify whether go-modules caching is needed. Set to true, if you'd like to enable caching.
+    default: false
   cache-dependency-path:
     description: 'Used to specify the path to a dependency file - go.sum'
+outputs:
+  cache-hit: 
+    description: 'A boolean value to indicate if a cache was hit'
 runs:
   using: 'node16'
   main: 'dist/setup/index.js'
   post: 'dist/cache-save/index.js'
   post-if: success()
-

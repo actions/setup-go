@@ -1,4 +1,6 @@
 import * as exec from '@actions/exec';
+import * as cache from '@actions/cache';
+import * as core from '@actions/core';
 import * as cacheUtils from '../src/cache-utils';
 import {PackageManagerInfo} from '../src/package-managers';
 
@@ -102,5 +104,76 @@ describe('getCacheDirectoryPath', () => {
     expect(async () => {
       await cacheUtils.getCacheDirectoryPath(validPackageManager);
     }).rejects.toThrow();
+  });
+});
+
+describe('isCacheFeatureAvailable', () => {
+  //Arrange
+  let isFeatureAvailableSpy = jest.spyOn(cache, 'isFeatureAvailable');
+  let warningSpy = jest.spyOn(core, 'warning');
+
+  it('should return true when cache feature is available', () => {
+    //Arrange
+    isFeatureAvailableSpy.mockImplementation(() => {
+      return true;
+    });
+
+    let functionResult;
+
+    //Act
+    functionResult = cacheUtils.isCacheFeatureAvailable();
+
+    //Assert
+    expect(functionResult).toBeTruthy();
+  });
+
+  it('should warn when cache feature is unavailable and GHES is not used ', () => {
+    //Arrange
+    isFeatureAvailableSpy.mockImplementation(() => {
+      return false;
+    });
+
+    process.env['GITHUB_SERVER_URL'] = 'https://github.com';
+
+    let warningMessage =
+      'The runner was not able to contact the cache service. Caching will be skipped';
+
+    //Act
+    cacheUtils.isCacheFeatureAvailable();
+
+    //Assert
+    expect(warningSpy).toHaveBeenCalledWith(warningMessage);
+  });
+
+  it('should return false when cache feature is unavailable', () => {
+    //Arrange
+    isFeatureAvailableSpy.mockImplementation(() => {
+      return false;
+    });
+
+    process.env['GITHUB_SERVER_URL'] = 'https://github.com';
+
+    let functionResult;
+
+    //Act
+    functionResult = cacheUtils.isCacheFeatureAvailable();
+
+    //Assert
+    expect(functionResult).toBeFalsy();
+  });
+
+  it('should throw when cache feature is unavailable and GHES is used', () => {
+    //Arrange
+    isFeatureAvailableSpy.mockImplementation(() => {
+      return false;
+    });
+
+    process.env['GITHUB_SERVER_URL'] = 'https://nongithub.com';
+
+    let errorMessage =
+      'Cache action is only supported on GHES version >= 3.5. If you are on version >=3.5 Please check with GHES admin if Actions cache service is enabled or not.';
+
+    //Act + Assert
+    expect(() => cacheUtils.isCacheFeatureAvailable()).toThrow(errorMessage);
   });
 });

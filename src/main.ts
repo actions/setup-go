@@ -4,9 +4,9 @@ import * as installer from './installer';
 import * as semver from 'semver';
 import path from 'path';
 import {restoreCache} from './cache-restore';
+import {isGhes, isCacheFeatureAvailable} from './cache-utils';
 import cp from 'child_process';
 import fs from 'fs';
-import {URL} from 'url';
 
 export async function run() {
   try {
@@ -16,7 +16,7 @@ export async function run() {
     //
     let versionSpec = core.getInput('go-version');
 
-    const cache = core.getInput('cache');
+    const cache = core.getBooleanInput('cache');
     core.info(`Setup go version spec ${versionSpec}`);
 
     if (versionSpec) {
@@ -41,11 +41,8 @@ export async function run() {
       core.info(`Successfully setup go version ${versionSpec}`);
     }
 
-    if (cache) {
-      if (isGhes()) {
-        throw new Error('Caching is not supported on GHES');
-      }
-      const packageManager = cache.toUpperCase() === 'TRUE' ? 'default' : cache;
+    if (cache && isCacheFeatureAvailable()) {
+      const packageManager = 'default';
       const cacheDependencyPath = core.getInput('cache-dependency-path');
       await restoreCache(packageManager, cacheDependencyPath);
     }
@@ -97,11 +94,4 @@ export async function addBinToPath(): Promise<boolean> {
     added = true;
   }
   return added;
-}
-
-function isGhes(): boolean {
-  const ghUrl = new URL(
-    process.env['GITHUB_SERVER_URL'] || 'https://github.com'
-  );
-  return ghUrl.hostname.toUpperCase() !== 'GITHUB.COM';
 }

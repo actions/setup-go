@@ -3924,7 +3924,9 @@ var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, ge
     });
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.getCacheDirectoryPath = exports.getPackageManagerInfo = exports.getCommandOutput = void 0;
+exports.isCacheFeatureAvailable = exports.isGhes = exports.getCacheDirectoryPath = exports.getPackageManagerInfo = exports.getCommandOutput = void 0;
+const cache = __importStar(__webpack_require__(692));
+const core = __importStar(__webpack_require__(470));
 const exec = __importStar(__webpack_require__(986));
 const package_managers_1 = __webpack_require__(813);
 exports.getCommandOutput = (toolCommand) => __awaiter(void 0, void 0, void 0, function* () {
@@ -3951,6 +3953,24 @@ exports.getCacheDirectoryPath = (packageManagerInfo) => __awaiter(void 0, void 0
     }
     return stdout;
 });
+function isGhes() {
+    const ghUrl = new URL(process.env['GITHUB_SERVER_URL'] || 'https://github.com');
+    return ghUrl.hostname.toUpperCase() !== 'GITHUB.COM';
+}
+exports.isGhes = isGhes;
+function isCacheFeatureAvailable() {
+    if (!cache.isFeatureAvailable()) {
+        if (isGhes()) {
+            throw new Error('Cache action is only supported on GHES version >= 3.5. If you are on version >=3.5 Please check with GHES admin if Actions cache service is enabled or not.');
+        }
+        else {
+            core.warning('The runner was not able to contact the cache service. Caching will be skipped');
+        }
+        return false;
+    }
+    return true;
+}
+exports.isCacheFeatureAvailable = isCacheFeatureAvailable;
 
 
 /***/ }),
@@ -46376,11 +46396,11 @@ function run() {
 }
 exports.run = run;
 const cachePackages = () => __awaiter(void 0, void 0, void 0, function* () {
-    const cacheInput = core.getInput('cache');
+    const cacheInput = core.getBooleanInput('cache');
     if (!cacheInput) {
         return;
     }
-    const packageManager = cacheInput.toUpperCase() === 'TRUE' ? 'default' : cacheInput;
+    const packageManager = 'default';
     const state = core.getState(constants_1.State.CacheMatchedKey);
     const primaryKey = core.getState(constants_1.State.CachePrimaryKey);
     const packageManagerInfo = yield cache_utils_1.getPackageManagerInfo(packageManager);
