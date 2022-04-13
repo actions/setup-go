@@ -35,7 +35,7 @@ steps:
 - uses: actions/checkout@v3
 - uses: actions/setup-go@v3
   with:
-    go-version: '16'
+    go-version: '18'
     cache: true
 ```
 
@@ -46,7 +46,7 @@ steps:
 - uses: actions/checkout@v3
 - uses: actions/setup-go@v3
   with:
-    go-version: '16'
+    go-version: '18'
     cache: true
     cache-dependency-path: **/go.sum
 ```
@@ -56,7 +56,7 @@ steps:
 - uses: actions/checkout@v3
 - uses: actions/setup-go@v3
   with:
-    go-version: '16'
+    go-version: '18'
     cache: true
     cache-dependency-path: |
         **/go.sum
