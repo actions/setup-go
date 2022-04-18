@@ -48,7 +48,7 @@ describe('getPackageManagerInfo', () => {
     const packageManagerName = 'default';
     const expectedResult = {
       dependencyFilePattern: 'go.sum',
-      getCacheFolderCommand: 'go env GOMODCACHE'
+      cacheFolderCommandList: ['go env GOMODCACHE', 'go env GOCACHE']
     };
 
     //Act + Assert
@@ -74,10 +74,10 @@ describe('getCacheDirectoryPath', () => {
 
   const validPackageManager: PackageManagerInfo = {
     dependencyFilePattern: 'go.sum',
-    getCacheFolderCommand: 'go env GOMODCACHE'
+    cacheFolderCommandList: ['go env GOMODCACHE', 'go env GOCACHE']
   };
 
-  it('should return path to the cache folder which specified package manager uses', async () => {
+  it('should return path to the cache folders which specified package manager uses', async () => {
     //Arrange
     getExecOutputSpy.mockImplementation((commandLine: string) => {
       return new Promise<exec.ExecOutput>(resolve => {
@@ -85,7 +85,7 @@ describe('getCacheDirectoryPath', () => {
       });
     });
 
-    const expectedResult = 'path/to/cache/folder';
+    const expectedResult = ['path/to/cache/folder', 'path/to/cache/folder'];
 
     //Act + Assert
     return cacheUtils
