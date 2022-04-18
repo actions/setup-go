@@ -4036,11 +4036,16 @@ exports.getPackageManagerInfo = (packageManager) => __awaiter(void 0, void 0, vo
     return obtainedPackageManager;
 });
 exports.getCacheDirectoryPath = (packageManagerInfo) => __awaiter(void 0, void 0, void 0, function* () {
-    const stdout = yield exports.getCommandOutput(packageManagerInfo.getCacheFolderCommand);
-    if (!stdout) {
-        throw new Error(`Could not get cache folder path.`);
+    let pathList = [];
+    for (let command of packageManagerInfo.cacheFolderCommandList) {
+        pathList.push(yield exports.getCommandOutput(command));
     }
-    return stdout;
+    for (let path of pathList) {
+        if (!path) {
+            throw new Error(`Could not get cache folder paths.`);
+        }
+    }
+    return pathList;
 });
 function isGhes() {
     const ghUrl = new URL(process.env['GITHUB_SERVER_URL'] || 'https://github.com');
@@ -49202,15 +49207,17 @@ const cachePackages = () => __awaiter(void 0, void 0, void 0, function* () {
     const primaryKey = core.getState(constants_1.State.CachePrimaryKey);
     const packageManagerInfo = yield cache_utils_1.getPackageManagerInfo(packageManager);
     const cachePath = yield cache_utils_1.getCacheDirectoryPath(packageManagerInfo);
-    if (!fs_1.default.existsSync(cachePath)) {
-        throw new Error(`Cache folder path is retrieved but doesn't exist on disk: ${cachePath}`);
+    for (let path of cachePath) {
+        if (!fs_1.default.existsSync(path)) {
+            throw new Error(`Cache folder path is retrieved but doesn't exist on disk: ${path}`);
+        }
     }
     if (primaryKey === state) {
         core.info(`Cache hit occurred on the primary key ${primaryKey}, not saving cache.`);
         return;
     }
     try {
-        yield cache.saveCache([cachePath], primaryKey);
+        yield cache.saveCache(cachePath, primaryKey);
         core.info(`Cache saved with the key: ${primaryKey}`);
     }
     catch (error) {
@@ -49315,7 +49322,7 @@ exports.supportedPackageManagers = void 0;
 exports.supportedPackageManagers = {
     default: {
         dependencyFilePattern: 'go.sum',
-        getCacheFolderCommand: 'go env GOMODCACHE'
+        cacheFolderCommandList: ['go env GOMODCACHE', 'go env GOCACHE']
     }
 };
 

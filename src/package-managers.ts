@@ -4,12 +4,12 @@ type SupportedPackageManagers = {
 
 export interface PackageManagerInfo {
   dependencyFilePattern: string;
-  getCacheFolderCommand: string;
+  cacheFolderCommandList: string[];
 }
 
 export const supportedPackageManagers: SupportedPackageManagers = {
   default: {
     dependencyFilePattern: 'go.sum',
-    getCacheFolderCommand: 'go env GOMODCACHE'
+    cacheFolderCommandList: ['go env GOMODCACHE', 'go env GOCACHE']
   }
 };
