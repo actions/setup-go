@@ -33,14 +33,21 @@ const cachePackages = async () => {
 
   const packageManagerInfo = await getPackageManagerInfo(packageManager);
 
-  const cachePath = await getCacheDirectoryPath(packageManagerInfo);
+  const cachePaths = await getCacheDirectoryPath(packageManagerInfo);
 
-  for (let path of cachePath) {
+  let pathsCounter = cachePaths.length;
+
+  for (let path of cachePaths) {
     if (!fs.existsSync(path)) {
-      throw new Error(
+      logWarning(
         `Cache folder path is retrieved but doesn't exist on disk: ${path}`
       );
+      pathsCounter--;
     }
+  }
+
+  if (!pathsCounter) {
+    throw `Cache folder paths are retrieved but don't exist on disk`;
   }
 
   if (primaryKey === state) {
@@ -51,7 +58,7 @@ const cachePackages = async () => {
   }
 
   try {
-    await cache.saveCache(cachePath, primaryKey);
+    await cache.saveCache(cachePaths, primaryKey);
     core.info(`Cache saved with the key: ${primaryKey}`);
   } catch (error) {
     if (error.name === cache.ValidationError.name) {
@@ -63,5 +70,10 @@ const cachePackages = async () => {
     }
   }
 };
+
+export function logWarning(message: string): void {
+  const warningPrefix = '[warning]';
+  core.info(`${warningPrefix}${message}`);
+}
 
 run();

@@ -4298,14 +4298,10 @@ exports.getPackageManagerInfo = (packageManager) => __awaiter(void 0, void 0, vo
     return obtainedPackageManager;
 });
 exports.getCacheDirectoryPath = (packageManagerInfo) => __awaiter(void 0, void 0, void 0, function* () {
-    let pathList = [];
-    for (let command of packageManagerInfo.cacheFolderCommandList) {
-        pathList.push(yield exports.getCommandOutput(command));
-    }
-    for (let path of pathList) {
-        if (!path) {
-            throw new Error(`Could not get cache folder paths.`);
-        }
+    let pathList = yield Promise.all(packageManagerInfo.cacheFolderCommandList.map((command) => __awaiter(void 0, void 0, void 0, function* () { return exports.getCommandOutput(command); })));
+    const emptyPaths = pathList.filter(item => !item);
+    if (emptyPaths.length) {
+        throw new Error(`Could not get cache folder paths.`);
     }
     return pathList;
 });
@@ -37253,7 +37249,7 @@ exports.restoreCache = (packageManager, cacheDependencyPath) => __awaiter(void 0
     const packageManagerInfo = yield cache_utils_1.getPackageManagerInfo(packageManager);
     const platform = process.env.RUNNER_OS;
     const versionSpec = core.getInput('go-version');
-    const cachePath = yield cache_utils_1.getCacheDirectoryPath(packageManagerInfo);
+    const cachePaths = yield cache_utils_1.getCacheDirectoryPath(packageManagerInfo);
     const dependencyFilePath = cacheDependencyPath
         ? cacheDependencyPath
         : findDependencyFile(packageManagerInfo);
@@ -37264,7 +37260,7 @@ exports.restoreCache = (packageManager, cacheDependencyPath) => __awaiter(void 0
     const primaryKey = `${platform}-go${versionSpec}-${fileHash}`;
     core.debug(`primary key is ${primaryKey}`);
     core.saveState(constants_1.State.CachePrimaryKey, primaryKey);
-    const cacheKey = yield cache.restoreCache(cachePath, primaryKey);
+    const cacheKey = yield cache.restoreCache(cachePaths, primaryKey);
     core.setOutput('cache-hit', Boolean(cacheKey));
     if (!cacheKey) {
         core.info(`Cache is not found`);

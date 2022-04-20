@@ -4036,14 +4036,10 @@ exports.getPackageManagerInfo = (packageManager) => __awaiter(void 0, void 0, vo
     return obtainedPackageManager;
 });
 exports.getCacheDirectoryPath = (packageManagerInfo) => __awaiter(void 0, void 0, void 0, function* () {
-    let pathList = [];
-    for (let command of packageManagerInfo.cacheFolderCommandList) {
-        pathList.push(yield exports.getCommandOutput(command));
-    }
-    for (let path of pathList) {
-        if (!path) {
-            throw new Error(`Could not get cache folder paths.`);
-        }
+    let pathList = yield Promise.all(packageManagerInfo.cacheFolderCommandList.map((command) => __awaiter(void 0, void 0, void 0, function* () { return exports.getCommandOutput(command); })));
+    const emptyPaths = pathList.filter(item => !item);
+    if (emptyPaths.length) {
+        throw new Error(`Could not get cache folder paths.`);
     }
     return pathList;
 });
@@ -49173,7 +49169,7 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.run = void 0;
+exports.logWarning = exports.run = void 0;
 const core = __importStar(__webpack_require__(470));
 const cache = __importStar(__webpack_require__(692));
 const fs_1 = __importDefault(__webpack_require__(747));
@@ -49206,18 +49202,23 @@ const cachePackages = () => __awaiter(void 0, void 0, void 0, function* () {
     const state = core.getState(constants_1.State.CacheMatchedKey);
     const primaryKey = core.getState(constants_1.State.CachePrimaryKey);
     const packageManagerInfo = yield cache_utils_1.getPackageManagerInfo(packageManager);
-    const cachePath = yield cache_utils_1.getCacheDirectoryPath(packageManagerInfo);
-    for (let path of cachePath) {
+    const cachePaths = yield cache_utils_1.getCacheDirectoryPath(packageManagerInfo);
+    let pathsCounter = cachePaths.length;
+    for (let path of cachePaths) {
         if (!fs_1.default.existsSync(path)) {
-            throw new Error(`Cache folder path is retrieved but doesn't exist on disk: ${path}`);
+            logWarning(`Cache folder path is retrieved but doesn't exist on disk: ${path}`);
+            pathsCounter--;
         }
+    }
+    if (!pathsCounter) {
+        throw `Cache folder paths are retrieved but don't exist on disk`;
     }
     if (primaryKey === state) {
         core.info(`Cache hit occurred on the primary key ${primaryKey}, not saving cache.`);
         return;
     }
     try {
-        yield cache.saveCache(cachePath, primaryKey);
+        yield cache.saveCache(cachePaths, primaryKey);
         core.info(`Cache saved with the key: ${primaryKey}`);
     }
     catch (error) {
@@ -49232,6 +49233,11 @@ const cachePackages = () => __awaiter(void 0, void 0, void 0, function* () {
         }
     }
 });
+function logWarning(message) {
+    const warningPrefix = '[warning]';
+    core.info(`${warningPrefix}${message}`);
+}
+exports.logWarning = logWarning;
 run();
 
 
