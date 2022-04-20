@@ -49203,15 +49203,12 @@ const cachePackages = () => __awaiter(void 0, void 0, void 0, function* () {
     const primaryKey = core.getState(constants_1.State.CachePrimaryKey);
     const packageManagerInfo = yield cache_utils_1.getPackageManagerInfo(packageManager);
     const cachePaths = yield cache_utils_1.getCacheDirectoryPath(packageManagerInfo);
-    let pathsCounter = cachePaths.length;
-    for (let path of cachePaths) {
-        if (!fs_1.default.existsSync(path)) {
-            logWarning(`Cache folder path is retrieved but doesn't exist on disk: ${path}`);
-            pathsCounter--;
-        }
-    }
-    if (!pathsCounter) {
+    const nonExistingPaths = cachePaths.filter(cachePath => !fs_1.default.existsSync(cachePath));
+    if (nonExistingPaths.length === cachePaths.length) {
         throw new Error(`No cache folders exist on disk`);
+    }
+    if (nonExistingPaths.length) {
+        logWarning(`Cache folder path is retrieved but doesn't exist on disk: ${nonExistingPaths.join(', ')}`);
     }
     if (primaryKey === state) {
         core.info(`Cache hit occurred on the primary key ${primaryKey}, not saving cache.`);

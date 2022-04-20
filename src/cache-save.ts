@@ -35,19 +35,20 @@ const cachePackages = async () => {
 
   const cachePaths = await getCacheDirectoryPath(packageManagerInfo);
 
-  let pathsCounter = cachePaths.length;
+  const nonExistingPaths = cachePaths.filter(
+    cachePath => !fs.existsSync(cachePath)
+  );
 
-  for (let path of cachePaths) {
-    if (!fs.existsSync(path)) {
-      logWarning(
-        `Cache folder path is retrieved but doesn't exist on disk: ${path}`
-      );
-      pathsCounter--;
-    }
+  if (nonExistingPaths.length === cachePaths.length) {
+    throw new Error(`No cache folders exist on disk`);
   }
 
-  if (!pathsCounter) {
-    throw new Error(`No cache folders exist on disk`);
+  if (nonExistingPaths.length) {
+    logWarning(
+      `Cache folder path is retrieved but doesn't exist on disk: ${nonExistingPaths.join(
+        ', '
+      )}`
+    );
   }
 
   if (primaryKey === state) {
