@@ -4298,11 +4298,12 @@ exports.getPackageManagerInfo = (packageManager) => __awaiter(void 0, void 0, vo
     return obtainedPackageManager;
 });
 exports.getCacheDirectoryPath = (packageManagerInfo) => __awaiter(void 0, void 0, void 0, function* () {
-    const stdout = yield exports.getCommandOutput(packageManagerInfo.getCacheFolderCommand);
-    if (!stdout) {
-        throw new Error(`Could not get cache folder path.`);
+    let pathList = yield Promise.all(packageManagerInfo.cacheFolderCommandList.map((command) => __awaiter(void 0, void 0, void 0, function* () { return exports.getCommandOutput(command); })));
+    const emptyPaths = pathList.filter(item => !item);
+    if (emptyPaths.length) {
+        throw new Error(`Could not get cache folder paths.`);
     }
-    return stdout;
+    return pathList;
 });
 function isGhes() {
     const ghUrl = new URL(process.env['GITHUB_SERVER_URL'] || 'https://github.com');
@@ -37248,7 +37249,7 @@ exports.restoreCache = (packageManager, cacheDependencyPath) => __awaiter(void 0
     const packageManagerInfo = yield cache_utils_1.getPackageManagerInfo(packageManager);
     const platform = process.env.RUNNER_OS;
     const versionSpec = core.getInput('go-version');
-    const cachePath = yield cache_utils_1.getCacheDirectoryPath(packageManagerInfo);
+    const cachePaths = yield cache_utils_1.getCacheDirectoryPath(packageManagerInfo);
     const dependencyFilePath = cacheDependencyPath
         ? cacheDependencyPath
         : findDependencyFile(packageManagerInfo);
@@ -37259,7 +37260,7 @@ exports.restoreCache = (packageManager, cacheDependencyPath) => __awaiter(void 0
     const primaryKey = `${platform}-go${versionSpec}-${fileHash}`;
     core.debug(`primary key is ${primaryKey}`);
     core.saveState(constants_1.State.CachePrimaryKey, primaryKey);
-    const cacheKey = yield cache.restoreCache([cachePath], primaryKey);
+    const cacheKey = yield cache.restoreCache(cachePaths, primaryKey);
     core.setOutput('cache-hit', Boolean(cacheKey));
     if (!cacheKey) {
         core.info(`Cache is not found`);
@@ -51205,7 +51206,7 @@ exports.supportedPackageManagers = void 0;
 exports.supportedPackageManagers = {
     default: {
         dependencyFilePattern: 'go.sum',
-        getCacheFolderCommand: 'go env GOMODCACHE'
+        cacheFolderCommandList: ['go env GOMODCACHE', 'go env GOCACHE']
     }
 };
 

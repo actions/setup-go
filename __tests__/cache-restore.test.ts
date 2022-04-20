@@ -23,8 +23,8 @@ describe('restoreCache', () => {
   beforeEach(() => {
     getCacheDirectoryPathSpy.mockImplementation(
       (PackageManager: PackageManagerInfo) => {
-        return new Promise<string>(resolve => {
-          resolve('cache_directory_path');
+        return new Promise<string[]>(resolve => {
+          resolve(['cache_directory_path', 'cache_directory_path']);
         });
       }
     );

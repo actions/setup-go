@@ -16,7 +16,7 @@ export const restoreCache = async (
   const platform = process.env.RUNNER_OS;
   const versionSpec = core.getInput('go-version');
 
-  const cachePath = await getCacheDirectoryPath(packageManagerInfo);
+  const cachePaths = await getCacheDirectoryPath(packageManagerInfo);
 
   const dependencyFilePath = cacheDependencyPath
     ? cacheDependencyPath
@@ -34,7 +34,7 @@ export const restoreCache = async (
 
   core.saveState(State.CachePrimaryKey, primaryKey);
 
-  const cacheKey = await cache.restoreCache([cachePath], primaryKey);
+  const cacheKey = await cache.restoreCache(cachePaths, primaryKey);
   core.setOutput('cache-hit', Boolean(cacheKey));
 
   if (!cacheKey) {

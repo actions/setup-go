@@ -1,6 +1,7 @@
 import * as cache from '@actions/cache';
 import * as core from '@actions/core';
 import * as exec from '@actions/exec';
+import path from 'path';
 import {supportedPackageManagers, PackageManagerInfo} from './package-managers';
 
 export const getCommandOutput = async (toolCommand: string) => {
@@ -34,15 +35,19 @@ export const getPackageManagerInfo = async (packageManager: string) => {
 export const getCacheDirectoryPath = async (
   packageManagerInfo: PackageManagerInfo
 ) => {
-  const stdout = await getCommandOutput(
-    packageManagerInfo.getCacheFolderCommand
+  let pathList = await Promise.all(
+    packageManagerInfo.cacheFolderCommandList.map(async command =>
+      getCommandOutput(command)
+    )
   );
 
-  if (!stdout) {
-    throw new Error(`Could not get cache folder path.`);
+  const emptyPaths = pathList.filter(item => !item);
+
+  if (emptyPaths.length) {
+    throw new Error(`Could not get cache folder paths.`);
   }
 
-  return stdout;
+  return pathList;
 };
 
 export function isGhes(): boolean {

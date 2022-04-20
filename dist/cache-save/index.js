@@ -4036,11 +4036,12 @@ exports.getPackageManagerInfo = (packageManager) => __awaiter(void 0, void 0, vo
     return obtainedPackageManager;
 });
 exports.getCacheDirectoryPath = (packageManagerInfo) => __awaiter(void 0, void 0, void 0, function* () {
-    const stdout = yield exports.getCommandOutput(packageManagerInfo.getCacheFolderCommand);
-    if (!stdout) {
-        throw new Error(`Could not get cache folder path.`);
+    let pathList = yield Promise.all(packageManagerInfo.cacheFolderCommandList.map((command) => __awaiter(void 0, void 0, void 0, function* () { return exports.getCommandOutput(command); })));
+    const emptyPaths = pathList.filter(item => !item);
+    if (emptyPaths.length) {
+        throw new Error(`Could not get cache folder paths.`);
     }
-    return stdout;
+    return pathList;
 });
 function isGhes() {
     const ghUrl = new URL(process.env['GITHUB_SERVER_URL'] || 'https://github.com');
@@ -49168,7 +49169,7 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.run = void 0;
+exports.logWarning = exports.run = void 0;
 const core = __importStar(__webpack_require__(470));
 const cache = __importStar(__webpack_require__(692));
 const fs_1 = __importDefault(__webpack_require__(747));
@@ -49201,16 +49202,20 @@ const cachePackages = () => __awaiter(void 0, void 0, void 0, function* () {
     const state = core.getState(constants_1.State.CacheMatchedKey);
     const primaryKey = core.getState(constants_1.State.CachePrimaryKey);
     const packageManagerInfo = yield cache_utils_1.getPackageManagerInfo(packageManager);
-    const cachePath = yield cache_utils_1.getCacheDirectoryPath(packageManagerInfo);
-    if (!fs_1.default.existsSync(cachePath)) {
-        throw new Error(`Cache folder path is retrieved but doesn't exist on disk: ${cachePath}`);
+    const cachePaths = yield cache_utils_1.getCacheDirectoryPath(packageManagerInfo);
+    const nonExistingPaths = cachePaths.filter(cachePath => !fs_1.default.existsSync(cachePath));
+    if (nonExistingPaths.length === cachePaths.length) {
+        throw new Error(`No cache folders exist on disk`);
+    }
+    if (nonExistingPaths.length) {
+        logWarning(`Cache folder path is retrieved but doesn't exist on disk: ${nonExistingPaths.join(', ')}`);
     }
     if (primaryKey === state) {
         core.info(`Cache hit occurred on the primary key ${primaryKey}, not saving cache.`);
         return;
     }
     try {
-        yield cache.saveCache([cachePath], primaryKey);
+        yield cache.saveCache(cachePaths, primaryKey);
         core.info(`Cache saved with the key: ${primaryKey}`);
     }
     catch (error) {
@@ -49225,6 +49230,11 @@ const cachePackages = () => __awaiter(void 0, void 0, void 0, function* () {
         }
     }
 });
+function logWarning(message) {
+    const warningPrefix = '[warning]';
+    core.info(`${warningPrefix}${message}`);
+}
+exports.logWarning = logWarning;
 run();
 
 
@@ -49315,7 +49325,7 @@ exports.supportedPackageManagers = void 0;
 exports.supportedPackageManagers = {
     default: {
         dependencyFilePattern: 'go.sum',
-        getCacheFolderCommand: 'go env GOMODCACHE'
+        cacheFolderCommandList: ['go env GOMODCACHE', 'go env GOCACHE']
     }
 };
 
