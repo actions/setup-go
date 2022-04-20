@@ -47,7 +47,7 @@ const cachePackages = async () => {
   }
 
   if (!pathsCounter) {
-    throw new Error(`Cache folder paths are retrieved but don't exist on disk`);
+    throw new Error(`No cache folders exist on disk`);
   }
 
   if (primaryKey === state) {

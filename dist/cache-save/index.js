@@ -49211,7 +49211,7 @@ const cachePackages = () => __awaiter(void 0, void 0, void 0, function* () {
         }
     }
     if (!pathsCounter) {
-        throw `Cache folder paths are retrieved but don't exist on disk`;
+        throw new Error(`No cache folders exist on disk`);
     }
     if (primaryKey === state) {
         core.info(`Cache hit occurred on the primary key ${primaryKey}, not saving cache.`);
