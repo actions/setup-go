@@ -19,6 +19,8 @@ The V3 edition of the action offers:
 
 The action will first check the local cache for a version match. If a version is not found locally, it will pull it from the `main` branch of the [go-versions](https://github.com/actions/go-versions/blob/main/versions-manifest.json) repository. On miss or failure, it will fall back to downloading directly from [go dist](https://storage.googleapis.com/golang). To change the default behavior, please use the [check-latest input](#check-latest-version).
 
+**Note:** The `setup-go` action uses executable binaries which are built by Golang side. The action does not build golang from source code.
+
 Matching by [semver spec](https://github.com/npm/node-semver):
 
 ```yaml
