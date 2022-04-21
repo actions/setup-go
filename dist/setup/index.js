@@ -37261,7 +37261,7 @@ exports.restoreCache = (packageManager, cacheDependencyPath) => __awaiter(void 0
     core.debug(`primary key is ${primaryKey}`);
     core.saveState(constants_1.State.CachePrimaryKey, primaryKey);
     const cacheKey = yield cache.restoreCache(cachePaths, primaryKey);
-    core.setOutput('cache-hit', Boolean(cacheKey));
+    core.setOutput(constants_1.Outputs.CacheHit, Boolean(cacheKey));
     if (!cacheKey) {
         core.info(`Cache is not found`);
         return;

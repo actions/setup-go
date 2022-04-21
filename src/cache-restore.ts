@@ -35,7 +35,7 @@ export const restoreCache = async (
   core.saveState(State.CachePrimaryKey, primaryKey);
 
   const cacheKey = await cache.restoreCache(cachePaths, primaryKey);
-  core.setOutput('cache-hit', Boolean(cacheKey));
+  core.setOutput(Outputs.CacheHit, Boolean(cacheKey));
 
   if (!cacheKey) {
     core.info(`Cache is not found`);
