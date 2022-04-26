@@ -15,12 +15,8 @@ The V3 edition of the action offers:
 - Adds `GOBIN` to the `PATH`
 - Proxy support
 - Check latest version
-<<<<<<< HEAD
 - Caching packages dependencies
 - Bug Fixes (including issues around version matching and semver)
-=======
-- Bug fixes (including issues around version matching and semver)
->>>>>>> main
 
 The action will first check the local cache for a version match. If a version is not found locally, it will pull it from the `main` branch of the [go-versions](https://github.com/actions/go-versions/blob/main/versions-manifest.json) repository. On miss or failure, it will fall back to downloading directly from [go dist](https://storage.googleapis.com/golang). To change the default behavior, please use the [check-latest input](#check-latest-version).
 
