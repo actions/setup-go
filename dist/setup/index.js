@@ -3793,7 +3793,7 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.addBinToPath = exports.run = void 0;
+exports.parseGoVersion = exports.addBinToPath = exports.run = void 0;
 const core = __importStar(__webpack_require__(470));
 const io = __importStar(__webpack_require__(1));
 const installer = __importStar(__webpack_require__(923));
@@ -3842,6 +3842,7 @@ function run() {
             let goPath = yield io.which('go');
             let goVersion = (child_process_1.default.execSync(`${goPath} version`) || '').toString();
             core.info(goVersion);
+            core.setOutput('go-version', parseGoVersion(goVersion));
             core.startGroup('go env');
             let goEnv = (child_process_1.default.execSync(`${goPath} env`) || '').toString();
             core.info(goEnv);
@@ -3863,7 +3864,7 @@ function addBinToPath() {
             return added;
         }
         let buf = child_process_1.default.execSync('go env GOPATH');
-        if (buf) {
+        if (buf.length > 1) {
             let gp = buf.toString().trim();
             core.debug(`go env GOPATH :${gp}:`);
             if (!fs_1.default.existsSync(gp)) {
@@ -3883,6 +3884,14 @@ function addBinToPath() {
     });
 }
 exports.addBinToPath = addBinToPath;
+function parseGoVersion(versionString) {
+    // get the installed version as an Action output
+    // based on go/src/cmd/go/internal/version/version.go:
+    // fmt.Printf("go version %s %s/%s\n", runtime.Version(), runtime.GOOS, runtime.GOARCH)
+    // expecting go<version> for runtime.Version()
+    return versionString.split(' ')[2].slice('go'.length);
+}
+exports.parseGoVersion = parseGoVersion;
 
 
 /***/ }),
