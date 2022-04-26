@@ -95,6 +95,36 @@ steps:
       check-latest: true
   - run: go run hello.go
 ```
+## Caching dependency files and build outputs:
+
+The action has a built-in functionality for caching and restoring go modules and build outputs. It uses [actions/cache](https://github.com/actions/cache) under the hood but requires less configuration settings.The `cache` input is optional, and caching is turned off by default.
+
+The action defaults to search for the dependency file - go.sum in the repository root, and uses its hash as a part of the cache key. Use `cache-dependency-path` input for cases when multiple dependency files are used, or they are located in different subdirectories.
+
+**Caching without specifying dependency file path**
+```yaml
+steps:
+  - uses: actions/checkout@v3
+  - uses: actions/setup-go@v3
+    with:
+      go-version: '1.17'
+      check-latest: true
+      cache: true
+  - run: go run hello.go
+```
+
+**Caching in monorepos**
+```yaml
+steps:
+  - uses: actions/checkout@v3
+  - uses: actions/setup-go@v3
+    with:
+      go-version: '1.17'
+      check-latest: true
+      cache: true
+      cache-dependency-path: subdir/go.sum
+  - run: go run hello.go
+```
 
 ## Matrix testing
 
