@@ -1,7 +1,7 @@
 name: 'Setup Go environment'
 description: 'Setup a Go environment and add it to the PATH'
 author: 'GitHub'
-inputs: 
+inputs:
   go-version:
     description: 'The Go version to download (if necessary) and use. Supports semver spec and ranges.'
   check-latest:
@@ -16,6 +16,8 @@ inputs:
   cache-dependency-path:
     description: 'Used to specify the path to a dependency file - go.sum'
 outputs:
+  go-version:
+    description: 'The installed Go version. Useful when given a version range as input.'  
   cache-hit: 
     description: 'A boolean value to indicate if a cache was hit'
 runs:

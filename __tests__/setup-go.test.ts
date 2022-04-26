@@ -105,6 +105,11 @@ describe('setup-go', () => {
     jest.restoreAllMocks();
   }, 100000);
 
+  it('can extract the major.minor.patch version from a given Go version string', async () => {
+    const goVersionOutput = 'go version go1.16.6 darwin/amd64';
+    expect(main.parseGoVersion(goVersionOutput)).toBe('1.16.6');
+  });
+
   it('can find 1.9.7 from manifest on osx', async () => {
     os.platform = 'darwin';
     os.arch = 'x64';

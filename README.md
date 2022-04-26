@@ -1,28 +1,33 @@
 # setup-go
 
-<p align="left">
-  <a href="https://github.com/actions/setup-go/actions"><img alt="GitHub Actions status" src="https://github.com/actions/setup-go/workflows/build-test/badge.svg"></a>
-
-  <a href="https://github.com/actions/setup-go/actions"><img alt="versions status" src="https://github.com/actions/setup-go/workflows/go-versions/badge.svg"></a>  
-</p>
+[![build-test](https://github.com/actions/setup-go/actions/workflows/workflow.yml/badge.svg)](https://github.com/actions/setup-go/actions/workflows/workflow.yml)
+[![Validate 'setup-go'](https://github.com/actions/setup-go/actions/workflows/versions.yml/badge.svg)](https://github.com/actions/setup-go/actions/workflows/versions.yml)
 
 This action sets up a go environment for use in actions by:
 
-- optionally downloading and caching a version of Go by version and adding to PATH
-- registering problem matchers for error output
+- Optionally downloading and caching a version of Go by version and adding to `PATH`.
+- Registering problem matchers for error output.
 
 # V3
 
-The V3 offers:
-- Adds GOBIN to the PATH
-- Proxy Support
+The V3 edition of the action offers:
+
+- Adds `GOBIN` to the `PATH`
+- Proxy support
 - Check latest version
+<<<<<<< HEAD
 - Caching packages dependencies
 - Bug Fixes (including issues around version matching and semver)
+=======
+- Bug fixes (including issues around version matching and semver)
+>>>>>>> main
 
 The action will first check the local cache for a version match. If a version is not found locally, it will pull it from the `main` branch of the [go-versions](https://github.com/actions/go-versions/blob/main/versions-manifest.json) repository. On miss or failure, it will fall back to downloading directly from [go dist](https://storage.googleapis.com/golang). To change the default behavior, please use the [check-latest input](#check-latest-version).
 
+**Note:** The `setup-go` action uses executable binaries which are built by Golang side. The action does not build golang from source code.
+
 Matching by [semver spec](https://github.com/npm/node-semver):
+
 ```yaml
 steps:
   - uses: actions/checkout@v3
@@ -42,6 +47,7 @@ steps:
 ```
 
 Matching an unstable pre-release:
+
 ```yaml
 steps:
   - uses: actions/checkout@v3
@@ -64,7 +70,8 @@ steps:
 
 See [action.yml](action.yml)
 
-## Basic:
+## Basic
+
 ```yaml
 steps:
   - uses: actions/checkout@v3
@@ -75,7 +82,7 @@ steps:
 ```
 
 
-## Check latest version:  
+## Check latest version
 
 The `check-latest` flag defaults to `false`. Use the default or set `check-latest` to `false` if you prefer stability and if you want to ensure a specific Go version is always used.
 
@@ -93,38 +100,8 @@ steps:
   - run: go run hello.go
 ```
 
-## Caching dependency files and build outputs:
+## Matrix testing
 
-The action has a built-in functionality for caching and restoring go modules and build outputs. It uses [actions/cache](https://github.com/actions/cache) under the hood but requires less configuration settings.The `cache` input is optional, and caching is turned off by default.
-
-The action defaults to search for the dependency file - go.sum in the repository root, and uses its hash as a part of the cache key. Use `cache-dependency-path` input for cases when multiple dependency files are used, or they are located in different subdirectories.
-
-**Caching without specifying dependency file path**
-```yaml
-steps:
-  - uses: actions/checkout@v3
-  - uses: actions/setup-go@v3
-    with:
-      go-version: '1.17'
-      check-latest: true
-      cache: true
-  - run: go run hello.go
-```
-
-**Caching in monorepos**
-```yaml
-steps:
-  - uses: actions/checkout@v3
-  - uses: actions/setup-go@v3
-    with:
-      go-version: '1.17'
-      check-latest: true
-      cache: true
-      cache-dependency-path: subdir/go.sum
-  - run: go run hello.go
-```
-
-## Matrix Testing:
 ```yaml
 jobs:
   build:
@@ -143,11 +120,13 @@ jobs:
 ```
 
 ### Supported version syntax
+
 The `go-version` input supports the following syntax:
 
-Specific versions: `1.15`, `1.16.1`, `1.17.0-rc.2`, `1.16.0-beta.1`  
-SemVer's version range syntax: `^1.13.1`, `>=1.18.0-rc.1`
-For more information about semantic versioning please refer [semver](https://github.com/npm/node-semver) documentation
+- Specific versions: `1.15`, `1.16.1`, `1.17.0-rc.2`, `1.16.0-beta.1`
+- SemVer's version range syntax: `^1.13.1`, `>=1.18.0-rc.1`
+
+For more information about semantic versioning, please refer to [semver](https://github.com/npm/node-semver) documentation.
 
 # License
 
@@ -155,8 +134,8 @@ The scripts and documentation in this project are released under the [MIT Licens
 
 # Contributions
 
-Contributions are welcome!  See [Contributor's Guide](docs/contributors.md)
+Contributions are welcome! See [Contributor's Guide](docs/contributors.md)
 
 ## Code of Conduct
 
-:wave: Be nice.  See [our code of conduct](CONDUCT)
+:wave: Be nice. See [our code of conduct](CONDUCT)

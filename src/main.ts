@@ -56,6 +56,8 @@ export async function run() {
     let goVersion = (cp.execSync(`${goPath} version`) || '').toString();
     core.info(goVersion);
 
+    core.setOutput('go-version', parseGoVersion(goVersion));
+
     core.startGroup('go env');
     let goEnv = (cp.execSync(`${goPath} env`) || '').toString();
     core.info(goEnv);
@@ -75,7 +77,7 @@ export async function addBinToPath(): Promise<boolean> {
   }
 
   let buf = cp.execSync('go env GOPATH');
-  if (buf) {
+  if (buf.length > 1) {
     let gp = buf.toString().trim();
     core.debug(`go env GOPATH :${gp}:`);
     if (!fs.existsSync(gp)) {
@@ -94,4 +96,12 @@ export async function addBinToPath(): Promise<boolean> {
     added = true;
   }
   return added;
+}
+
+export function parseGoVersion(versionString: string): string {
+  // get the installed version as an Action output
+  // based on go/src/cmd/go/internal/version/version.go:
+  // fmt.Printf("go version %s %s/%s\n", runtime.Version(), runtime.GOOS, runtime.GOARCH)
+  // expecting go<version> for runtime.Version()
+  return versionString.split(' ')[2].slice('go'.length);
 }
