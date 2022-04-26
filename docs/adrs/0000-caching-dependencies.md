@@ -1,7 +1,7 @@
 # 0. Caching dependencies
 Date: 2022-04-13
 
-Status: Proposed
+Status: Accepted
 
 # Context
 `actions/setup-go` is the one of the most popular action related to Golang in GitHub Actions. Many customers use it in conjunction with [actions/cache](https://github.com/actions/cache) to speed up dependency installation process.  
