@@ -1,7 +1,6 @@
 import * as cache from '@actions/cache';
 import * as core from '@actions/core';
 import * as exec from '@actions/exec';
-import path from 'path';
 import {supportedPackageManagers, PackageManagerInfo} from './package-managers';
 
 export const getCommandOutput = async (toolCommand: string) => {
@@ -36,7 +35,7 @@ export const getCacheDirectoryPath = async (
   packageManagerInfo: PackageManagerInfo
 ) => {
   let pathList = await Promise.all(
-    packageManagerInfo.cacheFolderCommandList.map(async command =>
+    packageManagerInfo.cacheFolderCommandList.map(command =>
       getCommandOutput(command)
     )
   );

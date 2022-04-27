@@ -40,7 +40,7 @@ const cachePackages = async () => {
   );
 
   if (nonExistingPaths.length === cachePaths.length) {
-    throw new Error(`No cache folders exist on disk`);
+    throw new Error(`There are no cache folders on the disk`);
   }
 
   if (nonExistingPaths.length) {

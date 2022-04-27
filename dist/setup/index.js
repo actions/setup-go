@@ -4307,7 +4307,7 @@ exports.getPackageManagerInfo = (packageManager) => __awaiter(void 0, void 0, vo
     return obtainedPackageManager;
 });
 exports.getCacheDirectoryPath = (packageManagerInfo) => __awaiter(void 0, void 0, void 0, function* () {
-    let pathList = yield Promise.all(packageManagerInfo.cacheFolderCommandList.map((command) => __awaiter(void 0, void 0, void 0, function* () { return exports.getCommandOutput(command); })));
+    let pathList = yield Promise.all(packageManagerInfo.cacheFolderCommandList.map(command => exports.getCommandOutput(command)));
     const emptyPaths = pathList.filter(item => !item);
     if (emptyPaths.length) {
         throw new Error(`Could not get cache folder paths.`);

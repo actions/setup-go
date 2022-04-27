@@ -4036,7 +4036,7 @@ exports.getPackageManagerInfo = (packageManager) => __awaiter(void 0, void 0, vo
     return obtainedPackageManager;
 });
 exports.getCacheDirectoryPath = (packageManagerInfo) => __awaiter(void 0, void 0, void 0, function* () {
-    let pathList = yield Promise.all(packageManagerInfo.cacheFolderCommandList.map((command) => __awaiter(void 0, void 0, void 0, function* () { return exports.getCommandOutput(command); })));
+    let pathList = yield Promise.all(packageManagerInfo.cacheFolderCommandList.map(command => exports.getCommandOutput(command)));
     const emptyPaths = pathList.filter(item => !item);
     if (emptyPaths.length) {
         throw new Error(`Could not get cache folder paths.`);
@@ -49205,7 +49205,7 @@ const cachePackages = () => __awaiter(void 0, void 0, void 0, function* () {
     const cachePaths = yield cache_utils_1.getCacheDirectoryPath(packageManagerInfo);
     const nonExistingPaths = cachePaths.filter(cachePath => !fs_1.default.existsSync(cachePath));
     if (nonExistingPaths.length === cachePaths.length) {
-        throw new Error(`No cache folders exist on disk`);
+        throw new Error(`There are no cache folders on the disk`);
     }
     if (nonExistingPaths.length) {
         logWarning(`Cache folder path is retrieved but doesn't exist on disk: ${nonExistingPaths.join(', ')}`);
