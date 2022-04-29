@@ -12,14 +12,7 @@ export async function run() {
     // versionSpec is optional.  If supplied, install / use from the tool cache
     // If not supplied then problem matchers will still be setup.  Useful for self-hosted.
     //
-    const versionFilePath = core.getInput('go-version-from-file');
-    const versionSpecFromFile =
-      versionFilePath &&
-      fs
-        .readFileSync(versionFilePath)
-        .toString()
-        .trim();
-    let versionSpec = core.getInput('go-version') || versionSpecFromFile;
+    const versionSpec = resolveVersionInput();
 
     // stable will be true unless false is the exact input
     // since getting unstable versions should be explicit
@@ -96,4 +89,22 @@ function isGhes(): boolean {
     process.env['GITHUB_SERVER_URL'] || 'https://github.com'
   );
   return ghUrl.hostname.toUpperCase() !== 'GITHUB.COM';
+}
+
+function resolveVersionInput(): string {
+  let version = core.getInput('go-version');
+  const versionFilePath = core.getInput('go-version-file');
+
+  if (version) {
+    return version;
+  }
+
+  if (versionFilePath) {
+    version = installer.parseGoVersionFile(
+      fs.readFileSync(versionFilePath).toString(),
+      path.basename(versionFilePath) === 'go.mod'
+    );
+  }
+
+  return version;
 }

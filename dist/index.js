@@ -1432,13 +1432,7 @@ function run() {
             // versionSpec is optional.  If supplied, install / use from the tool cache
             // If not supplied then problem matchers will still be setup.  Useful for self-hosted.
             //
-            const versionFilePath = core.getInput('go-version-from-file');
-            const versionSpecFromFile = versionFilePath &&
-                fs_1.default
-                    .readFileSync(versionFilePath)
-                    .toString()
-                    .trim();
-            let versionSpec = core.getInput('go-version') || versionSpecFromFile;
+            const versionSpec = resolveVersionInput();
             // stable will be true unless false is the exact input
             // since getting unstable versions should be explicit
             let stable = (core.getInput('stable') || 'true').toUpperCase() === 'TRUE';
@@ -1505,6 +1499,17 @@ exports.addBinToPath = addBinToPath;
 function isGhes() {
     const ghUrl = new url_1.URL(process.env['GITHUB_SERVER_URL'] || 'https://github.com');
     return ghUrl.hostname.toUpperCase() !== 'GITHUB.COM';
+}
+function resolveVersionInput() {
+    let version = core.getInput('go-version');
+    const versionFilePath = core.getInput('go-version-file');
+    if (version) {
+        return version;
+    }
+    if (versionFilePath) {
+        version = installer.parseGoVersionFile(fs_1.default.readFileSync(versionFilePath).toString(), path_1.default.basename(versionFilePath) === 'go.mod');
+    }
+    return version;
 }
 
 
@@ -4941,7 +4946,7 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.makeSemver = exports.getVersionsDist = exports.findMatch = exports.getInfoFromManifest = exports.extractGoArchive = exports.getGo = void 0;
+exports.parseGoVersionFile = exports.makeSemver = exports.getVersionsDist = exports.findMatch = exports.getInfoFromManifest = exports.extractGoArchive = exports.getGo = void 0;
 const tc = __importStar(__webpack_require__(533));
 const core = __importStar(__webpack_require__(470));
 const path = __importStar(__webpack_require__(622));
@@ -5144,6 +5149,14 @@ function makeSemver(version) {
     return `${verPart}${prereleasePart}`;
 }
 exports.makeSemver = makeSemver;
+function parseGoVersionFile(contents, isMod) {
+    if (!isMod) {
+        return contents.trim();
+    }
+    const match = contents.match(/^go (\d+(\.\d+)*)/m);
+    return match ? match[1] : '';
+}
+exports.parseGoVersionFile = parseGoVersionFile;
 
 
 /***/ }),

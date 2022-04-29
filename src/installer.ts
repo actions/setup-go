@@ -266,3 +266,12 @@ export function makeSemver(version: string): string {
 
   return `${verPart}${prereleasePart}`;
 }
+
+export function parseGoVersionFile(contents: string, isMod: boolean): string {
+  if (!isMod) {
+    return contents.trim();
+  }
+
+  const match = contents.match(/^go (\d+(\.\d+)*)/m);
+  return match ? match[1] : '';
+}

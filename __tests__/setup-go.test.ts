@@ -559,9 +559,31 @@ describe('setup-go', () => {
     expect(im.makeSemver('1.13.1')).toBe('1.13.1');
   });
 
-  describe('go-version-from-file', () => {
-    it('reads version from file', async () => {
-      inputs['go-version-from-file'] = '.go-version';
+  describe('go-version-file', () => {
+    it('reads version from go.mod', async () => {
+      inputs['go-version-file'] = 'go.mod';
+      const content = `module example.com/mymodule
+
+go 1.14
+
+require (
+	example.com/othermodule v1.2.3
+	example.com/thismodule v1.2.3
+	example.com/thatmodule v1.2.3
+)
+
+replace example.com/thatmodule => ../thatmodule
+exclude example.com/thismodule v1.3.0
+`;
+      readFileSpy.mockImplementation(() => Buffer.from(content));
+
+      await main.run();
+
+      expect(logSpy).toHaveBeenCalledWith('Setup go stable version spec 1.14');
+    });
+
+    it('reads version from .go-version', async () => {
+      inputs['go-version-file'] = '.go-version';
       readFileSpy.mockImplementation(() => Buffer.from(`1.13.0${osm.EOL}`));
 
       await main.run();
@@ -573,8 +595,7 @@ describe('setup-go', () => {
 
     it('is overwritten by go-version', async () => {
       inputs['go-version'] = '1.13.1';
-
-      inputs['go-version-from-file'] = '.go-version';
+      inputs['go-version-file'] = '.go-version';
       readFileSpy.mockImplementation(() => Buffer.from(`1.13.0${osm.EOL}`));
 
       await main.run();
@@ -586,7 +607,7 @@ describe('setup-go', () => {
 
     it('reports a read failure', async () => {
       const versionFilePath = '.go-version';
-      inputs['go-version-from-file'] = versionFilePath;
+      inputs['go-version-file'] = versionFilePath;
       const errMsg = `ENOENT: no such file or directory, open '${versionFilePath}'`;
       readFileSpy.mockImplementation(() => {
         throw new Error(errMsg);
