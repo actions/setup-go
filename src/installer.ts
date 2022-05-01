@@ -4,6 +4,7 @@ import * as path from 'path';
 import * as semver from 'semver';
 import * as httpm from '@actions/http-client';
 import * as sys from './system';
+import fs from 'fs';
 import os from 'os';
 
 type InstallationType = 'dist' | 'manifest';
@@ -299,11 +300,13 @@ export function makeSemver(version: string): string {
   return fullVersion;
 }
 
-export function parseGoVersionFile(contents: string, isMod: boolean): string {
-  if (!isMod) {
-    return contents.trim();
+export function parseGoVersionFile(versionFilePath: string): string {
+  const contents = fs.readFileSync(versionFilePath).toString();
+
+  if (path.basename(versionFilePath) === 'go.mod') {
+    const match = contents.match(/^go (\d+(\.\d+)*)/m);
+    return match ? match[1] : '';
   }
 
-  const match = contents.match(/^go (\d+(\.\d+)*)/m);
-  return match ? match[1] : '';
+  return contents.trim();
 }

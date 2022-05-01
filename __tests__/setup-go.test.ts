@@ -797,7 +797,9 @@ exclude example.com/thismodule v1.3.0
 
       await main.run();
 
-      expect(logSpy).toHaveBeenCalledWith('Setup go stable version spec 1.14');
+      expect(logSpy).toHaveBeenCalledWith('Setup go version spec 1.14');
+      expect(logSpy).toHaveBeenCalledWith('Attempting to download 1.14...');
+      expect(logSpy).toHaveBeenCalledWith('matching 1.14...');
     });
 
     it('reads version from .go-version', async () => {
@@ -806,9 +808,9 @@ exclude example.com/thismodule v1.3.0
 
       await main.run();
 
-      expect(logSpy).toHaveBeenCalledWith(
-        'Setup go stable version spec 1.13.0'
-      );
+      expect(logSpy).toHaveBeenCalledWith('Setup go version spec 1.13.0');
+      expect(logSpy).toHaveBeenCalledWith('Attempting to download 1.13.0...');
+      expect(logSpy).toHaveBeenCalledWith('matching 1.13.0...');
     });
 
     it('is overwritten by go-version', async () => {
@@ -818,9 +820,9 @@ exclude example.com/thismodule v1.3.0
 
       await main.run();
 
-      expect(logSpy).toHaveBeenCalledWith(
-        'Setup go stable version spec 1.13.1'
-      );
+      expect(logSpy).toHaveBeenCalledWith('Setup go version spec 1.13.1');
+      expect(logSpy).toHaveBeenCalledWith('Attempting to download 1.13.1...');
+      expect(logSpy).toHaveBeenCalledWith('matching 1.13.1...');
     });
 
     it('reports a read failure', async () => {

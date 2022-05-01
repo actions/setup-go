@@ -120,10 +120,7 @@ function resolveVersionInput(): string {
   }
 
   if (versionFilePath) {
-    version = installer.parseGoVersionFile(
-      fs.readFileSync(versionFilePath).toString(),
-      path.basename(versionFilePath) === 'go.mod'
-    );
+    version = installer.parseGoVersionFile(versionFilePath);
   }
 
   return version;
