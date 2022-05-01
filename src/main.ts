@@ -109,6 +109,12 @@ function resolveVersionInput(): string {
   let version = core.getInput('go-version');
   const versionFilePath = core.getInput('go-version-file');
 
+  if (version && versionFilePath) {
+    core.warning(
+      'Both go-version and go-version-file inputs are specified, only go-version will be used'
+    );
+  }
+
   if (version) {
     return version;
   }
