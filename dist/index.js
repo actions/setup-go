@@ -2157,11 +2157,17 @@ exports.parseGoVersion = parseGoVersion;
 function resolveVersionInput() {
     let version = core.getInput('go-version');
     const versionFilePath = core.getInput('go-version-file');
+    if (version && versionFilePath) {
+        core.warning('Both go-version and go-version-file inputs are specified, only go-version will be used');
+    }
     if (version) {
         return version;
     }
     if (versionFilePath) {
-        version = installer.parseGoVersionFile(fs_1.default.readFileSync(versionFilePath).toString(), path_1.default.basename(versionFilePath) === 'go.mod');
+        if (!fs_1.default.existsSync(versionFilePath)) {
+            throw new Error(`The specified go version file at: ${versionFilePath} does not exist`);
+        }
+        version = installer.parseGoVersionFile(versionFilePath);
     }
     return version;
 }
@@ -5825,8 +5831,8 @@ class OidcClient {
             const res = yield httpclient
                 .getJson(id_token_url)
                 .catch(error => {
-                throw new Error(`Failed to get ID Token. \n
-        Error Code : ${error.statusCode}\n
+                throw new Error(`Failed to get ID Token. \n 
+        Error Code : ${error.statusCode}\n 
         Error Message: ${error.result.message}`);
             });
             const id_token = (_a = res.result) === null || _a === void 0 ? void 0 : _a.value;
@@ -5912,6 +5918,7 @@ const path = __importStar(__webpack_require__(622));
 const semver = __importStar(__webpack_require__(280));
 const httpm = __importStar(__webpack_require__(539));
 const sys = __importStar(__webpack_require__(737));
+const fs_1 = __importDefault(__webpack_require__(747));
 const os_1 = __importDefault(__webpack_require__(87));
 function getGo(versionSpec, checkLatest, auth) {
     return __awaiter(this, void 0, void 0, function* () {
@@ -6130,12 +6137,13 @@ function makeSemver(version) {
     return fullVersion;
 }
 exports.makeSemver = makeSemver;
-function parseGoVersionFile(contents, isMod) {
-    if (!isMod) {
-        return contents.trim();
+function parseGoVersionFile(versionFilePath) {
+    const contents = fs_1.default.readFileSync(versionFilePath).toString();
+    if (path.basename(versionFilePath) === 'go.mod') {
+        const match = contents.match(/^go (\d+(\.\d+)*)/m);
+        return match ? match[1] : '';
     }
-    const match = contents.match(/^go (\d+(\.\d+)*)/m);
-    return match ? match[1] : '';
+    return contents.trim();
 }
 exports.parseGoVersionFile = parseGoVersionFile;
 //# sourceMappingURL=installer.js.map
