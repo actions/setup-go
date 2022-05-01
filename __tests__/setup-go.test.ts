@@ -778,9 +778,7 @@ describe('setup-go', () => {
   });
 
   describe('go-version-file', () => {
-    it('reads version from go.mod', async () => {
-      inputs['go-version-file'] = 'go.mod';
-      const content = `module example.com/mymodule
+    const goModContents = `module example.com/mymodule
 
 go 1.14
 
@@ -793,7 +791,11 @@ require (
 replace example.com/thatmodule => ../thatmodule
 exclude example.com/thismodule v1.3.0
 `;
-      readFileSpy.mockImplementation(() => Buffer.from(content));
+
+    it('reads version from go.mod', async () => {
+      inputs['go-version-file'] = 'go.mod';
+      existsSpy.mockImplementation(path => true);
+      readFileSpy.mockImplementation(() => Buffer.from(goModContents));
 
       await main.run();
 
@@ -804,6 +806,7 @@ exclude example.com/thismodule v1.3.0
 
     it('reads version from .go-version', async () => {
       inputs['go-version-file'] = '.go-version';
+      existsSpy.mockImplementation(path => true);
       readFileSpy.mockImplementation(() => Buffer.from(`1.13.0${osm.EOL}`));
 
       await main.run();
@@ -815,8 +818,9 @@ exclude example.com/thismodule v1.3.0
 
     it('is overwritten by go-version', async () => {
       inputs['go-version'] = '1.13.1';
-      inputs['go-version-file'] = '.go-version';
-      readFileSpy.mockImplementation(() => Buffer.from(`1.13.0${osm.EOL}`));
+      inputs['go-version-file'] = 'go.mod';
+      existsSpy.mockImplementation(path => true);
+      readFileSpy.mockImplementation(() => Buffer.from(goModContents));
 
       await main.run();
 
@@ -826,16 +830,14 @@ exclude example.com/thismodule v1.3.0
     });
 
     it('reports a read failure', async () => {
-      const versionFilePath = '.go-version';
-      inputs['go-version-file'] = versionFilePath;
-      const errMsg = `ENOENT: no such file or directory, open '${versionFilePath}'`;
-      readFileSpy.mockImplementation(() => {
-        throw new Error(errMsg);
-      });
+      inputs['go-version-file'] = 'go.mod';
+      existsSpy.mockImplementation(path => false);
 
       await main.run();
 
-      expect(cnSpy).toHaveBeenCalledWith(`::error::${errMsg}${osm.EOL}`);
+      expect(cnSpy).toHaveBeenCalledWith(
+        `::error::The specified go version file at: go.mod does not exist${osm.EOL}`
+      );
     });
   });
 });
