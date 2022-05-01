@@ -23,22 +23,22 @@
   "author": "GitHub",
   "license": "MIT",
   "dependencies": {
-    "@actions/core": "^1.2.3",
+    "@actions/core": "^1.6.0",
     "@actions/http-client": "^1.0.6",
     "@actions/io": "^1.0.2",
     "@actions/tool-cache": "^1.5.5",
     "semver": "^6.1.1"
   },
   "devDependencies": {
-    "@types/jest": "^24.0.13",
-    "@types/node": "^12.0.4",
+    "@types/jest": "^27.0.2",
+    "@types/node": "^16.11.25",
     "@types/semver": "^6.0.0",
     "@zeit/ncc": "^0.21.0",
-    "jest": "^25.2.1",
-    "jest-circus": "^24.7.1",
+    "jest": "^27.2.5",
+    "jest-circus": "^27.2.5",
     "nock": "^10.0.6",
     "prettier": "^1.17.1",
-    "ts-jest": "^24.0.2",
+    "ts-jest": "^27.0.5",
     "typescript": "^3.8.3"
   }
 }
