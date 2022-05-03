@@ -2091,7 +2091,7 @@ function run() {
                 }
                 let added = yield addBinToPath();
                 core.debug(`add bin ${added}`);
-                core.info(`Successfully setup go version ${versionSpec}`);
+                core.info(`Successfully set up Go version ${versionSpec}`);
             }
             // add problem matchers
             const matchersPath = path_1.default.join(__dirname, '..', 'matchers.json');
