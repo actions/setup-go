@@ -29,7 +29,7 @@ export const restoreCache = async (
     );
   }
 
-  const primaryKey = `${platform}-go${versionSpec}-${fileHash}`;
+  const primaryKey = `setup-go-${platform}-go-${versionSpec}-${fileHash}`;
   core.debug(`primary key is ${primaryKey}`);
 
   core.saveState(State.CachePrimaryKey, primaryKey);
