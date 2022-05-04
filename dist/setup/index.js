@@ -3828,7 +3828,7 @@ function run() {
                 }
                 let added = yield addBinToPath();
                 core.debug(`add bin ${added}`);
-                core.info(`Successfully setup go version ${versionSpec}`);
+                core.info(`Successfully set up Go version ${versionSpec}`);
             }
             if (cache && cache_utils_1.isCacheFeatureAvailable()) {
                 const packageManager = 'default';
