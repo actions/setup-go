@@ -2074,7 +2074,7 @@ function run() {
             // versionSpec is optional.  If supplied, install / use from the tool cache
             // If not supplied then problem matchers will still be setup.  Useful for self-hosted.
             //
-            let versionSpec = core.getInput('go-version');
+            const versionSpec = resolveVersionInput();
             core.info(`Setup go version spec ${versionSpec}`);
             if (versionSpec) {
                 let token = core.getInput('token');
@@ -2154,6 +2154,23 @@ function parseGoVersion(versionString) {
     return versionString.split(' ')[2].slice('go'.length);
 }
 exports.parseGoVersion = parseGoVersion;
+function resolveVersionInput() {
+    let version = core.getInput('go-version');
+    const versionFilePath = core.getInput('go-version-file');
+    if (version && versionFilePath) {
+        core.warning('Both go-version and go-version-file inputs are specified, only go-version will be used');
+    }
+    if (version) {
+        return version;
+    }
+    if (versionFilePath) {
+        if (!fs_1.default.existsSync(versionFilePath)) {
+            throw new Error(`The specified go version file at: ${versionFilePath} does not exist`);
+        }
+        version = installer.parseGoVersionFile(versionFilePath);
+    }
+    return version;
+}
 //# sourceMappingURL=main.js.map
 
 /***/ }),
@@ -5894,13 +5911,14 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.makeSemver = exports.getVersionsDist = exports.findMatch = exports.getInfoFromManifest = exports.extractGoArchive = exports.getGo = void 0;
+exports.parseGoVersionFile = exports.makeSemver = exports.getVersionsDist = exports.findMatch = exports.getInfoFromManifest = exports.extractGoArchive = exports.getGo = void 0;
 const tc = __importStar(__webpack_require__(533));
 const core = __importStar(__webpack_require__(470));
 const path = __importStar(__webpack_require__(622));
 const semver = __importStar(__webpack_require__(280));
 const httpm = __importStar(__webpack_require__(539));
 const sys = __importStar(__webpack_require__(737));
+const fs_1 = __importDefault(__webpack_require__(747));
 const os_1 = __importDefault(__webpack_require__(87));
 function getGo(versionSpec, checkLatest, auth) {
     return __awaiter(this, void 0, void 0, function* () {
@@ -6119,6 +6137,15 @@ function makeSemver(version) {
     return fullVersion;
 }
 exports.makeSemver = makeSemver;
+function parseGoVersionFile(versionFilePath) {
+    const contents = fs_1.default.readFileSync(versionFilePath).toString();
+    if (path.basename(versionFilePath) === 'go.mod') {
+        const match = contents.match(/^go (\d+(\.\d+)*)/m);
+        return match ? match[1] : '';
+    }
+    return contents.trim();
+}
+exports.parseGoVersionFile = parseGoVersionFile;
 //# sourceMappingURL=installer.js.map
 
 /***/ }),
