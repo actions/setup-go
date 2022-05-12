@@ -38,13 +38,14 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", ({ value: true }));
-exports.makeSemver = exports.getVersionsDist = exports.findMatch = exports.getInfoFromManifest = exports.extractGoArchive = exports.getGo = void 0;
+exports.parseGoVersionFile = exports.makeSemver = exports.getVersionsDist = exports.findMatch = exports.getInfoFromManifest = exports.extractGoArchive = exports.getGo = void 0;
 const tc = __importStar(__nccwpck_require__(784));
 const core = __importStar(__nccwpck_require__(186));
 const path = __importStar(__nccwpck_require__(17));
 const semver = __importStar(__nccwpck_require__(911));
 const httpm = __importStar(__nccwpck_require__(925));
 const sys = __importStar(__nccwpck_require__(785));
+const fs_1 = __importDefault(__nccwpck_require__(147));
 const os_1 = __importDefault(__nccwpck_require__(37));
 function getGo(versionSpec, checkLatest, auth) {
     return __awaiter(this, void 0, void 0, function* () {
@@ -263,6 +264,15 @@ function makeSemver(version) {
     return fullVersion;
 }
 exports.makeSemver = makeSemver;
+function parseGoVersionFile(versionFilePath) {
+    const contents = fs_1.default.readFileSync(versionFilePath).toString();
+    if (path.basename(versionFilePath) === 'go.mod') {
+        const match = contents.match(/^go (\d+(\.\d+)*)/m);
+        return match ? match[1] : '';
+    }
+    return contents.trim();
+}
+exports.parseGoVersionFile = parseGoVersionFile;
 //# sourceMappingURL=installer.js.map
 
 /***/ }),
@@ -320,7 +330,7 @@ function run() {
             // versionSpec is optional.  If supplied, install / use from the tool cache
             // If not supplied then problem matchers will still be setup.  Useful for self-hosted.
             //
-            let versionSpec = core.getInput('go-version');
+            const versionSpec = resolveVersionInput();
             core.info(`Setup go version spec ${versionSpec}`);
             if (versionSpec) {
                 let token = core.getInput('token');
@@ -337,7 +347,7 @@ function run() {
                 }
                 let added = yield addBinToPath();
                 core.debug(`add bin ${added}`);
-                core.info(`Successfully setup go version ${versionSpec}`);
+                core.info(`Successfully set up Go version ${versionSpec}`);
             }
             // add problem matchers
             const matchersPath = path_1.default.join(__dirname, '..', 'matchers.json');
@@ -400,6 +410,23 @@ function parseGoVersion(versionString) {
     return versionString.split(' ')[2].slice('go'.length);
 }
 exports.parseGoVersion = parseGoVersion;
+function resolveVersionInput() {
+    let version = core.getInput('go-version');
+    const versionFilePath = core.getInput('go-version-file');
+    if (version && versionFilePath) {
+        core.warning('Both go-version and go-version-file inputs are specified, only go-version will be used');
+    }
+    if (version) {
+        return version;
+    }
+    if (versionFilePath) {
+        if (!fs_1.default.existsSync(versionFilePath)) {
+            throw new Error(`The specified go version file at: ${versionFilePath} does not exist`);
+        }
+        version = installer.parseGoVersionFile(versionFilePath);
+    }
+    return version;
+}
 //# sourceMappingURL=main.js.map
 
 /***/ }),
