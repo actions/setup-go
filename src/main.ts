@@ -14,7 +14,7 @@ export async function run() {
     // versionSpec is optional.  If supplied, install / use from the tool cache
     // If not supplied then problem matchers will still be setup.  Useful for self-hosted.
     //
-    let versionSpec = core.getInput('go-version');
+    const versionSpec = resolveVersionInput();
 
     const cache = core.getBooleanInput('cache');
     core.info(`Setup go version spec ${versionSpec}`);
@@ -104,4 +104,30 @@ export function parseGoVersion(versionString: string): string {
   // fmt.Printf("go version %s %s/%s\n", runtime.Version(), runtime.GOOS, runtime.GOARCH)
   // expecting go<version> for runtime.Version()
   return versionString.split(' ')[2].slice('go'.length);
+}
+
+function resolveVersionInput(): string {
+  let version = core.getInput('go-version');
+  const versionFilePath = core.getInput('go-version-file');
+
+  if (version && versionFilePath) {
+    core.warning(
+      'Both go-version and go-version-file inputs are specified, only go-version will be used'
+    );
+  }
+
+  if (version) {
+    return version;
+  }
+
+  if (versionFilePath) {
+    if (!fs.existsSync(versionFilePath)) {
+      throw new Error(
+        `The specified go version file at: ${versionFilePath} does not exist`
+      );
+    }
+    version = installer.parseGoVersionFile(versionFilePath);
+  }
+
+  return version;
 }
