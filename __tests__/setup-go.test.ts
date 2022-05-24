@@ -98,7 +98,7 @@ describe('setup-go', () => {
   });
 
   afterEach(() => {
-    jest.resetAllMocks();
+    //jest.resetAllMocks();
     jest.clearAllMocks();
     //jest.restoreAllMocks();
   });
