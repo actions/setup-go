@@ -3,9 +3,10 @@ import * as io from '@actions/io';
 import * as installer from './installer';
 import * as semver from 'semver';
 import path from 'path';
+import {restoreCache} from './cache-restore';
+import {isGhes, isCacheFeatureAvailable} from './cache-utils';
 import cp from 'child_process';
 import fs from 'fs';
-import {URL} from 'url';
 
 export async function run() {
   try {
@@ -15,6 +16,7 @@ export async function run() {
     //
     const versionSpec = resolveVersionInput();
 
+    const cache = core.getBooleanInput('cache');
     core.info(`Setup go version spec ${versionSpec}`);
 
     if (versionSpec) {
@@ -39,8 +41,14 @@ export async function run() {
       core.info(`Successfully set up Go version ${versionSpec}`);
     }
 
+    if (cache && isCacheFeatureAvailable()) {
+      const packageManager = 'default';
+      const cacheDependencyPath = core.getInput('cache-dependency-path');
+      await restoreCache(packageManager, cacheDependencyPath);
+    }
+
     // add problem matchers
-    const matchersPath = path.join(__dirname, '..', 'matchers.json');
+    const matchersPath = path.join(__dirname, '../..', 'matchers.json');
     core.info(`##[add-matcher]${matchersPath}`);
 
     // output the version actually being used
@@ -88,13 +96,6 @@ export async function addBinToPath(): Promise<boolean> {
     added = true;
   }
   return added;
-}
-
-function isGhes(): boolean {
-  const ghUrl = new URL(
-    process.env['GITHUB_SERVER_URL'] || 'https://github.com'
-  );
-  return ghUrl.hostname.toUpperCase() !== 'GITHUB.COM';
 }
 
 export function parseGoVersion(versionString: string): string {

@@ -89,7 +89,7 @@ describe('setup-go', () => {
     });
     logSpy.mockImplementation(line => {
       // uncomment to debug
-      process.stderr.write('log:' + line + '\n');
+      //process.stderr.write('log:' + line + '\n');
     });
     dbgSpy.mockImplementation(msg => {
       // uncomment to see debug output
@@ -98,7 +98,7 @@ describe('setup-go', () => {
   });
 
   afterEach(() => {
-    jest.resetAllMocks();
+    //jest.resetAllMocks();
     jest.clearAllMocks();
     //jest.restoreAllMocks();
   });

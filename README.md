@@ -15,7 +15,8 @@ The V3 edition of the action offers:
 - Adds `GOBIN` to the `PATH`
 - Proxy support
 - Check latest version
-- Bug fixes (including issues around version matching and semver)
+- Caching packages dependencies
+- Bug Fixes (including issues around version matching and semver)
 
 The action will first check the local cache for a version match. If a version is not found locally, it will pull it from the `main` branch of the [go-versions](https://github.com/actions/go-versions/blob/main/versions-manifest.json) repository. On miss or failure, it will fall back to downloading directly from [go dist](https://storage.googleapis.com/golang). To change the default behavior, please use the [check-latest input](#check-latest-version).
 
@@ -94,6 +95,36 @@ steps:
       check-latest: true
   - run: go run hello.go
 ```
+## Caching dependency files and build outputs:
+
+The action has a built-in functionality for caching and restoring go modules and build outputs. It uses [actions/cache](https://github.com/actions/cache) under the hood but requires less configuration settings. The `cache` input is optional, and caching is turned off by default.
+
+The action defaults to search for the dependency file - go.sum in the repository root, and uses its hash as a part of the cache key. Use `cache-dependency-path` input for cases when multiple dependency files are used, or they are located in different subdirectories.
+
+**Caching without specifying dependency file path**
+```yaml
+steps:
+  - uses: actions/checkout@v3
+  - uses: actions/setup-go@v3
+    with:
+      go-version: '1.17'
+      check-latest: true
+      cache: true
+  - run: go run hello.go
+```
+
+**Caching in monorepos**
+```yaml
+steps:
+  - uses: actions/checkout@v3
+  - uses: actions/setup-go@v3
+    with:
+      go-version: '1.17'
+      check-latest: true
+      cache: true
+      cache-dependency-path: subdir/go.sum
+  - run: go run hello.go
+  ```
 ## Getting go version from the go.mod file
 
 The `go-version-file` input accepts a path to a `go.mod` file containing the version of Go to be used by a project. As the `go.mod` file contains only major and minor (e.g. 1.18) tags, the action will search for the latest available patch version sequentially in the runner's directory with the cached tools, in the [version-manifest.json](https://github.com/actions/go-versions/blob/main/versions-manifest.json) file or at the go servers.

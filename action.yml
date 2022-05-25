@@ -12,9 +12,18 @@ inputs:
   token:
     description: Used to pull node distributions from go-versions.  Since there's a default, this is typically not supplied by the user.
     default: ${{ github.token }}
+  cache:
+    description: Used to specify whether caching is needed. Set to true, if you'd like to enable caching.
+    default: false
+  cache-dependency-path:
+    description: 'Used to specify the path to a dependency file - go.sum'
 outputs:
   go-version:
-    description: 'The installed Go version. Useful when given a version range as input.'
+    description: 'The installed Go version. Useful when given a version range as input.'  
+  cache-hit: 
+    description: 'A boolean value to indicate if a cache was hit'
 runs:
   using: 'node16'
-  main: 'dist/index.js'
+  main: 'dist/setup/index.js'
+  post: 'dist/cache-save/index.js'
+  post-if: success()

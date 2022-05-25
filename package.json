@@ -5,7 +5,7 @@
   "description": "setup go action",
   "main": "lib/setup-go.js",
   "scripts": {
-    "build": "tsc && ncc build",
+    "build": "tsc && ncc build -o dist/setup src/setup-go.ts && ncc build -o dist/cache-save src/cache-save.ts",
     "format": "prettier --write **/*.ts",
     "format-check": "prettier --check **/*.ts",
     "test": "jest --coverage",
@@ -23,7 +23,10 @@
   "author": "GitHub",
   "license": "MIT",
   "dependencies": {
+    "@actions/cache": "^2.0.2",
     "@actions/core": "^1.6.0",
+    "@actions/exec": "^1.1.0",
+    "@actions/glob": "^0.2.0",
     "@actions/http-client": "^1.0.6",
     "@actions/io": "^1.0.2",
     "@actions/tool-cache": "^1.5.5",
