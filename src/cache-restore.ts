@@ -34,16 +34,26 @@ export const restoreCache = async (
 
   core.saveState(State.CachePrimaryKey, primaryKey);
 
-  const cacheKey = await cache.restoreCache(cachePaths, primaryKey);
-  core.setOutput(Outputs.CacheHit, Boolean(cacheKey));
+  try {
+    const cacheKey = await cache.restoreCache(cachePaths, primaryKey);
+    core.setOutput(Outputs.CacheHit, Boolean(cacheKey));
 
-  if (!cacheKey) {
-    core.info(`Cache is not found`);
-    return;
+    if (!cacheKey) {
+      core.info(`Cache is not found`);
+      return;
+    }
+
+    core.saveState(State.CacheMatchedKey, cacheKey);
+    core.info(`Cache restored from key: ${cacheKey}`);
+  } catch (error) {
+    const typedError = error as Error;
+    if (typedError.name === cache.ValidationError.name) {
+      throw error;
+    } else {
+      core.warning(typedError.message);
+      core.setOutput(Outputs.CacheHit, false);
+    }
   }
-
-  core.saveState(State.CacheMatchedKey, cacheKey);
-  core.info(`Cache restored from key: ${cacheKey}`);
 };
 
 const findDependencyFile = (packageManager: PackageManagerInfo) => {

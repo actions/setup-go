@@ -61955,14 +61955,26 @@ exports.restoreCache = (packageManager, cacheDependencyPath) => __awaiter(void 0
     const primaryKey = `setup-go-${platform}-go-${versionSpec}-${fileHash}`;
     core.debug(`primary key is ${primaryKey}`);
     core.saveState(constants_1.State.CachePrimaryKey, primaryKey);
-    const cacheKey = yield cache.restoreCache(cachePaths, primaryKey);
-    core.setOutput(constants_1.Outputs.CacheHit, Boolean(cacheKey));
-    if (!cacheKey) {
-        core.info(`Cache is not found`);
-        return;
+    try {
+        const cacheKey = yield cache.restoreCache(cachePaths, primaryKey);
+        core.setOutput(constants_1.Outputs.CacheHit, Boolean(cacheKey));
+        if (!cacheKey) {
+            core.info(`Cache is not found`);
+            return;
+        }
+        core.saveState(constants_1.State.CacheMatchedKey, cacheKey);
+        core.info(`Cache restored from key: ${cacheKey}`);
     }
-    core.saveState(constants_1.State.CacheMatchedKey, cacheKey);
-    core.info(`Cache restored from key: ${cacheKey}`);
+    catch (error) {
+        const typedError = error;
+        if (typedError.name === cache.ValidationError.name) {
+            throw error;
+        }
+        else {
+            core.warning(typedError.message);
+            core.setOutput(constants_1.Outputs.CacheHit, false);
+        }
+    }
 });
 const findDependencyFile = (packageManager) => {
     let dependencyFile = packageManager.dependencyFilePattern;
