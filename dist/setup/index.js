@@ -61274,8 +61274,9 @@ exports.restoreCache = (packageManager, cacheDependencyPath) => __awaiter(void 0
     }
     const primaryKey = `setup-go-${platform}-go-${versionSpec}-${fileHash}`;
     core.debug(`primary key is ${primaryKey}`);
+    const restoreKeys = [`setup-go-${platform}-go-${versionSpec}-`];
     core.saveState(constants_1.State.CachePrimaryKey, primaryKey);
-    const cacheKey = yield cache.restoreCache(cachePaths, primaryKey);
+    const cacheKey = yield cache.restoreCache(cachePaths, primaryKey, restoreKeys);
     core.setOutput(constants_1.Outputs.CacheHit, Boolean(cacheKey));
     if (!cacheKey) {
         core.info(`Cache is not found`);

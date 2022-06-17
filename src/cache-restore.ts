@@ -31,10 +31,15 @@ export const restoreCache = async (
 
   const primaryKey = `setup-go-${platform}-go-${versionSpec}-${fileHash}`;
   core.debug(`primary key is ${primaryKey}`);
+  const restoreKeys = [`setup-go-${platform}-go-${versionSpec}-`];
 
   core.saveState(State.CachePrimaryKey, primaryKey);
 
-  const cacheKey = await cache.restoreCache(cachePaths, primaryKey);
+  const cacheKey = await cache.restoreCache(
+    cachePaths,
+    primaryKey,
+    restoreKeys
+  );
   core.setOutput(Outputs.CacheHit, Boolean(cacheKey));
 
   if (!cacheKey) {
