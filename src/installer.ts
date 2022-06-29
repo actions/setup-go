@@ -134,7 +134,7 @@ async function installGoVersion(
   core.info(`Acquiring ${info.resolvedVersion} from ${info.downloadUrl}`);
   let downloadPath: string;
   const platform = os.platform();
-  if(platform === 'win32') {
+  if (platform === 'win32') {
     downloadPath = await tc.downloadTool(info.downloadUrl, info.fileName, auth);
   } else {
     downloadPath = await tc.downloadTool(info.downloadUrl, undefined, auth);
