@@ -39,6 +39,7 @@ export const restoreCache = async (
 
   if (!cacheKey) {
     core.info(`Cache is not found`);
+    core.setOutput(Outputs.CacheHit, false);
     return;
   }
 
