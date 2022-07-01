@@ -60011,7 +60011,7 @@ const cachePackages = () => __awaiter(void 0, void 0, void 0, function* () {
         return;
     }
     const cacheId = yield cache.saveCache(cachePaths, primaryKey);
-    if (cacheId == -1) {
+    if (cacheId === -1) {
         return;
     }
     core.info(`Cache saved with the key: ${primaryKey}`);
