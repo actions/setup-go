@@ -59,7 +59,7 @@ const cachePackages = async () => {
   }
 
   const cacheId = await cache.saveCache(cachePaths, primaryKey);
-  if (cacheId == -1) {
+  if (cacheId === -1) {
     return;
   }
   core.info(`Cache saved with the key: ${primaryKey}`);
