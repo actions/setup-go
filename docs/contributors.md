@@ -18,7 +18,7 @@ Pull requests are the easiest way to contribute changes to git repos at GitHub. 
  - Please check that no one else has already created a pull request with these changes.
  - Fork this repository
  - Clone the repository to your local machine
- - Use a "feature branch" for your changes. That separates the changes in the pull request from your other changes and makes it easy to edit/amend commits in the pull request. Workflow using "feature branch":
+ - Use a "feature branch" for your changes. That separates the changes in the pull request from your other changes and makes it easy to edit/amend commits in the pull request. Use a "feature branch" to run your workflows:
 	- Update your local git fork to the tip (main branch, usually)
 	- Create the feature branch
 	- Edit or add any relevant documentation
@@ -56,7 +56,7 @@ Pull requests are the easiest way to contribute changes to git repos at GitHub. 
 	- Create the feature branch
 	- Add changes and relevant tests
     - **Run `pre-checkin` script to format, build and test changes**
-    - Make sure your changes are well formatted and tests pass
+    - Make sure your changes are well formatted and that all tests are passing
 	- Commit changes locally
 	- Push them to your GitHub fork
 	- Go to https://github.com/actions/setup-go/pulls and open a new pull request with your changes.
@@ -85,7 +85,7 @@ Helping out other users with their questions is a really awesome way of contribu
 *Some notes on picking up support issues:*
 
  - Avoid responding to issues you don't know you can answer accurately
- - As much as possible, try to refer to past issues with accepted answers. Link to them from your replies with the #123 format
+ - Try to refer to past issues with accepted answers as much as possible. Link to them from your replies with the #123 format
  - Be kind and patient with users -- often, folks who have run into confusing things might be upset or impatient. This is ok. Try to understand where they're coming from, and if you're too uncomfortable with the tone, feel free to stay away or withdraw from the issue. *(note: if the user is outright hostile or is violating the CoC, refer to the [Code of Conduct](https://github.com/actions/setup-go/blob/main/CODE_OF_CONDUCT.md) to resolve the conflict)*
 
 ## Review pull requests
