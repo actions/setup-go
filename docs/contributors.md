@@ -54,7 +54,7 @@ Pull requests are the easiest way to contribute changes to git repos at GitHub. 
 - Use a "feature branch" for your changes. That separates the changes in the pull request from your other changes and makes it easy to edit/amend commits in the pull request
 -  **Run `pre-checkin` script to format, build and test changes**
 - Make sure your changes are well formatted and that all tests are passing
-- If your pull request is connected to an open issue, add a line in your pull request's description that says Fixes: #123, where #123 is the number of the issue you're fixing.
+- If your pull request is connected to an open issue, please, leave a link to this issue in the `Related issue:` section
 - If you later need to add new commits to the pull request, you can simply commit the changes to the local branch and then push them. The pull request gets automatically updated
 
 **Learn more about how to work with the repository:**
