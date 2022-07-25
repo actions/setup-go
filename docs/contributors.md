@@ -78,9 +78,8 @@ Adding or changing tests is an integral part of making a change to the code. The
 - CI will start automatically with some checks. Wait until the end of the execution and make sure that all checks passed successfully. If some checks fail, you can make changes to your code
 - One or more maintainers will use GitHub's review feature to review your pull request
 - If the maintainer asks for any changes, edit your changes, push, and ask for another review
-- If the maintainer decides to pass on your pull request, they will thank you for the
-contribution and explain why they won't be accepting the changes. That's ok! We still really appreciate you taking the time to do it, and we don't take that lightly :heart:
-- If your PR gets accepted, it will be merged into the latest branch soon after. Your contribution will be distributed to the masses next time the maintainers tag a release
+- If your PR gets accepted, it will soon be merged into the main branch. But your contribution will take effect only after the release of a new version of the action
+> Sometimes maintainers reject pull requests and that's ok! Usually, along with rejection, we supply the reason for it. Nonetheless, we still really appreciate you taking the time to do it, and we don't take that lightly :heart:
 
 ## Provide support on issues
 
