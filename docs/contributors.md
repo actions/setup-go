@@ -34,7 +34,7 @@ Pull requests are the easiest way to contribute changes to git repos at GitHub. 
 **Once you've filed the pull request:**
 
 - Maintainers will review your pull request
-- If the maintainer asks for any changes, edit your changes, push, and ask for another review
+- If a maintainer requests changes, first of all, try to think about this request critically and only after that implement and request another review
 - If the maintainer decides to pass on your pull request, they will thank you for the
 contribution and explain why they won't be accepting the changes. That's ok! We still really appreciate you taking the time to do it, and we don't take that lightly :heart:
 - If your PR gets accepted, it will be merged into the latest branch soon after. Your contribution will be distributed to the masses next time the maintainers tag a release
