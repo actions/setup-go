@@ -61,7 +61,7 @@ Pull requests are the easiest way to contribute changes to git repos at GitHub. 
 
 - To implement new features or fix bugs, you need to make changes to the `.ts` files, which are located in the `src` folder
 - To comply with the code style, **you need to run the `format` script**
-- To compile source code to `javascript` we use [NCC](https://github.com/vercel/ncc). **It is very important to run the `build` script after making changes**, otherwise your changes will not get into the final `javascript` build
+- To transpile source code to `javascript` we use [NCC](https://github.com/vercel/ncc). **It is very important to run the `build` script after making changes**, otherwise your changes will not get into the final `javascript` build
 - You can also start formatting, building code, and testing with a single `pre-checkin` command
 
 **Learn more about how to implement tests:**
