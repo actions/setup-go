@@ -16,7 +16,7 @@ We have prepared a short guide so that the process of making your contribution i
 
 ## Contribute documentation
 
-Documentation is a super important, critical part of this project. Docs are how we keep track of what we're doing, how, and why. It's how we stay on the same page about our policies. And it's how we tell others everything they need to be able to use this project or contribute to it. So thank you in advance.
+Documentation is a super important, critical part of this project. Docs are how we keep track of what we're doing, how, and why. It's how we stay on the same page about our policies and how we tell others everything they need to be able to use this project or contribute to it. 
 
 Documentation contributions of any size are welcome! Feel free to contribute even if you're just rewording a sentence to be more clear, or fixing a spelling mistake!
 
