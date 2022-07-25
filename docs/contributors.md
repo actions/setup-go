@@ -110,5 +110,6 @@ Another great way to contribute is pull request reviews. Please, be extra kind: 
 
 - Go to the [pull requests](https://github.com/actions/setup-go/pulls)
 - Make sure you're familiar with the code or documentation is updated, unless it's a minor change (spellchecking, minor formatting, etc.)
-- Review changes using the GitHub functionality. You can ask a clarifying question, point out an error or suggest an alternative. (Note: You may ask for minor changes ("nitpicks"), but consider whether they are real blockers to merging or not)
+- Review changes using the GitHub functionality. You can ask a clarifying question, point out an error or suggest an alternative. 
+> Note: You may ask for minor changes - "nitpicks", but consider whether they are real blockers to merging or not
 - Submit your review, which may include comments, an approval, or a changes request
