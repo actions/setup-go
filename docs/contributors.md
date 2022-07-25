@@ -96,7 +96,9 @@ Helping out other users with their questions is an awesome way of contributing t
 
 - Avoid responding to issues you don't know you can answer accurately
 - Try to refer to past issues with accepted answers as much as possible. Link to them from your replies
-- Be kind and patient with users -- often, folks who have run into confusing things might be upset or impatient. This is ok. Try to understand where they're coming from, and if you're too uncomfortable with the tone, feel free to stay away or withdraw from the issue. *(note: if the user is outright hostile or is violating the CoC, refer to the [Code of Conduct](https://github.com/actions/setup-go/blob/main/CODE_OF_CONDUCT.md) to resolve the conflict)*
+- Be kind and patient with users. Often, folks who have run into confusing things might be upset or impatient. This is natural. If you feel uncomfortable in conversation with them, it's better to stay away or withdraw from the issue.
+
+ > If some user is violating our code of conduct [standards](https://github.com/actions/setup-go/blob/main/CODE_OF_CONDUCT.md#our-standards), refer to the [Enforcement](https://github.com/actions/setup-go/blob/main/CODE_OF_CONDUCT.md#enforcement) section of the Code of Conduct to resolve the conflict
  
 
 ## Review pull requests
