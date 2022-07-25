@@ -95,7 +95,7 @@ Helping out other users with their questions is an awesome way of contributing t
 *Some notes on picking up support issues:*
 
 - Avoid responding to issues you don't know you can answer accurately
-- Try to refer to past issues with accepted answers as much as possible. Link to them from your replies with the #123 format
+- Try to refer to past issues with accepted answers as much as possible. Link to them from your replies
 - Be kind and patient with users -- often, folks who have run into confusing things might be upset or impatient. This is ok. Try to understand where they're coming from, and if you're too uncomfortable with the tone, feel free to stay away or withdraw from the issue. *(note: if the user is outright hostile or is violating the CoC, refer to the [Code of Conduct](https://github.com/actions/setup-go/blob/main/CODE_OF_CONDUCT.md) to resolve the conflict)*
  
 
