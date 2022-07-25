@@ -16,13 +16,13 @@ We have prepared a short guide so that the process of making your contribution i
 
 ## Contribute documentation
 
-Documentation is a super important, critical part of this project. Docs are how we keep track of what we're doing, how, and why. It's how we stay on the same page about our policies. And it's how we tell others everything they need in order to be able to use this project or contribute to it. So thank you in advance.
+Documentation is a super important, critical part of this project. Docs are how we keep track of what we're doing, how, and why. It's how we stay on the same page about our policies. And it's how we tell others everything they need to be able to use this project or contribute to it. So thank you in advance.
 
 Documentation contributions of any size are welcome! Feel free to contribute even if you're just rewording a sentence to be more clear, or fixing a spelling mistake!
 
 **How to contribute:**
 
-Pull requests are the easiest way to contribute changes to git repos at GitHub. They are the preferred contribution method, as they offer a nice way for commenting and amending the proposed changes.
+Pull requests are the easiest way to contribute changes to git repos at GitHub. They are the preferred contribution method, as they offer a nice way of commenting and amending the proposed changes.
 
 - Please check that no one else has already created a pull request with these changes
 - Use a "feature branch" for your changes. That separates the changes in the pull request from your other changes and makes it easy to edit/amend commits in the pull request. 
@@ -45,11 +45,11 @@ We like code commits a lot! They're super handy, and they keep the project going
 
 Code contributions of just about any size are acceptable!
 
-The main difference between code contributions and documentation contributions is that contributing code requires inclusion of relevant tests for the code being added or changed. Contributions without accompanying tests will be held off until a test is added, unless the maintainers consider the specific tests to be either impossible, or way too much of a burden for such a contribution.
+The main difference between code contributions and documentation contributions is that contributing code requires the inclusion of relevant tests for the code being added or changed. Contributions without accompanying tests will be held off until a test is added unless the maintainers consider the specific tests to be either impossible or way too much of a burden for such a contribution.
 
 **How to contribute:**
 
-Pull requests are the easiest way to contribute changes to git repos at GitHub. They are the preferred contribution method, as they offer a nice way for commenting and amending the proposed changes.
+Pull requests are the easiest way to contribute changes to git repos at GitHub. They are the preferred contribution method, as they offer a nice way of commenting and amending the proposed changes.
 
 - Please check that no one else has already created a pull request with these changes
 - Use a "feature branch" for your changes. That separates the changes in the pull request from your other changes and makes it easy to edit/amend commits in the pull request
@@ -75,7 +75,7 @@ Adding or changing tests is an integral part of making a change to the code. The
 
 **Once you've filed the pull request:**
 
-- CI will start automatically with some checks. Wait for the end of the execution and make sure that all checks passed successfully. If some checks fail, you can make changes to your code
+- CI will start automatically with some checks. Wait until the end of the execution and make sure that all checks passed successfully. If some checks fail, you can make changes to your code
 - One or more maintainers will use GitHub's review feature to review your pull request
 - If the maintainer asks for any changes, edit your changes, push, and ask for another review
 - If the maintainer decides to pass on your pull request, they will thank you for the
@@ -84,12 +84,12 @@ contribution and explain why they won't be accepting the changes. That's ok! We 
 
 ## Provide support on issues
 
-Helping out other users with their questions is a really awesome way of contributing to any community. It's not uncommon for most of the issues on an open source projects being support-related questions by users trying to understand something they ran into, or find their way around a known bug.
+Helping out other users with their questions is an awesome way of contributing to any community. It's not uncommon for most of the issues on open source projects to be support-related questions by users trying to understand something they ran into or find their way around a known bug.
 
-**In order to help other folks out with their questions:**
+**To help other folks out with their questions:**
 
 - Go to the [issue tracker](https://github.com/actions/setup-go/issues)
-- Read through the list until you find something that you're familiar enough with to give an answer to
+- Read through the list until you find something that you're familiar enough with to answer to
 - Respond to the issue with whatever details are needed to clarify the question, or get more details about what's going on
 - Once the discussion wraps up and things are clarified, ask the original issue filer (or a maintainer) to close it for you
  
@@ -108,6 +108,6 @@ Another great way to contribute is pull request reviews. Please, be extra kind: 
 **How to review:**
 
 - Go to the [pull requests](https://github.com/actions/setup-go/pulls)
-- Make sure you're familiar with the code or documentation being updated, unless it's a minor change (spellchecking, minor formatting, etc.)
-- Review changes using the GitHub functionality. You can ask a clarifying question, point out an error or suggest an alternative. (Note: You may ask for minor changes ("nitpicks"), but consider whether they are really blockers to merging or not)
+- Make sure you're familiar with the code or documentation is updated, unless it's a minor change (spellchecking, minor formatting, etc.)
+- Review changes using the GitHub functionality. You can ask a clarifying question, point out an error or suggest an alternative. (Note: You may ask for minor changes ("nitpicks"), but consider whether they are real blockers to merging or not)
 - Submit your review, which may include comments, an approval, or a changes request
