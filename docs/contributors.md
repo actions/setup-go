@@ -33,7 +33,7 @@ Pull requests are the easiest way to contribute changes to git repos at GitHub. 
 
 **Once you've filed the pull request:**
 
-- One or more maintainers will use GitHub's review feature to review your pull request
+- Maintainers will review your pull request
 - If the maintainer asks for any changes, edit your changes, push, and ask for another review
 - If the maintainer decides to pass on your pull request, they will thank you for the
 contribution and explain why they won't be accepting the changes. That's ok! We still really appreciate you taking the time to do it, and we don't take that lightly :heart:
