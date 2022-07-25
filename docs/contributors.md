@@ -104,7 +104,7 @@ Helping out other users with their questions is an awesome way of contributing t
 ## Review pull requests
  
 
-Another great way to contribute is pull request reviews. Please, be extra kind: people who submit code/doc contributions are putting themselves in a pretty vulnerable position, and have put time and care into what they've done (even if that's not obvious to you!) -- always respond with respect, be understanding, but don't feel like you need to sacrifice your standards for their sake, either.
+Another great way to contribute is pull request reviews. Please, be extra kind: people who submit code/doc contributions are putting themselves in a pretty vulnerable position, and have put time and care into what they've done (even if that's not obvious to you!) Please, always respond with respect, and be understanding, but don't feel like you need to sacrifice your standards for their sake, either.
  
 **How to review:**
 
