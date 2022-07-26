@@ -66,7 +66,8 @@ Pull requests are the easiest way to contribute changes to git repos at GitHub. 
 
 **Learn more about how to implement tests:**
 
-Adding or changing tests is an integral part of making a change to the code. The tests are located in the `__tests__` folder and cover most of the functionality of the repository. 
+Adding or changing tests is an integral part of making a change to the code. 
+Unit tests are in the `__tests__` folder, and end-to-end tests are in the `workflows` folder (in particular, in the file [versions.yml](https://github.com/actions/setup-go/blob/main/.github/workflows/versions.yml)).
 
 - The contributor can add various types of tests (like unit tests or end-to-end tests), which, in his opinion, will be necessary and sufficient for testing new or changed functionality
 - Tests should cover a successful execution, as well as some edge cases and possible errors
@@ -111,4 +112,4 @@ Another great way to contribute is pull request reviews. Please, be extra kind: 
 - Make sure you're familiar with the code or documentation is updated, unless it's a minor change (spellchecking, minor formatting, etc.)
 - Review changes using the GitHub functionality. You can ask a clarifying question, point out an error or suggest an alternative. 
 > Note: You may ask for minor changes - "nitpicks", but consider whether they are real blockers to merging or not
-- Submit your review, which may include comments, an approval, or a changes request
+- Submit your review, which
