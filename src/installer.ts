@@ -132,7 +132,13 @@ async function installGoVersion(
   auth: string | undefined
 ): Promise<string> {
   core.info(`Acquiring ${info.resolvedVersion} from ${info.downloadUrl}`);
-  const downloadPath = await tc.downloadTool(info.downloadUrl, undefined, auth);
+
+  // Windows requires that we keep the extension (.zip) for extraction
+  const isWindows = os.platform() === 'win32';
+  const tempDir = process.env.RUNNER_TEMP || '.';
+  const fileName = isWindows ? path.join(tempDir, info.fileName) : undefined;
+
+  const downloadPath = await tc.downloadTool(info.downloadUrl, fileName, auth);
 
   core.info('Extracting Go...');
   let extPath = await extractGoArchive(downloadPath);
