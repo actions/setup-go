@@ -62942,7 +62942,11 @@ function resolveVersionFromManifest(versionSpec, stable, auth) {
 function installGoVersion(info, auth) {
     return __awaiter(this, void 0, void 0, function* () {
         core.info(`Acquiring ${info.resolvedVersion} from ${info.downloadUrl}`);
-        const downloadPath = yield tc.downloadTool(info.downloadUrl, undefined, auth);
+        // Windows requires that we keep the extension (.zip) for extraction
+        const isWindows = os_1.default.platform() === 'win32';
+        const tempDir = process.env.RUNNER_TEMP || '.';
+        const fileName = isWindows ? path.join(tempDir, info.fileName) : undefined;
+        const downloadPath = yield tc.downloadTool(info.downloadUrl, fileName, auth);
         core.info('Extracting Go...');
         let extPath = yield extractGoArchive(downloadPath);
         core.info(`Successfully extracted go to ${extPath}`);

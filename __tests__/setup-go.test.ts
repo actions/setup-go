@@ -13,6 +13,8 @@ let matchers = require('../matchers.json');
 let goTestManifest = require('./data/versions-manifest.json');
 let matcherPattern = matchers.problemMatcher[0].pattern[0];
 let matcherRegExp = new RegExp(matcherPattern.regexp);
+let win32Join = path.win32.join;
+let posixJoin = path.posix.join;
 
 describe('setup-go', () => {
   let inputs = {} as any;
@@ -27,8 +29,10 @@ describe('setup-go', () => {
   let getSpy: jest.SpyInstance;
   let platSpy: jest.SpyInstance;
   let archSpy: jest.SpyInstance;
+  let joinSpy: jest.SpyInstance;
   let dlSpy: jest.SpyInstance;
   let extractTarSpy: jest.SpyInstance;
+  let extractZipSpy: jest.SpyInstance;
   let cacheSpy: jest.SpyInstance;
   let dbgSpy: jest.SpyInstance;
   let whichSpy: jest.SpyInstance;
@@ -61,10 +65,21 @@ describe('setup-go', () => {
     archSpy.mockImplementation(() => os['arch']);
     execSpy = jest.spyOn(cp, 'execSync');
 
+    // switch path join behaviour based on set os.platform
+    joinSpy = jest.spyOn(path, 'join');
+    joinSpy.mockImplementation((...paths: string[]): string => {
+      if (os['platform'] == 'win32') {
+        return win32Join(...paths);
+      }
+
+      return posixJoin(...paths);
+    });
+
     // @actions/tool-cache
     findSpy = jest.spyOn(tc, 'find');
     dlSpy = jest.spyOn(tc, 'downloadTool');
     extractTarSpy = jest.spyOn(tc, 'extractTar');
+    extractZipSpy = jest.spyOn(tc, 'extractZip');
     cacheSpy = jest.spyOn(tc, 'cacheDir');
     getSpy = jest.spyOn(im, 'getVersionsDist');
     getManifestSpy = jest.spyOn(tc, 'getManifestFromRepo');
@@ -322,6 +337,31 @@ describe('setup-go', () => {
 
     expect(dlSpy).toHaveBeenCalled();
     expect(extractTarSpy).toHaveBeenCalled();
+    expect(cnSpy).toHaveBeenCalledWith(`::add-path::${expPath}${osm.EOL}`);
+  });
+
+  it('downloads a version not in the cache (windows)', async () => {
+    os.platform = 'win32';
+    os.arch = 'x64';
+
+    inputs['go-version'] = '1.13.1';
+    process.env['RUNNER_TEMP'] = 'C:\\temp\\';
+
+    findSpy.mockImplementation(() => '');
+    dlSpy.mockImplementation(() => 'C:\\temp\\some\\path');
+    extractZipSpy.mockImplementation(() => 'C:\\temp\\some\\other\\path');
+
+    let toolPath = path.normalize('C:\\cache\\go\\1.13.0\\x64');
+    cacheSpy.mockImplementation(() => toolPath);
+
+    await main.run();
+
+    let expPath = path.win32.join(toolPath, 'bin');
+    expect(dlSpy).toHaveBeenCalledWith(
+      'https://storage.googleapis.com/golang/go1.13.1.windows-amd64.zip',
+      'C:\\temp\\go1.13.1.windows-amd64.zip',
+      undefined
+    );
     expect(cnSpy).toHaveBeenCalledWith(`::add-path::${expPath}${osm.EOL}`);
   });
 
