@@ -328,7 +328,7 @@ describe('setup-go', () => {
 
     findSpy.mockImplementation(() => '');
     dlSpy.mockImplementation(() => '/some/temp/path');
-    let toolPath = path.normalize('/cache/go/1.13.0/amd64');
+    let toolPath = path.normalize('/cache/go/1.13.0/x64');
     extractTarSpy.mockImplementation(() => '/some/other/temp/path');
     cacheSpy.mockImplementation(() => toolPath);
     await main.run();
@@ -351,7 +351,7 @@ describe('setup-go', () => {
     dlSpy.mockImplementation(() => 'C:\\temp\\some\\path');
     extractZipSpy.mockImplementation(() => 'C:\\temp\\some\\other\\path');
 
-    let toolPath = path.normalize('C:\\cache\\go\\1.13.0\\amd64');
+    let toolPath = path.normalize('C:\\cache\\go\\1.13.0\\x64');
     cacheSpy.mockImplementation(() => toolPath);
 
     await main.run();
@@ -463,13 +463,13 @@ describe('setup-go', () => {
     inputs['token'] = 'faketoken';
 
     let expectedUrl =
-      'https://github.com/actions/go-versions/releases/download/1.12.14-20200616.18/go-1.12.14-linux-amd64.tar.gz';
+      'https://github.com/actions/go-versions/releases/download/1.12.14-20200616.18/go-1.12.14-linux-x64.tar.gz';
 
     // ... but not in the local cache
     findSpy.mockImplementation(() => '');
 
     dlSpy.mockImplementation(async () => '/some/temp/path');
-    let toolPath = path.normalize('/cache/go/1.12.14/amd64');
+    let toolPath = path.normalize('/cache/go/1.12.14/x64');
     extractTarSpy.mockImplementation(async () => '/some/other/temp/path');
     cacheSpy.mockImplementation(async () => toolPath);
 
@@ -745,7 +745,7 @@ describe('setup-go', () => {
       findSpy.mockImplementation(() => '');
 
       dlSpy.mockImplementation(async () => '/some/temp/path');
-      let toolPath = path.normalize('/cache/go/1.13.7/amd64');
+      let toolPath = path.normalize('/cache/go/1.13.7/x64');
       extractTarSpy.mockImplementation(async () => '/some/other/temp/path');
       cacheSpy.mockImplementation(async () => toolPath);
 
