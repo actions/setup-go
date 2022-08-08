@@ -33,7 +33,7 @@ export async function getGo(
   versionSpec: string,
   checkLatest: boolean,
   auth: string | undefined,
-  arch = sys.getArch()
+  arch = os.arch()
 ) {
   let osPlat: string = os.platform();
 
@@ -178,7 +178,7 @@ export async function getInfoFromManifest(
   versionSpec: string,
   stable: boolean,
   auth: string | undefined,
-  arch = sys.getArch()
+  arch = os.arch()
 ): Promise<IGoVersionInfo | null> {
   let info: IGoVersionInfo | null = null;
   const releases = await tc.getManifestFromRepo(

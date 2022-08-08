@@ -132,7 +132,7 @@ describe('setup-go', () => {
 
   it('can find 1.9.7 from manifest on osx', async () => {
     os.platform = 'darwin';
-    sysGetArchSpy.mockImplementationOnce(() => 'x64');
+    os.arch = 'x64';
 
     let match = await im.getInfoFromManifest('1.9.7', true, 'mocktoken');
     expect(match).toBeDefined();
@@ -145,7 +145,7 @@ describe('setup-go', () => {
 
   it('can find 1.9 from manifest on linux', async () => {
     os.platform = 'linux';
-    sysGetArchSpy.mockImplementationOnce(() => 'x64');
+    os.arch = 'x64';
 
     let match = await im.getInfoFromManifest('1.9.7', true, 'mocktoken');
     expect(match).toBeDefined();
@@ -158,7 +158,7 @@ describe('setup-go', () => {
 
   it('can find 1.9 from manifest on windows', async () => {
     os.platform = 'win32';
-    sysGetArchSpy.mockImplementationOnce(() => 'x64');
+    os.arch = 'x64';
 
     let match = await im.getInfoFromManifest('1.9.7', true, 'mocktoken');
     expect(match).toBeDefined();
@@ -325,13 +325,13 @@ describe('setup-go', () => {
 
   it('downloads a version not in the cache', async () => {
     os.platform = 'linux';
-    os.arch = 'x64';
+    sysGetArchSpy.mockImplementationOnce(() => 'amd64');
 
     inputs['go-version'] = '1.13.1';
 
     findSpy.mockImplementation(() => '');
     dlSpy.mockImplementation(() => '/some/temp/path');
-    let toolPath = path.normalize('/cache/go/1.13.0/x64');
+    let toolPath = path.normalize('/cache/go/1.13.0/amd64');
     extractTarSpy.mockImplementation(() => '/some/other/temp/path');
     cacheSpy.mockImplementation(() => toolPath);
     await main.run();
@@ -345,7 +345,7 @@ describe('setup-go', () => {
 
   it('downloads a version not in the cache (windows)', async () => {
     os.platform = 'win32';
-    os.arch = 'x64';
+    sysGetArchSpy.mockImplementationOnce(() => 'amd64');
 
     inputs['go-version'] = '1.13.1';
     process.env['RUNNER_TEMP'] = 'C:\\temp\\';
@@ -354,7 +354,7 @@ describe('setup-go', () => {
     dlSpy.mockImplementation(() => 'C:\\temp\\some\\path');
     extractZipSpy.mockImplementation(() => 'C:\\temp\\some\\other\\path');
 
-    let toolPath = path.normalize('C:\\cache\\go\\1.13.0\\x64');
+    let toolPath = path.normalize('C:\\cache\\go\\1.13.0\\amd64');
     cacheSpy.mockImplementation(() => toolPath);
 
     await main.run();
@@ -370,7 +370,7 @@ describe('setup-go', () => {
 
   it('does not find a version that does not exist', async () => {
     os.platform = 'linux';
-    sysGetArchSpy.mockImplementationOnce(() => 'x64');
+    os.arch = 'x64';
 
     inputs['go-version'] = '9.99.9';
 
@@ -384,7 +384,7 @@ describe('setup-go', () => {
 
   it('downloads a version from a manifest match', async () => {
     os.platform = 'linux';
-    sysGetArchSpy.mockImplementationOnce(() => 'x64');
+    os.arch = 'x64';
 
     let versionSpec = '1.12.16';
 
@@ -421,7 +421,7 @@ describe('setup-go', () => {
 
   it('downloads a major and minor from a manifest match', async () => {
     os.platform = 'linux';
-    sysGetArchSpy.mockImplementationOnce(() => 'x64');
+    os.arch = 'x64';
 
     let versionSpec = '1.12';
 
@@ -458,7 +458,7 @@ describe('setup-go', () => {
 
   it('falls back to a version from go dist', async () => {
     os.platform = 'linux';
-    os.arch = 'x64';
+    sysGetArchSpy.mockImplementationOnce(() => 'amd64');
 
     let versionSpec = '1.12.14';
 
@@ -466,13 +466,13 @@ describe('setup-go', () => {
     inputs['token'] = 'faketoken';
 
     let expectedUrl =
-      'https://github.com/actions/go-versions/releases/download/1.12.14-20200616.18/go-1.12.14-linux-x64.tar.gz';
+      'https://github.com/actions/go-versions/releases/download/1.12.14-20200616.18/go-1.12.14-linux-amd64.tar.gz';
 
     // ... but not in the local cache
     findSpy.mockImplementation(() => '');
 
     dlSpy.mockImplementation(async () => '/some/temp/path');
-    let toolPath = path.normalize('/cache/go/1.12.14/x64');
+    let toolPath = path.normalize('/cache/go/1.12.14/amd64');
     extractTarSpy.mockImplementation(async () => '/some/other/temp/path');
     cacheSpy.mockImplementation(async () => toolPath);
 
@@ -496,7 +496,7 @@ describe('setup-go', () => {
   it('reports a failed download', async () => {
     let errMsg = 'unhandled download message';
     os.platform = 'linux';
-    os.arch = 'x64';
+    sysGetArchSpy.mockImplementationOnce(() => 'amd64');
 
     inputs['go-version'] = '1.13.1';
 
@@ -697,7 +697,7 @@ describe('setup-go', () => {
 
     it('check latest version and install it from manifest', async () => {
       os.platform = 'linux';
-      sysGetArchSpy.mockImplementationOnce(() => 'x64');
+      os.arch = 'x64';
 
       const versionSpec = '1.17';
       const patchVersion = '1.17.6';
@@ -735,7 +735,7 @@ describe('setup-go', () => {
 
     it('fallback to dist if version is not found in manifest', async () => {
       os.platform = 'linux';
-      os.arch = 'x64';
+      sysGetArchSpy.mockImplementationOnce(() => 'amd64');
 
       let versionSpec = '1.13';
 
@@ -748,7 +748,7 @@ describe('setup-go', () => {
       findSpy.mockImplementation(() => '');
 
       dlSpy.mockImplementation(async () => '/some/temp/path');
-      let toolPath = path.normalize('/cache/go/1.13.7/x64');
+      let toolPath = path.normalize('/cache/go/1.13.7/amd64');
       extractTarSpy.mockImplementation(async () => '/some/other/temp/path');
       cacheSpy.mockImplementation(async () => toolPath);
 
@@ -772,7 +772,7 @@ describe('setup-go', () => {
 
     it('fallback to dist if manifest is not available', async () => {
       os.platform = 'linux';
-      os.arch = 'x64';
+      sysGetArchSpy.mockImplementationOnce(() => 'amd64');
 
       let versionSpec = '1.13';
 
@@ -790,7 +790,7 @@ describe('setup-go', () => {
       });
 
       dlSpy.mockImplementation(async () => '/some/temp/path');
-      let toolPath = path.normalize('/cache/go/1.13.7/x64');
+      let toolPath = path.normalize('/cache/go/1.13.7/amd64');
       extractTarSpy.mockImplementation(async () => '/some/other/temp/path');
       cacheSpy.mockImplementation(async () => toolPath);
 

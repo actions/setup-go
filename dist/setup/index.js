@@ -62858,7 +62858,7 @@ const httpm = __importStar(__nccwpck_require__(6255));
 const sys = __importStar(__nccwpck_require__(4300));
 const fs_1 = __importDefault(__nccwpck_require__(7147));
 const os_1 = __importDefault(__nccwpck_require__(2037));
-function getGo(versionSpec, checkLatest, auth, arch = sys.getArch()) {
+function getGo(versionSpec, checkLatest, auth, arch = os_1.default.arch()) {
     return __awaiter(this, void 0, void 0, function* () {
         let osPlat = os_1.default.platform();
         if (checkLatest) {
@@ -62972,7 +62972,7 @@ function extractGoArchive(archivePath) {
     });
 }
 exports.extractGoArchive = extractGoArchive;
-function getInfoFromManifest(versionSpec, stable, auth, arch = sys.getArch()) {
+function getInfoFromManifest(versionSpec, stable, auth, arch = os_1.default.arch()) {
     return __awaiter(this, void 0, void 0, function* () {
         let info = null;
         const releases = yield tc.getManifestFromRepo('actions', 'go-versions', auth, 'main');
