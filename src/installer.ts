@@ -223,9 +223,9 @@ async function getInfoFromDist(
 
 export async function findMatch(
   versionSpec: string,
-  arch = sys.getArch()
+  arch = os.arch()
 ): Promise<IGoVersion | undefined> {
-  let archFilter = translateArchToDistUrl(arch);
+  let archFilter = sys.getArch(arch);
   let platFilter = sys.getPlatform();
 
   let result: IGoVersion | undefined;
@@ -322,13 +322,4 @@ export function parseGoVersionFile(versionFilePath: string): string {
   }
 
   return contents.trim();
-}
-
-function translateArchToDistUrl(arch: string): string {
-  switch (arch) {
-    case 'arm':
-      return 'armv6l';
-    default:
-      return arch;
-  }
 }

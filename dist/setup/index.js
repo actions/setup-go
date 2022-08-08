@@ -63005,9 +63005,9 @@ function getInfoFromDist(versionSpec, arch) {
         };
     });
 }
-function findMatch(versionSpec, arch = sys.getArch()) {
+function findMatch(versionSpec, arch = os_1.default.arch()) {
     return __awaiter(this, void 0, void 0, function* () {
-        let archFilter = translateArchToDistUrl(arch);
+        let archFilter = sys.getArch(arch);
         let platFilter = sys.getPlatform();
         let result;
         let match;
@@ -63087,14 +63087,6 @@ function parseGoVersionFile(versionFilePath) {
     return contents.trim();
 }
 exports.parseGoVersionFile = parseGoVersionFile;
-function translateArchToDistUrl(arch) {
-    switch (arch) {
-        case 'arm':
-            return 'armv6l';
-        default:
-            return arch;
-    }
-}
 
 
 /***/ }),
@@ -63293,9 +63285,8 @@ function getPlatform() {
     return plat;
 }
 exports.getPlatform = getPlatform;
-function getArch() {
+function getArch(arch) {
     // 'arm', 'arm64', 'ia32', 'mips', 'mipsel', 'ppc', 'ppc64', 's390', 's390x', 'x32', and 'x64'.
-    let arch = os.arch();
     // wants amd64, 386, arm64, armv61, ppc641e, s390x
     // currently not supported by runner but future proofed mapping
     switch (arch) {
@@ -63307,6 +63298,9 @@ function getArch() {
         //   break;
         case 'x32':
             arch = '386';
+            break;
+        case 'arm':
+            arch = 'armv6l';
             break;
     }
     return arch;
