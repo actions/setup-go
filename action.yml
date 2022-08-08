@@ -17,6 +17,8 @@ inputs:
     default: false
   cache-dependency-path:
     description: 'Used to specify the path to a dependency file - go.sum'
+  architecture:
+    description: 'Target architecture for Go to use. Examples: x86, x64. Will use system architecture by default.'
 outputs:
   go-version:
     description: 'The installed Go version. Useful when given a version range as input.'  

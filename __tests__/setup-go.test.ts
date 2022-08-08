@@ -7,6 +7,7 @@ import osm from 'os';
 import path from 'path';
 import * as main from '../src/main';
 import * as im from '../src/installer';
+import * as sys from '../src/system';
 
 let goJsonData = require('./data/golang-dl.json');
 let matchers = require('../matchers.json');
@@ -41,6 +42,7 @@ describe('setup-go', () => {
   let mkdirpSpy: jest.SpyInstance;
   let execSpy: jest.SpyInstance;
   let getManifestSpy: jest.SpyInstance;
+  let sysGetArchSpy: jest.SpyInstance;
 
   beforeAll(async () => {
     process.env['GITHUB_ENV'] = ''; // Stub out Environment file functionality so we can verify it writes to standard out (toolkit is backwards compatible)
@@ -64,6 +66,7 @@ describe('setup-go', () => {
     archSpy = jest.spyOn(osm, 'arch');
     archSpy.mockImplementation(() => os['arch']);
     execSpy = jest.spyOn(cp, 'execSync');
+    sysGetArchSpy = jest.spyOn(sys, 'getArch');
 
     // switch path join behaviour based on set os.platform
     joinSpy = jest.spyOn(path, 'join');
@@ -129,7 +132,7 @@ describe('setup-go', () => {
 
   it('can find 1.9.7 from manifest on osx', async () => {
     os.platform = 'darwin';
-    os.arch = 'x64';
+    sysGetArchSpy.mockImplementationOnce(() => 'x64');
 
     let match = await im.getInfoFromManifest('1.9.7', true, 'mocktoken');
     expect(match).toBeDefined();
@@ -142,7 +145,7 @@ describe('setup-go', () => {
 
   it('can find 1.9 from manifest on linux', async () => {
     os.platform = 'linux';
-    os.arch = 'x64';
+    sysGetArchSpy.mockImplementationOnce(() => 'x64');
 
     let match = await im.getInfoFromManifest('1.9.7', true, 'mocktoken');
     expect(match).toBeDefined();
@@ -155,7 +158,7 @@ describe('setup-go', () => {
 
   it('can find 1.9 from manifest on windows', async () => {
     os.platform = 'win32';
-    os.arch = 'x64';
+    sysGetArchSpy.mockImplementationOnce(() => 'x64');
 
     let match = await im.getInfoFromManifest('1.9.7', true, 'mocktoken');
     expect(match).toBeDefined();
@@ -367,7 +370,7 @@ describe('setup-go', () => {
 
   it('does not find a version that does not exist', async () => {
     os.platform = 'linux';
-    os.arch = 'x64';
+    sysGetArchSpy.mockImplementationOnce(() => 'x64');
 
     inputs['go-version'] = '9.99.9';
 
@@ -381,7 +384,7 @@ describe('setup-go', () => {
 
   it('downloads a version from a manifest match', async () => {
     os.platform = 'linux';
-    os.arch = 'x64';
+    sysGetArchSpy.mockImplementationOnce(() => 'x64');
 
     let versionSpec = '1.12.16';
 
@@ -418,7 +421,7 @@ describe('setup-go', () => {
 
   it('downloads a major and minor from a manifest match', async () => {
     os.platform = 'linux';
-    os.arch = 'x64';
+    sysGetArchSpy.mockImplementationOnce(() => 'x64');
 
     let versionSpec = '1.12';
 
@@ -453,7 +456,7 @@ describe('setup-go', () => {
     expect(cnSpy).toHaveBeenCalledWith(`::add-path::${expPath}${osm.EOL}`);
   });
 
-  it('falls back to a version from node dist', async () => {
+  it('falls back to a version from go dist', async () => {
     os.platform = 'linux';
     os.arch = 'x64';
 
@@ -694,7 +697,7 @@ describe('setup-go', () => {
 
     it('check latest version and install it from manifest', async () => {
       os.platform = 'linux';
-      os.arch = 'x64';
+      sysGetArchSpy.mockImplementationOnce(() => 'x64');
 
       const versionSpec = '1.17';
       const patchVersion = '1.17.6';
@@ -879,5 +882,40 @@ exclude example.com/thismodule v1.3.0
         `::error::The specified go version file at: go.mod does not exist${osm.EOL}`
       );
     });
+
+    it('acquires specified architecture of go', async () => {
+      for (const {arch, version, osSpec} of [
+        {arch: 'amd64', version: '1.13.7', osSpec: 'linux'},
+        {arch: 'armv6l', version: '1.12.2', osSpec: 'linux'}
+      ]) {
+        os.platform = osSpec;
+        os.arch = arch;
+
+        const fileExtension = os.platform === 'win32' ? 'zip' : 'tar.gz';
+
+        const platform = os.platform === 'win32' ? 'win' : os.platform;
+
+        inputs['go-version'] = version;
+        inputs['architecture'] = arch;
+
+        let expectedUrl =
+          platform === 'win32'
+            ? `https://github.com/actions/go-versions/releases/download/${version}/go-${version}-${platform}-${arch}.${fileExtension}`
+            : `https://storage.googleapis.com/golang/go${version}.${osSpec}-${arch}.${fileExtension}`;
+
+        // ... but not in the local cache
+        findSpy.mockImplementation(() => '');
+
+        dlSpy.mockImplementation(async () => '/some/temp/path');
+        let toolPath = path.normalize(`/cache/go/${version}/${arch}`);
+        cacheSpy.mockImplementation(async () => toolPath);
+
+        await main.run();
+
+        expect(logSpy).toHaveBeenCalledWith(
+          `Acquiring go${version} from ${expectedUrl}`
+        );
+      }
+    }, 100000);
   });
 });
