@@ -7,7 +7,6 @@ import osm from 'os';
 import path from 'path';
 import * as main from '../src/main';
 import * as im from '../src/installer';
-import * as sys from '../src/system';
 
 let goJsonData = require('./data/golang-dl.json');
 let matchers = require('../matchers.json');
@@ -42,7 +41,6 @@ describe('setup-go', () => {
   let mkdirpSpy: jest.SpyInstance;
   let execSpy: jest.SpyInstance;
   let getManifestSpy: jest.SpyInstance;
-  let sysGetArchSpy: jest.SpyInstance;
 
   beforeAll(async () => {
     process.env['GITHUB_ENV'] = ''; // Stub out Environment file functionality so we can verify it writes to standard out (toolkit is backwards compatible)
@@ -66,7 +64,6 @@ describe('setup-go', () => {
     archSpy = jest.spyOn(osm, 'arch');
     archSpy.mockImplementation(() => os['arch']);
     execSpy = jest.spyOn(cp, 'execSync');
-    sysGetArchSpy = jest.spyOn(sys, 'getArch');
 
     // switch path join behaviour based on set os.platform
     joinSpy = jest.spyOn(path, 'join');
@@ -325,7 +322,7 @@ describe('setup-go', () => {
 
   it('downloads a version not in the cache', async () => {
     os.platform = 'linux';
-    sysGetArchSpy.mockImplementationOnce(() => 'amd64');
+    os.arch = 'x64';
 
     inputs['go-version'] = '1.13.1';
 
@@ -345,7 +342,7 @@ describe('setup-go', () => {
 
   it('downloads a version not in the cache (windows)', async () => {
     os.platform = 'win32';
-    sysGetArchSpy.mockImplementationOnce(() => 'amd64');
+    os.arch = 'x64';
 
     inputs['go-version'] = '1.13.1';
     process.env['RUNNER_TEMP'] = 'C:\\temp\\';
@@ -458,7 +455,7 @@ describe('setup-go', () => {
 
   it('falls back to a version from go dist', async () => {
     os.platform = 'linux';
-    sysGetArchSpy.mockImplementationOnce(() => 'amd64');
+    os.arch = 'x64';
 
     let versionSpec = '1.12.14';
 
@@ -496,7 +493,7 @@ describe('setup-go', () => {
   it('reports a failed download', async () => {
     let errMsg = 'unhandled download message';
     os.platform = 'linux';
-    sysGetArchSpy.mockImplementationOnce(() => 'amd64');
+    os.arch = 'x64';
 
     inputs['go-version'] = '1.13.1';
 
@@ -735,7 +732,7 @@ describe('setup-go', () => {
 
     it('fallback to dist if version is not found in manifest', async () => {
       os.platform = 'linux';
-      sysGetArchSpy.mockImplementationOnce(() => 'amd64');
+      os.arch = 'x64';
 
       let versionSpec = '1.13';
 
@@ -772,7 +769,7 @@ describe('setup-go', () => {
 
     it('fallback to dist if manifest is not available', async () => {
       os.platform = 'linux';
-      sysGetArchSpy.mockImplementationOnce(() => 'amd64');
+      os.arch = 'x64';
 
       let versionSpec = '1.13';
 
