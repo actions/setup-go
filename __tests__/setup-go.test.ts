@@ -787,7 +787,7 @@ describe('setup-go', () => {
       });
 
       dlSpy.mockImplementation(async () => '/some/temp/path');
-      let toolPath = path.normalize('/cache/go/1.13.7/amd64');
+      let toolPath = path.normalize('/cache/go/1.13.7/x64');
       extractTarSpy.mockImplementation(async () => '/some/other/temp/path');
       cacheSpy.mockImplementation(async () => toolPath);
 
