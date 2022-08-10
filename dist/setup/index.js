@@ -62874,7 +62874,7 @@ function getGo(versionSpec, checkLatest, auth, arch = os_1.default.arch()) {
         }
         // check cache
         let toolPath;
-        toolPath = tc.find('go', versionSpec);
+        toolPath = tc.find('go', versionSpec, arch);
         // If not found in cache, download
         if (toolPath) {
             core.info(`Found in cache @ ${toolPath}`);
@@ -63148,11 +63148,12 @@ function run() {
             const versionSpec = resolveVersionInput();
             const cache = core.getBooleanInput('cache');
             core.info(`Setup go version spec ${versionSpec}`);
+            const arch = core.getInput('architecture');
             if (versionSpec) {
                 let token = core.getInput('token');
                 let auth = !token || cache_utils_1.isGhes() ? undefined : `token ${token}`;
                 const checkLatest = core.getBooleanInput('check-latest');
-                const installDir = yield installer.getGo(versionSpec, checkLatest, auth);
+                const installDir = yield installer.getGo(versionSpec, checkLatest, auth, arch);
                 core.addPath(path_1.default.join(installDir, 'bin'));
                 core.info('Added go to the path');
                 const version = installer.makeSemver(versionSpec);

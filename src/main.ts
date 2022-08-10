@@ -19,12 +19,19 @@ export async function run() {
     const cache = core.getBooleanInput('cache');
     core.info(`Setup go version spec ${versionSpec}`);
 
+    const arch = core.getInput('architecture');
+
     if (versionSpec) {
       let token = core.getInput('token');
       let auth = !token || isGhes() ? undefined : `token ${token}`;
 
       const checkLatest = core.getBooleanInput('check-latest');
-      const installDir = await installer.getGo(versionSpec, checkLatest, auth);
+      const installDir = await installer.getGo(
+        versionSpec,
+        checkLatest,
+        auth,
+        arch
+      );
 
       core.addPath(path.join(installDir, 'bin'));
       core.info('Added go to the path');
