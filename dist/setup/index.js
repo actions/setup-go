@@ -63150,7 +63150,9 @@ function run() {
             const cache = core.getBooleanInput('cache');
             core.info(`Setup go version spec ${versionSpec}`);
             let arch = core.getInput('architecture');
-            arch = arch ? arch : os_1.default.arch();
+            if (!arch) {
+                arch = os_1.default.arch();
+            }
             if (versionSpec) {
                 let token = core.getInput('token');
                 let auth = !token || cache_utils_1.isGhes() ? undefined : `token ${token}`;

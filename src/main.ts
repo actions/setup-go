@@ -21,7 +21,10 @@ export async function run() {
     core.info(`Setup go version spec ${versionSpec}`);
 
     let arch = core.getInput('architecture');
-    arch = arch ? arch : os.arch();
+
+    if (!arch) {
+      arch = os.arch();
+    }
 
     if (versionSpec) {
       let token = core.getInput('token');
