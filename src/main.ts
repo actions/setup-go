@@ -7,6 +7,7 @@ import {restoreCache} from './cache-restore';
 import {isGhes, isCacheFeatureAvailable} from './cache-utils';
 import cp from 'child_process';
 import fs from 'fs';
+import os from 'os';
 
 export async function run() {
   try {
@@ -19,7 +20,8 @@ export async function run() {
     const cache = core.getBooleanInput('cache');
     core.info(`Setup go version spec ${versionSpec}`);
 
-    const arch = core.getInput('architecture');
+    let arch = core.getInput('architecture');
+    arch = arch ? arch : os.arch();
 
     if (versionSpec) {
       let token = core.getInput('token');

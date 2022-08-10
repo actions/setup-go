@@ -63138,6 +63138,7 @@ const cache_restore_1 = __nccwpck_require__(9517);
 const cache_utils_1 = __nccwpck_require__(1678);
 const child_process_1 = __importDefault(__nccwpck_require__(2081));
 const fs_1 = __importDefault(__nccwpck_require__(7147));
+const os_1 = __importDefault(__nccwpck_require__(2037));
 function run() {
     return __awaiter(this, void 0, void 0, function* () {
         try {
@@ -63148,7 +63149,8 @@ function run() {
             const versionSpec = resolveVersionInput();
             const cache = core.getBooleanInput('cache');
             core.info(`Setup go version spec ${versionSpec}`);
-            const arch = core.getInput('architecture');
+            let arch = core.getInput('architecture');
+            arch = arch ? arch : os_1.default.arch();
             if (versionSpec) {
                 let token = core.getInput('token');
                 let auth = !token || cache_utils_1.isGhes() ? undefined : `token ${token}`;
