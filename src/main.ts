@@ -7,6 +7,7 @@ import {restoreCache} from './cache-restore';
 import {isGhes, isCacheFeatureAvailable} from './cache-utils';
 import cp from 'child_process';
 import fs from 'fs';
+import os from 'os';
 
 export async function run() {
   try {
@@ -19,12 +20,23 @@ export async function run() {
     const cache = core.getBooleanInput('cache');
     core.info(`Setup go version spec ${versionSpec}`);
 
+    let arch = core.getInput('architecture');
+
+    if (!arch) {
+      arch = os.arch();
+    }
+
     if (versionSpec) {
       let token = core.getInput('token');
       let auth = !token || isGhes() ? undefined : `token ${token}`;
 
       const checkLatest = core.getBooleanInput('check-latest');
-      const installDir = await installer.getGo(versionSpec, checkLatest, auth);
+      const installDir = await installer.getGo(
+        versionSpec,
+        checkLatest,
+        auth,
+        arch
+      );
 
       core.addPath(path.join(installDir, 'bin'));
       core.info('Added go to the path');

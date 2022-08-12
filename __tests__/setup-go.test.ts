@@ -453,7 +453,7 @@ describe('setup-go', () => {
     expect(cnSpy).toHaveBeenCalledWith(`::add-path::${expPath}${osm.EOL}`);
   });
 
-  it('falls back to a version from node dist', async () => {
+  it('falls back to a version from go dist', async () => {
     os.platform = 'linux';
     os.arch = 'x64';
 
@@ -879,5 +879,40 @@ exclude example.com/thismodule v1.3.0
         `::error::The specified go version file at: go.mod does not exist${osm.EOL}`
       );
     });
+
+    it('acquires specified architecture of go', async () => {
+      for (const {arch, version, osSpec} of [
+        {arch: 'amd64', version: '1.13.7', osSpec: 'linux'},
+        {arch: 'armv6l', version: '1.12.2', osSpec: 'linux'}
+      ]) {
+        os.platform = osSpec;
+        os.arch = arch;
+
+        const fileExtension = os.platform === 'win32' ? 'zip' : 'tar.gz';
+
+        const platform = os.platform === 'win32' ? 'win' : os.platform;
+
+        inputs['go-version'] = version;
+        inputs['architecture'] = arch;
+
+        let expectedUrl =
+          platform === 'win32'
+            ? `https://github.com/actions/go-versions/releases/download/${version}/go-${version}-${platform}-${arch}.${fileExtension}`
+            : `https://storage.googleapis.com/golang/go${version}.${osSpec}-${arch}.${fileExtension}`;
+
+        // ... but not in the local cache
+        findSpy.mockImplementation(() => '');
+
+        dlSpy.mockImplementation(async () => '/some/temp/path');
+        let toolPath = path.normalize(`/cache/go/${version}/${arch}`);
+        cacheSpy.mockImplementation(async () => toolPath);
+
+        await main.run();
+
+        expect(logSpy).toHaveBeenCalledWith(
+          `Acquiring go${version} from ${expectedUrl}`
+        );
+      }
+    }, 100000);
   });
 });
