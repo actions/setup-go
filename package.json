@@ -1,6 +1,6 @@
 {
   "name": "setup-go",
-  "version": "1.0.0",
+  "version": "3.3.0",
   "private": true,
   "description": "setup go action",
   "main": "lib/setup-go.js",
