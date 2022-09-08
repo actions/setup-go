@@ -60008,7 +60008,7 @@ const cachePackages = () => __awaiter(void 0, void 0, void 0, function* () {
     const cachePaths = yield cache_utils_1.getCacheDirectoryPath(packageManagerInfo);
     const nonExistingPaths = cachePaths.filter(cachePath => !fs_1.default.existsSync(cachePath));
     if (nonExistingPaths.length === cachePaths.length) {
-        core.warning("There are no cache folders on the disk");
+        core.warning('There are no cache folders on the disk');
         return;
     }
     if (nonExistingPaths.length) {
