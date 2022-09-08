@@ -98,15 +98,15 @@ describe('setup-go', () => {
     logSpy = jest.spyOn(core, 'info');
     dbgSpy = jest.spyOn(core, 'debug');
     getSpy.mockImplementation(() => <im.IGoVersion[] | null>goJsonData);
-    cnSpy.mockImplementation((line) => {
+    cnSpy.mockImplementation(line => {
       // uncomment to debug
       // process.stderr.write('write:' + line + '\n');
     });
-    logSpy.mockImplementation((line) => {
+    logSpy.mockImplementation(line => {
       // uncomment to debug
       //process.stderr.write('log:' + line + '\n');
     });
-    dbgSpy.mockImplementation((line) => {
+    dbgSpy.mockImplementation(msg => {
       // uncomment to see debug output
       // process.stderr.write(msg + '\n');
     });
