@@ -4,7 +4,7 @@ import * as installer from './installer';
 import * as semver from 'semver';
 import path from 'path';
 import {restoreCache} from './cache-restore';
-import {isGhes, isCacheFeatureAvailable} from './cache-utils';
+import {isCacheFeatureAvailable} from './cache-utils';
 import cp from 'child_process';
 import fs from 'fs';
 import os from 'os';
@@ -28,7 +28,7 @@ export async function run() {
 
     if (versionSpec) {
       let token = core.getInput('token');
-      let auth = !token || isGhes() ? undefined : `token ${token}`;
+      let auth = !token ? undefined : `token ${token}`;
 
       const checkLatest = core.getBooleanInput('check-latest');
       const installDir = await installer.getGo(
