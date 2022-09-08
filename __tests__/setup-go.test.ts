@@ -98,15 +98,15 @@ describe('setup-go', () => {
     logSpy = jest.spyOn(core, 'info');
     dbgSpy = jest.spyOn(core, 'debug');
     getSpy.mockImplementation(() => <im.IGoVersion[] | null>goJsonData);
-    cnSpy.mockImplementation(line => {
+    cnSpy.mockImplementation((line) => {
       // uncomment to debug
       // process.stderr.write('write:' + line + '\n');
     });
-    logSpy.mockImplementation(line => {
+    logSpy.mockImplementation((line) => {
       // uncomment to debug
       //process.stderr.write('log:' + line + '\n');
     });
-    dbgSpy.mockImplementation(msg => {
+    dbgSpy.mockImplementation((line) => {
       // uncomment to see debug output
       // process.stderr.write(msg + '\n');
     });
@@ -295,7 +295,6 @@ describe('setup-go', () => {
     findSpy.mockImplementation(() => toolPath);
     await main.run();
 
-    let expPath = path.join(toolPath, 'bin');
     expect(logSpy).toHaveBeenCalledWith(`Found in cache @ ${toolPath}`);
   });
 
@@ -462,9 +461,6 @@ describe('setup-go', () => {
     inputs['go-version'] = versionSpec;
     inputs['token'] = 'faketoken';
 
-    let expectedUrl =
-      'https://github.com/actions/go-versions/releases/download/1.12.14-20200616.18/go-1.12.14-linux-x64.tar.gz';
-
     // ... but not in the local cache
     findSpy.mockImplementation(() => '');
 
@@ -526,7 +522,7 @@ describe('setup-go', () => {
     });
 
     mkdirpSpy.mockImplementation(async () => {});
-    existsSpy.mockImplementation(path => {
+    existsSpy.mockImplementation(() => {
       return false;
     });
 
@@ -707,8 +703,6 @@ describe('setup-go', () => {
       const toolPath = path.normalize('/cache/go/1.17.5/x64');
       extractTarSpy.mockImplementation(async () => '/some/other/temp/path');
       cacheSpy.mockImplementation(async () => toolPath);
-      const expectedUrl =
-        'https://github.com/actions/go-versions/releases/download/1.17.6-1668090892/go-1.17.6-darwin-x64.tar.gz';
 
       await main.run();
 
@@ -834,7 +828,7 @@ exclude example.com/thismodule v1.3.0
 
     it('reads version from go.mod', async () => {
       inputs['go-version-file'] = 'go.mod';
-      existsSpy.mockImplementation(path => true);
+      existsSpy.mockImplementation(() => true);
       readFileSpy.mockImplementation(() => Buffer.from(goModContents));
 
       await main.run();
@@ -846,7 +840,7 @@ exclude example.com/thismodule v1.3.0
 
     it('reads version from .go-version', async () => {
       inputs['go-version-file'] = '.go-version';
-      existsSpy.mockImplementation(path => true);
+      existsSpy.mockImplementation(() => true);
       readFileSpy.mockImplementation(() => Buffer.from(`1.13.0${osm.EOL}`));
 
       await main.run();
@@ -859,7 +853,7 @@ exclude example.com/thismodule v1.3.0
     it('is overwritten by go-version', async () => {
       inputs['go-version'] = '1.13.1';
       inputs['go-version-file'] = 'go.mod';
-      existsSpy.mockImplementation(path => true);
+      existsSpy.mockImplementation(() => true);
       readFileSpy.mockImplementation(() => Buffer.from(goModContents));
 
       await main.run();
@@ -871,7 +865,7 @@ exclude example.com/thismodule v1.3.0
 
     it('reports a read failure', async () => {
       inputs['go-version-file'] = 'go.mod';
-      existsSpy.mockImplementation(path => false);
+      existsSpy.mockImplementation(() => false);
 
       await main.run();
 
