@@ -59965,7 +59965,7 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", ({ value: true }));
-exports.logWarning = exports.run = void 0;
+exports.run = void 0;
 const core = __importStar(__nccwpck_require__(2186));
 const cache = __importStar(__nccwpck_require__(7799));
 const fs_1 = __importDefault(__nccwpck_require__(7147));
@@ -59984,7 +59984,14 @@ function run() {
             yield cachePackages();
         }
         catch (error) {
-            core.setFailed(error.message);
+            let message = 'Unknown error!';
+            if (error instanceof Error) {
+                message = error.message;
+            }
+            if (typeof error === 'string') {
+                message = error;
+            }
+            core.setFailed(message);
         }
     });
 }
@@ -60002,9 +60009,7 @@ const cachePackages = () => __awaiter(void 0, void 0, void 0, function* () {
     const nonExistingPaths = cachePaths.filter(cachePath => !fs_1.default.existsSync(cachePath));
     if (nonExistingPaths.length === cachePaths.length) {
         core.warning(`There are no cache folders on the disk`);
-        logWarning(`There are no cache folders on the disk`);
         return;
-        throw new Error(`There are no cache folders on the disk`);
     }
     if (nonExistingPaths.length) {
         logWarning(`Cache folder path is retrieved but doesn't exist on disk: ${nonExistingPaths.join(', ')}`);
@@ -60023,7 +60028,6 @@ function logWarning(message) {
     const warningPrefix = '[warning]';
     core.info(`${warningPrefix}${message}`);
 }
-exports.logWarning = logWarning;
 run();
 
 
