@@ -16,7 +16,14 @@ export async function run() {
   try {
     await cachePackages();
   } catch (error) {
-    core.setFailed(error.message);
+    let message = 'Unknown error!';
+    if (error instanceof Error) {
+      message = error.message;
+    }
+    if (typeof error === 'string') {
+      message = error;
+    }
+    core.setFailed(message);
   }
 }
 
@@ -40,7 +47,8 @@ const cachePackages = async () => {
   );
 
   if (nonExistingPaths.length === cachePaths.length) {
-    throw new Error(`There are no cache folders on the disk`);
+    core.warning('There are no cache folders on the disk');
+    return;
   }
 
   if (nonExistingPaths.length) {
@@ -65,7 +73,7 @@ const cachePackages = async () => {
   core.info(`Cache saved with the key: ${primaryKey}`);
 };
 
-export function logWarning(message: string): void {
+function logWarning(message: string): void {
   const warningPrefix = '[warning]';
   core.info(`${warningPrefix}${message}`);
 }
