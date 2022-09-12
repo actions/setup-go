@@ -63032,10 +63032,9 @@ const path_1 = __importDefault(__nccwpck_require__(1017));
 const fs_1 = __importDefault(__nccwpck_require__(7147));
 const constants_1 = __nccwpck_require__(9042);
 const cache_utils_1 = __nccwpck_require__(1678);
-exports.restoreCache = (packageManager, cacheDependencyPath) => __awaiter(void 0, void 0, void 0, function* () {
+exports.restoreCache = (versionSpec, packageManager, cacheDependencyPath) => __awaiter(void 0, void 0, void 0, function* () {
     const packageManagerInfo = yield cache_utils_1.getPackageManagerInfo(packageManager);
     const platform = process.env.RUNNER_OS;
-    const versionSpec = core.getInput('go-version');
     const cachePaths = yield cache_utils_1.getCacheDirectoryPath(packageManagerInfo);
     const dependencyFilePath = cacheDependencyPath
         ? cacheDependencyPath
@@ -63538,7 +63537,7 @@ function run() {
             if (cache && cache_utils_1.isCacheFeatureAvailable()) {
                 const packageManager = 'default';
                 const cacheDependencyPath = core.getInput('cache-dependency-path');
-                yield cache_restore_1.restoreCache(packageManager, cacheDependencyPath);
+                yield cache_restore_1.restoreCache(versionSpec, packageManager, cacheDependencyPath);
             }
             // add problem matchers
             const matchersPath = path_1.default.join(__dirname, '../..', 'matchers.json');
