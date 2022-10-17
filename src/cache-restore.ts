@@ -9,12 +9,12 @@ import {PackageManagerInfo} from './package-managers';
 import {getCacheDirectoryPath, getPackageManagerInfo} from './cache-utils';
 
 export const restoreCache = async (
+  versionSpec: string,
   packageManager: string,
   cacheDependencyPath?: string
 ) => {
   const packageManagerInfo = await getPackageManagerInfo(packageManager);
   const platform = process.env.RUNNER_OS;
-  const versionSpec = core.getInput('go-version');
 
   const cachePaths = await getCacheDirectoryPath(packageManagerInfo);
 

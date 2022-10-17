@@ -56,7 +56,7 @@ export async function run() {
     if (cache && isCacheFeatureAvailable()) {
       const packageManager = 'default';
       const cacheDependencyPath = core.getInput('cache-dependency-path');
-      await restoreCache(packageManager, cacheDependencyPath);
+      await restoreCache(versionSpec, packageManager, cacheDependencyPath);
     }
 
     // add problem matchers

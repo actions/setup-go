@@ -17,6 +17,7 @@ describe('restoreCache', () => {
   let infoSpy = jest.spyOn(core, 'info');
   let setOutputSpy = jest.spyOn(core, 'setOutput');
 
+  const versionSpec = '1.13.1';
   const packageManager = 'default';
   const cacheDependencyPath = 'path';
 
@@ -40,7 +41,11 @@ describe('restoreCache', () => {
 
     //Act + Assert
     expect(async () => {
-      await cacheRestore.restoreCache(packageManager, cacheDependencyPath);
+      await cacheRestore.restoreCache(
+        versionSpec,
+        packageManager,
+        cacheDependencyPath
+      );
     }).rejects.toThrowError(
       'Some specified paths were not resolved, unable to cache dependencies.'
     );
@@ -61,7 +66,11 @@ describe('restoreCache', () => {
     });
 
     //Act + Assert
-    await cacheRestore.restoreCache(packageManager, cacheDependencyPath);
+    await cacheRestore.restoreCache(
+      versionSpec,
+      packageManager,
+      cacheDependencyPath
+    );
     expect(infoSpy).toBeCalledWith(`Cache is not found`);
   });
 
@@ -80,7 +89,11 @@ describe('restoreCache', () => {
     });
 
     //Act + Assert
-    await cacheRestore.restoreCache(packageManager, cacheDependencyPath);
+    await cacheRestore.restoreCache(
+      versionSpec,
+      packageManager,
+      cacheDependencyPath
+    );
     expect(setOutputSpy).toBeCalledWith('cache-hit', true);
   });
 });
