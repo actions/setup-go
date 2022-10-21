@@ -1,3 +1,7 @@
-"Need Tests":
-- any: ['**']
-  all: ['!__tests__/**']
+# "Need Tests":
+# - any: ['**']
+#   all: ['!__tests__/**']
+
+@domain/core:
+- package/core/*
+- package/core/**/*
