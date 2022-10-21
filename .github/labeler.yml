@@ -1,2 +1,3 @@
 "Need Tests":
-- any: ['**', '!__tests__/**']
+- any: ['**']
+  all: ['!__tests__/**']
