@@ -7,8 +7,14 @@
 # - package/core/*
 # - package/core/**/*
 
-bug:
-- non-existent-file.txt
+# Removing labels
+# bug:
+# - non-existent-file.txt
+# invalid:
+# - non-existent-file.txt
 
-invalid:
-- non-existent-file.txt
+# Match all files
+"Tests failed":
+  - '**'
+  - '.*'
+  - '.*/**'
