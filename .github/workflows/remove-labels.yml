@@ -16,7 +16,8 @@ jobs:
         exit 1
       shell: pwsh
     
-    - uses: actions/labeler@v4
+    - name: Add label if tests fail
+      uses: actions/labeler@v4
       with:
         repo-token: "${{ secrets.GITHUB_TOKEN }}"
-      if: ${{ steps.tests.conclusion == 'failure' }}
+      if: ${{ failure() }}
