@@ -9,6 +9,8 @@ jobs:
       pull-requests: write
     runs-on: ubuntu-latest
     steps:
+    - run: Start-Sleep -Seconds 30
+      shell: pwsh
     - uses: actions/labeler@v4
       with:
         repo-token: "${{ secrets.GITHUB_TOKEN }}"
