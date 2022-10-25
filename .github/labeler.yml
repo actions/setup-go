@@ -2,6 +2,13 @@
 # - any: ['**']
 #   all: ['!__tests__/**']
 
-@domain/core:
-- package/core/*
-- package/core/**/*
+# the following example does not work
+# @domain/core:
+# - package/core/*
+# - package/core/**/*
+
+Label1:
+- non-existent-file.txt
+
+Label2:
+- non-existent-file.txt
