@@ -826,6 +826,12 @@ replace example.com/thatmodule => ../thatmodule
 exclude example.com/thismodule v1.3.0
 `;
 
+    const goWorkContents = `go 1.19
+
+use .
+
+`;
+
     it('reads version from go.mod', async () => {
       inputs['go-version-file'] = 'go.mod';
       existsSpy.mockImplementation(() => true);
@@ -836,6 +842,18 @@ exclude example.com/thismodule v1.3.0
       expect(logSpy).toHaveBeenCalledWith('Setup go version spec 1.14');
       expect(logSpy).toHaveBeenCalledWith('Attempting to download 1.14...');
       expect(logSpy).toHaveBeenCalledWith('matching 1.14...');
+    });
+
+    it('reads version from go.work', async () => {
+      inputs['go-version-file'] = 'go.work';
+      existsSpy.mockImplementation(() => true);
+      readFileSpy.mockImplementation(() => Buffer.from(goWorkContents));
+
+      await main.run();
+
+      expect(logSpy).toHaveBeenCalledWith('Setup go version spec 1.19');
+      expect(logSpy).toHaveBeenCalledWith('Attempting to download 1.19...');
+      expect(logSpy).toHaveBeenCalledWith('matching 1.19...');
     });
 
     it('reads version from .go-version', async () => {
