@@ -63519,7 +63519,7 @@ function run() {
             }
             if (versionSpec) {
                 let token = core.getInput('token');
-                let auth = !token || cache_utils_1.isGhes() ? undefined : `token ${token}`;
+                let auth = !token ? undefined : `token ${token}`;
                 const checkLatest = core.getBooleanInput('check-latest');
                 const installDir = yield installer.getGo(versionSpec, checkLatest, auth, arch);
                 core.addPath(path_1.default.join(installDir, 'bin'));

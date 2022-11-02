@@ -169,6 +169,21 @@ The `go-version` input supports the following syntax:
 
 For more information about semantic versioning, please refer to [semver](https://github.com/npm/node-semver) documentation.
 
+## Using `setup-go` on GHES
+
+`setup-go` comes pre-installed on the appliance with GHES if Actions is enabled. When dynamically downloading Go distributions, `setup-go` downloads distributions from [`actions/go-versions`](https://github.com/actions/go-versions) on github.com (outside of the appliance). These calls to `actions/go-versions` are made via unauthenticated requests, which are limited to [60 requests per hour per IP](https://docs.github.com/en/rest/overview/resources-in-the-rest-api#rate-limiting). If more requests are made within the time frame, then you will start to see rate-limit errors during downloading that looks like: `##[error]API rate limit exceeded for...`. After that error the action will try to download versions directly from https://storage.googleapis.com/golang, but it also can have rate limit so it's better to put token.
+
+To get a higher rate limit, you can [generate a personal access token on github.com](https://github.com/settings/tokens/new) and pass it as the `token` input for the action:
+
+```yaml
+uses: actions/setup-go@v3
+with:
+  token: ${{ secrets.GH_DOTCOM_TOKEN }}
+  go-version: 1.18
+```
+
+If the runner is not able to access github.com, any Go versions requested during a workflow run must come from the runner's tool cache. See "[Setting up the tool cache on self-hosted runners without internet access](https://docs.github.com/en/enterprise-server@3.2/admin/github-actions/managing-access-to-actions-from-githubcom/setting-up-the-tool-cache-on-self-hosted-runners-without-internet-access)" for more information.
+
 # License
 
 The scripts and documentation in this project are released under the [MIT License](LICENSE)
