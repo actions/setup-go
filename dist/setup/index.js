@@ -63439,7 +63439,8 @@ function makeSemver(version) {
 exports.makeSemver = makeSemver;
 function parseGoVersionFile(versionFilePath) {
     const contents = fs_1.default.readFileSync(versionFilePath).toString();
-    if (path.basename(versionFilePath) === 'go.mod') {
+    if (path.basename(versionFilePath) === 'go.mod' ||
+        path.basename(versionFilePath) === 'go.work') {
         const match = contents.match(/^go (\d+(\.\d+)*)/m);
         return match ? match[1] : '';
     }
