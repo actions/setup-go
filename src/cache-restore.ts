@@ -48,7 +48,8 @@ export const restoreCache = async (
 const findDependencyFile = async (packageManager: PackageManagerInfo) => {
   let dependencyFile = packageManager.dependencyFilePattern;
 
-  const globber = await glob.create(`**/${dependencyFile}`);
+  const patterns = [`**/${dependencyFile}`, dependencyFile];
+  const globber = await glob.create(patterns.join('\n'));
   const files = await globber.glob();
 
   if (!files.length) {

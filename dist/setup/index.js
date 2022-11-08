@@ -63053,7 +63053,8 @@ exports.restoreCache = (versionSpec, packageManager, cacheDependencyPath) => __a
 });
 const findDependencyFile = (packageManager) => __awaiter(void 0, void 0, void 0, function* () {
     let dependencyFile = packageManager.dependencyFilePattern;
-    const globber = yield glob.create(`**/${dependencyFile}`);
+    const patterns = [`**/${dependencyFile}`, dependencyFile];
+    const globber = yield glob.create(patterns.join('\n'));
     const files = yield globber.glob();
     if (!files.length) {
         throw new Error(`Dependencies file is not found. Supported file pattern: ${dependencyFile}`);
