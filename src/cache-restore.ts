@@ -1,8 +1,6 @@
 import * as cache from '@actions/cache';
 import * as core from '@actions/core';
 import * as glob from '@actions/glob';
-import path from 'path';
-import fs from 'fs';
 
 import {State, Outputs} from './constants';
 import {PackageManagerInfo} from './package-managers';
@@ -20,7 +18,7 @@ export const restoreCache = async (
 
   const dependencyFilePath = cacheDependencyPath
     ? cacheDependencyPath
-    : findDependencyFile(packageManagerInfo);
+    : await findDependencyFile(packageManagerInfo);
   const fileHash = await glob.hashFiles(dependencyFilePath);
 
   if (!fileHash) {
@@ -47,17 +45,17 @@ export const restoreCache = async (
   core.info(`Cache restored from key: ${cacheKey}`);
 };
 
-const findDependencyFile = (packageManager: PackageManagerInfo) => {
+const findDependencyFile = async (packageManager: PackageManagerInfo) => {
   let dependencyFile = packageManager.dependencyFilePattern;
-  const workspace = process.env.GITHUB_WORKSPACE!;
-  const rootContent = fs.readdirSync(workspace);
 
-  const goSumFileExists = rootContent.includes(dependencyFile);
-  if (!goSumFileExists) {
+  const globber = await glob.create(`**/${dependencyFile}`);
+  const files = await globber.glob();
+
+  if (!files.length) {
     throw new Error(
-      `Dependencies file is not found in ${workspace}. Supported file pattern: ${dependencyFile}`
+      `Dependencies file is not found. Supported file pattern: ${dependencyFile}`
     );
   }
 
-  return path.join(workspace, dependencyFile);
+  return files[0];
 };
