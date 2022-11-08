@@ -5,7 +5,7 @@ inputs:
   go-version:
     description: 'The Go version to download (if necessary) and use. Supports semver spec and ranges.'
   go-version-file:
-    description: 'Path to the go.mod file.'
+    description: 'Path to the go.mod or go.work file.'
   check-latest:
     description: 'Set this option to true if you want the action to always check for the latest available version that satisfies the version spec'
     default: false
@@ -21,8 +21,8 @@ inputs:
     description: 'Target architecture for Go to use. Examples: x86, x64. Will use system architecture by default.'
 outputs:
   go-version:
-    description: 'The installed Go version. Useful when given a version range as input.'  
-  cache-hit: 
+    description: 'The installed Go version. Useful when given a version range as input.'
+  cache-hit:
     description: 'A boolean value to indicate if a cache was hit'
 runs:
   using: 'node16'

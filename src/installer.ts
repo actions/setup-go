@@ -316,7 +316,10 @@ export function makeSemver(version: string): string {
 export function parseGoVersionFile(versionFilePath: string): string {
   const contents = fs.readFileSync(versionFilePath).toString();
 
-  if (path.basename(versionFilePath) === 'go.mod') {
+  if (
+    path.basename(versionFilePath) === 'go.mod' ||
+    path.basename(versionFilePath) === 'go.work'
+  ) {
     const match = contents.match(/^go (\d+(\.\d+)*)/m);
     return match ? match[1] : '';
   }

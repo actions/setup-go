@@ -66,6 +66,22 @@ jobs:
         run: __tests__/verify-go.sh 1.14
         shell: bash
 
+  go-version-file-with-gowork:
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+    steps:
+      - uses: actions/checkout@v3
+      - name: Setup Go and check latest
+        uses: ./
+        with:
+          go-version-file: __tests__/data/go.work
+      - name: verify go
+        run: __tests__/verify-go.sh 1.19
+        shell: bash
+
   setup-versions-from-manifest:
     name: Setup ${{ matrix.go }} ${{ matrix.os }}
     runs-on: ${{ matrix.os }}
