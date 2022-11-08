@@ -63056,7 +63056,7 @@ const findDependencyFile = (packageManager) => __awaiter(void 0, void 0, void 0,
     const globber = yield glob.create(`**/${dependencyFile}`);
     const files = yield globber.glob();
     if (!files.length) {
-        throw new Error(`Dependencies file is not found in. Supported file pattern: ${dependencyFile}`);
+        throw new Error(`Dependencies file is not found. Supported file pattern: ${dependencyFile}`);
     }
     return files[0];
 });
