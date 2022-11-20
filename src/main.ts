@@ -4,7 +4,7 @@ import * as installer from './installer';
 import * as semver from 'semver';
 import path from 'path';
 import {restoreCache} from './cache-restore';
-import {isGhes, isCacheFeatureAvailable} from './cache-utils';
+import {isCacheFeatureAvailable} from './cache-utils';
 import cp from 'child_process';
 import fs from 'fs';
 import os from 'os';
@@ -150,7 +150,7 @@ function resolveVersionInput(): string {
 }
 
 async function resolveStableVersionInput(
-  versionSpec: string,
+  versionSpec: installer.StableAliasType,
   auth: string | undefined,
   arch = os.arch()
 ): Promise<string> {

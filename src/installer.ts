@@ -8,6 +8,7 @@ import fs from 'fs';
 import os from 'os';
 
 type InstallationType = 'dist' | 'manifest';
+export type StableAliasType = 'stable' | 'oldstable';
 
 export interface IGoVersionFile {
   filename: string;
@@ -175,7 +176,7 @@ export async function extractGoArchive(archivePath: string): Promise<string> {
 }
 
 export async function getInfoFromManifest(
-  versionSpec: string,
+  versionSpec: string | StableAliasType,
   stable: boolean,
   auth: string | undefined,
   arch = os.arch()
