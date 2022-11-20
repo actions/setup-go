@@ -63630,8 +63630,8 @@ function resolveStableVersionInput(versionSpec, auth, arch = os_1.default.arch()
         core.info(`Stable version resolved as ${resolvedVersion}`);
         if (versionSpec === 'oldstable') {
             if (resolvedVersion) {
-                const minorVersion = semver.minor(resolvedVersion);
-                const semverExpression = `<${semver.major(resolvedVersion)}.${minorVersion}.0`;
+                // example: if version is 1.19.4, semver expression will be: <1.19.0
+                const semverExpression = `<${semver.major(resolvedVersion)}.${semver.minor(resolvedVersion)}.0`;
                 resolvedVersion = yield installer.resolveVersionFromManifest(semverExpression, true, auth, arch);
                 core.info(`Oldstable version resolved as ${resolvedVersion}`);
             }

@@ -165,10 +165,11 @@ async function resolveStableVersionInput(
 
   if (versionSpec === 'oldstable') {
     if (resolvedVersion) {
-      const minorVersion = semver.minor(resolvedVersion);
+      // example: if version is 1.19.4, semver expression will be: <1.19.0
       const semverExpression = `<${semver.major(
         resolvedVersion
-      )}.${minorVersion}.0`;
+      )}.${semver.minor(resolvedVersion)}.0`;
+
       resolvedVersion = await installer.resolveVersionFromManifest(
         semverExpression,
         true,
