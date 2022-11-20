@@ -15,7 +15,7 @@ export async function run() {
     // versionSpec is optional.  If supplied, install / use from the tool cache
     // If not supplied then problem matchers will still be setup.  Useful for self-hosted.
     //
-    const versionSpec = resolveVersionInput();
+    let versionSpec = resolveVersionInput();
 
     const cache = core.getBooleanInput('cache');
     core.info(`Setup go version spec ${versionSpec}`);
@@ -31,6 +31,11 @@ export async function run() {
       let auth = !token ? undefined : `token ${token}`;
 
       const checkLatest = core.getBooleanInput('check-latest');
+
+      if (versionSpec === 'stable' || versionSpec === 'oldstable') {
+        versionSpec = await resolveStableVersionInput(versionSpec, auth, arch);
+      }
+
       const installDir = await installer.getGo(
         versionSpec,
         checkLatest,
@@ -142,4 +147,38 @@ function resolveVersionInput(): string {
   }
 
   return version;
+}
+
+async function resolveStableVersionInput(
+  versionSpec: string,
+  auth: string | undefined,
+  arch = os.arch()
+): Promise<string> {
+  let resolvedVersion = await installer.resolveVersionFromManifest(
+    'stable',
+    true,
+    auth,
+    arch
+  );
+
+  core.info(`Stable version resolved as ${resolvedVersion}`);
+
+  if (versionSpec === 'oldstable') {
+    if (resolvedVersion) {
+      const minorVersion = semver.minor(resolvedVersion);
+      const semverExpression = `<${semver.major(
+        resolvedVersion
+      )}.${minorVersion}.0`;
+      resolvedVersion = await installer.resolveVersionFromManifest(
+        semverExpression,
+        true,
+        auth,
+        arch
+      );
+
+      core.info(`Oldstable version resolved as ${resolvedVersion}`);
+    }
+  }
+
+  return resolvedVersion ? resolvedVersion : versionSpec;
 }

@@ -114,7 +114,7 @@ export async function getGo(
   return downloadPath;
 }
 
-async function resolveVersionFromManifest(
+export async function resolveVersionFromManifest(
   versionSpec: string,
   stable: boolean,
   auth: string | undefined,
@@ -188,7 +188,14 @@ export async function getInfoFromManifest(
     'main'
   );
   core.info(`matching ${versionSpec}...`);
-  const rel = await tc.findFromManifest(versionSpec, stable, releases, arch);
+
+  let rel: tc.IToolRelease | undefined;
+
+  if (versionSpec === 'stable') {
+    rel = releases[0];
+  } else {
+    rel = await tc.findFromManifest(versionSpec, stable, releases, arch);
+  }
 
   if (rel && rel.files.length > 0) {
     info = <IGoVersionInfo>{};
