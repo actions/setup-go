@@ -63641,6 +63641,7 @@ function resolveStableVersionInput(versionSpec, auth, arch = os_1.default.arch()
         }
         else {
             releases = yield installer.getAllToolCacheReleases(arch);
+            core.info(releases.join(","));
         }
         if (versionSpec === utils_1.StableReleaseAlias.Stable) {
             core.info(`Stable version resolved as ${releases[0]}`);

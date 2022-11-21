@@ -175,6 +175,7 @@ async function resolveStableVersionInput(
     releases = manifestReleases.map(release => release.version);
   } else {
     releases = await installer.getAllToolCacheReleases(arch);
+    core.info(releases.join(","));
   }
 
   if (versionSpec === StableReleaseAlias.Stable) {
