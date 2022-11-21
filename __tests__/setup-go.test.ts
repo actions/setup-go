@@ -84,7 +84,7 @@ describe('setup-go', () => {
     cacheSpy = jest.spyOn(tc, 'cacheDir');
     getSpy = jest.spyOn(im, 'getVersionsDist');
     getManifestSpy = jest.spyOn(tc, 'getManifestFromRepo');
-    getAllVersionsSpy = jest.spyOn(im, 'getAllReleases');
+    getAllVersionsSpy = jest.spyOn(im, 'getAllManifestReleases');
 
     // io
     whichSpy = jest.spyOn(io, 'which');

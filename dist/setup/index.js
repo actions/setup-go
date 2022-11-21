@@ -63213,7 +63213,7 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", ({ value: true }));
-exports.parseGoVersionFile = exports.makeSemver = exports.getVersionsDist = exports.findMatch = exports.getInfoFromManifest = exports.getAllReleases = exports.extractGoArchive = exports.resolveVersionFromManifest = exports.getGo = void 0;
+exports.parseGoVersionFile = exports.makeSemver = exports.getVersionsDist = exports.findMatch = exports.getInfoFromManifest = exports.getAllToolCacheReleases = exports.getAllManifestReleases = exports.extractGoArchive = exports.resolveVersionFromManifest = exports.getGo = void 0;
 const tc = __importStar(__nccwpck_require__(7784));
 const core = __importStar(__nccwpck_require__(2186));
 const path = __importStar(__nccwpck_require__(1017));
@@ -63337,16 +63337,22 @@ function extractGoArchive(archivePath) {
     });
 }
 exports.extractGoArchive = extractGoArchive;
-function getAllReleases(auth) {
+function getAllManifestReleases(auth) {
     return __awaiter(this, void 0, void 0, function* () {
-        return yield tc.getManifestFromRepo('actions', 'go-versions', auth, 'main');
+        return tc.getManifestFromRepo('actions', 'go-versions', auth, 'main');
     });
 }
-exports.getAllReleases = getAllReleases;
+exports.getAllManifestReleases = getAllManifestReleases;
+function getAllToolCacheReleases(arch = os_1.default.arch()) {
+    return __awaiter(this, void 0, void 0, function* () {
+        return tc.findAllVersions('go', arch);
+    });
+}
+exports.getAllToolCacheReleases = getAllToolCacheReleases;
 function getInfoFromManifest(versionSpec, stable, auth, arch = os_1.default.arch(), releases) {
     return __awaiter(this, void 0, void 0, function* () {
         let info = null;
-        releases = releases ? releases : yield getAllReleases(auth);
+        releases = releases ? releases : yield getAllManifestReleases(auth);
         core.info(`matching ${versionSpec}...`);
         let rel = yield tc.findFromManifest(versionSpec, stable, releases, arch);
         if (rel && rel.files.length > 0) {
@@ -63529,11 +63535,11 @@ function run() {
             if (versionSpec) {
                 let token = core.getInput('token');
                 let auth = !token ? undefined : `token ${token}`;
-                const releases = yield installer.getAllReleases(auth);
+                const releases = yield installer.getAllManifestReleases(auth);
                 const checkLatest = core.getBooleanInput('check-latest');
                 if (versionSpec === utils_1.StableReleaseAlias.Stable ||
                     versionSpec === utils_1.StableReleaseAlias.OldStable) {
-                    versionSpec = yield resolveStableVersionInput(versionSpec, auth, arch, releases);
+                    versionSpec = yield resolveStableVersionInput(versionSpec, auth, arch, releases, checkLatest);
                 }
                 const installDir = yield installer.getGo(versionSpec, checkLatest, auth, arch, releases);
                 core.addPath(path_1.default.join(installDir, 'bin'));
@@ -63627,21 +63633,35 @@ function resolveVersionInput() {
     }
     return version;
 }
-function resolveStableVersionInput(versionSpec, auth, arch = os_1.default.arch(), releases) {
+function resolveStableVersionInput(versionSpec, auth, arch = os_1.default.arch(), manifestReleases, checkLatest = false) {
     return __awaiter(this, void 0, void 0, function* () {
-        if (versionSpec === utils_1.StableReleaseAlias.Stable) {
-            core.info(`Stable version resolved as ${releases[0].version}`);
-            return releases[0].version;
+        let releases;
+        if (checkLatest) {
+            releases = manifestReleases.map(release => release.version);
         }
         else {
-            const versions = releases.map(release => `${semver.major(release.version)}.${semver.minor(release.version)}`);
+            releases = yield installer.getAllToolCacheReleases(arch);
+        }
+        if (versionSpec === utils_1.StableReleaseAlias.Stable) {
+            core.info(`Stable version resolved as ${releases[0]}`);
+            return releases[0];
+        }
+        else {
+            const versions = releases.map(release => `${semver.major(release)}.${semver.minor(release)}`);
             const uniqueVersions = Array.from(new Set(versions));
-            core.info(`Oldstable version resolved as ${uniqueVersions[1]}`);
-            const oldstableVersion = yield installer.getInfoFromManifest(uniqueVersions[1], true, auth, arch, releases);
+            let oldstableVersion;
+            if (checkLatest) {
+                oldstableVersion = yield installer.getInfoFromManifest(uniqueVersions[1], true, auth, arch, manifestReleases);
+                oldstableVersion = oldstableVersion === null || oldstableVersion === void 0 ? void 0 : oldstableVersion.resolvedVersion;
+            }
+            else {
+                oldstableVersion = uniqueVersions[1];
+            }
+            core.info(`Oldstable version resolved as ${oldstableVersion}`);
             if (!oldstableVersion) {
                 return versionSpec;
             }
-            return oldstableVersion.resolvedVersion;
+            return oldstableVersion;
         }
     });
 }

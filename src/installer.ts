@@ -5,7 +5,7 @@ import * as semver from 'semver';
 import * as httpm from '@actions/http-client';
 import * as sys from './system';
 import fs from 'fs';
-import os from 'os';
+import os, {arch} from 'os';
 
 type InstallationType = 'dist' | 'manifest';
 
@@ -183,8 +183,12 @@ export async function extractGoArchive(archivePath: string): Promise<string> {
   return extPath;
 }
 
-export async function getAllReleases(auth: string | undefined) {
-  return await tc.getManifestFromRepo('actions', 'go-versions', auth, 'main');
+export async function getAllManifestReleases(auth: string | undefined) {
+  return tc.getManifestFromRepo('actions', 'go-versions', auth, 'main');
+}
+
+export async function getAllToolCacheReleases(arch = os.arch()) {
+  return tc.findAllVersions('go', arch);
 }
 
 export async function getInfoFromManifest(
@@ -195,7 +199,7 @@ export async function getInfoFromManifest(
   releases?: tc.IToolRelease[] | undefined
 ): Promise<IGoVersionInfo | null> {
   let info: IGoVersionInfo | null = null;
-  releases = releases ? releases : await getAllReleases(auth);
+  releases = releases ? releases : await getAllManifestReleases(auth);
 
   core.info(`matching ${versionSpec}...`);
 

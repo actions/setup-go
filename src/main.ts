@@ -32,7 +32,7 @@ export async function run() {
       let token = core.getInput('token');
       let auth = !token ? undefined : `token ${token}`;
 
-      const releases = await installer.getAllReleases(auth);
+      const releases = await installer.getAllManifestReleases(auth);
 
       const checkLatest = core.getBooleanInput('check-latest');
 
@@ -44,7 +44,8 @@ export async function run() {
           versionSpec,
           auth,
           arch,
-          releases
+          releases,
+          checkLatest
         );
       }
 
@@ -166,33 +167,47 @@ async function resolveStableVersionInput(
   versionSpec: string,
   auth: string | undefined,
   arch = os.arch(),
-  releases: IToolRelease[]
+  manifestReleases: IToolRelease[],
+  checkLatest = false
 ): Promise<string> {
-  if (versionSpec === StableReleaseAlias.Stable) {
-    core.info(`Stable version resolved as ${releases[0].version}`);
+  let releases;
+  if (checkLatest) {
+    releases = manifestReleases.map(release => release.version);
+  } else {
+    releases = await installer.getAllToolCacheReleases(arch);
+  }
 
-    return releases[0].version;
+  if (versionSpec === StableReleaseAlias.Stable) {
+    core.info(`Stable version resolved as ${releases[0]}`);
+
+    return releases[0];
   } else {
     const versions = releases.map(
-      release =>
-        `${semver.major(release.version)}.${semver.minor(release.version)}`
+      release => `${semver.major(release)}.${semver.minor(release)}`
     );
     const uniqueVersions = Array.from(new Set(versions));
 
-    core.info(`Oldstable version resolved as ${uniqueVersions[1]}`);
+    let oldstableVersion;
 
-    const oldstableVersion = await installer.getInfoFromManifest(
-      uniqueVersions[1],
-      true,
-      auth,
-      arch,
-      releases
-    );
+    if (checkLatest) {
+      oldstableVersion = await installer.getInfoFromManifest(
+        uniqueVersions[1],
+        true,
+        auth,
+        arch,
+        manifestReleases
+      );
+      oldstableVersion = oldstableVersion?.resolvedVersion;
+    } else {
+      oldstableVersion = uniqueVersions[1];
+    }
+
+    core.info(`Oldstable version resolved as ${oldstableVersion}`);
 
     if (!oldstableVersion) {
       return versionSpec;
     }
 
-    return oldstableVersion.resolvedVersion;
+    return oldstableVersion;
   }
 }
