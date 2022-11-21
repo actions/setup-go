@@ -63637,7 +63637,7 @@ function resolveStableVersionInput(versionSpec, auth, arch = os_1.default.arch()
             const versions = releases.map(release => `${semver.major(release.version)}.${semver.minor(release.version)}`);
             const uniqueVersions = Array.from(new Set(versions));
             core.info(`Oldstable version resolved as ${uniqueVersions[1]}`);
-            const oldstableVersion = yield installer.getInfoFromManifest(versionSpec, true, auth, arch, releases);
+            const oldstableVersion = yield installer.getInfoFromManifest(uniqueVersions[1], true, auth, arch, releases);
             if (!oldstableVersion) {
                 return versionSpec;
             }

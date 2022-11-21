@@ -182,7 +182,7 @@ async function resolveStableVersionInput(
     core.info(`Oldstable version resolved as ${uniqueVersions[1]}`);
 
     const oldstableVersion = await installer.getInfoFromManifest(
-      versionSpec,
+      uniqueVersions[1],
       true,
       auth,
       arch,
