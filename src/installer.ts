@@ -8,7 +8,6 @@ import fs from 'fs';
 import os from 'os';
 
 type InstallationType = 'dist' | 'manifest';
-export type StableAliasType = 'stable' | 'oldstable';
 
 export interface IGoVersionFile {
   filename: string;
@@ -34,7 +33,8 @@ export async function getGo(
   versionSpec: string,
   checkLatest: boolean,
   auth: string | undefined,
-  arch = os.arch()
+  arch = os.arch(),
+  releases: tc.IToolRelease[] | undefined
 ) {
   let osPlat: string = os.platform();
 
@@ -44,7 +44,8 @@ export async function getGo(
       versionSpec,
       true,
       auth,
-      arch
+      arch,
+      releases
     );
     if (resolvedVersion) {
       versionSpec = resolvedVersion;
@@ -119,10 +120,17 @@ export async function resolveVersionFromManifest(
   versionSpec: string,
   stable: boolean,
   auth: string | undefined,
-  arch: string
+  arch: string,
+  releases: tc.IToolRelease[] | undefined
 ): Promise<string | undefined> {
   try {
-    const info = await getInfoFromManifest(versionSpec, stable, auth, arch);
+    const info = await getInfoFromManifest(
+      versionSpec,
+      stable,
+      auth,
+      arch,
+      releases
+    );
     return info?.resolvedVersion;
   } catch (err) {
     core.info('Unable to resolve a version from the manifest...');
@@ -175,28 +183,23 @@ export async function extractGoArchive(archivePath: string): Promise<string> {
   return extPath;
 }
 
+export async function getAllReleases(auth: string | undefined) {
+  return await tc.getManifestFromRepo('actions', 'go-versions', auth, 'main');
+}
+
 export async function getInfoFromManifest(
-  versionSpec: string | StableAliasType,
+  versionSpec: string,
   stable: boolean,
   auth: string | undefined,
-  arch = os.arch()
+  arch = os.arch(),
+  releases?: tc.IToolRelease[] | undefined
 ): Promise<IGoVersionInfo | null> {
   let info: IGoVersionInfo | null = null;
-  const releases = await tc.getManifestFromRepo(
-    'actions',
-    'go-versions',
-    auth,
-    'main'
-  );
+  releases = releases ? releases : await getAllReleases(auth);
+
   core.info(`matching ${versionSpec}...`);
 
-  let rel: tc.IToolRelease | undefined;
-
-  if (versionSpec === 'stable') {
-    rel = releases[0];
-  } else {
-    rel = await tc.findFromManifest(versionSpec, stable, releases, arch);
-  }
+  let rel = await tc.findFromManifest(versionSpec, stable, releases, arch);
 
   if (rel && rel.files.length > 0) {
     info = <IGoVersionInfo>{};

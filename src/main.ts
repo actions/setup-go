@@ -8,6 +8,8 @@ import {isCacheFeatureAvailable} from './cache-utils';
 import cp from 'child_process';
 import fs from 'fs';
 import os from 'os';
+import {IToolRelease} from '@actions/tool-cache';
+import {StableReleaseAlias} from './utils';
 
 export async function run() {
   try {
@@ -30,17 +32,28 @@ export async function run() {
       let token = core.getInput('token');
       let auth = !token ? undefined : `token ${token}`;
 
+      const releases = await installer.getAllReleases(auth);
+
       const checkLatest = core.getBooleanInput('check-latest');
 
-      if (versionSpec === 'stable' || versionSpec === 'oldstable') {
-        versionSpec = await resolveStableVersionInput(versionSpec, auth, arch);
+      if (
+        versionSpec === StableReleaseAlias.Stable ||
+        versionSpec === StableReleaseAlias.OldStable
+      ) {
+        versionSpec = await resolveStableVersionInput(
+          versionSpec,
+          auth,
+          arch,
+          releases
+        );
       }
 
       const installDir = await installer.getGo(
         versionSpec,
         checkLatest,
         auth,
-        arch
+        arch,
+        releases
       );
 
       core.addPath(path.join(installDir, 'bin'));
@@ -150,36 +163,36 @@ function resolveVersionInput(): string {
 }
 
 async function resolveStableVersionInput(
-  versionSpec: installer.StableAliasType,
+  versionSpec: string,
   auth: string | undefined,
-  arch = os.arch()
+  arch = os.arch(),
+  releases: IToolRelease[]
 ): Promise<string> {
-  let resolvedVersion = await installer.resolveVersionFromManifest(
-    'stable',
-    true,
-    auth,
-    arch
-  );
+  if (versionSpec === StableReleaseAlias.Stable) {
+    core.info(`Stable version resolved as ${releases[0].version}`);
 
-  core.info(`Stable version resolved as ${resolvedVersion}`);
+    return releases[0].version;
+  } else {
+    const versions = releases.map(
+      release =>
+        `${semver.major(release.version)}.${semver.minor(release.version)}`
+    );
+    const uniqueVersions = Array.from(new Set(versions));
 
-  if (versionSpec === 'oldstable') {
-    if (resolvedVersion) {
-      // example: if version is 1.19.4, semver expression will be: <1.19.0
-      const semverExpression = `<${semver.major(
-        resolvedVersion
-      )}.${semver.minor(resolvedVersion)}.0`;
+    core.info(`Oldstable version resolved as ${uniqueVersions[1]}`);
 
-      resolvedVersion = await installer.resolveVersionFromManifest(
-        semverExpression,
-        true,
-        auth,
-        arch
-      );
+    const oldstableVersion = await installer.getInfoFromManifest(
+      versionSpec,
+      true,
+      auth,
+      arch,
+      releases
+    );
 
-      core.info(`Oldstable version resolved as ${resolvedVersion}`);
+    if (!oldstableVersion) {
+      return versionSpec;
     }
-  }
 
-  return resolvedVersion ? resolvedVersion : versionSpec;
+    return oldstableVersion.resolvedVersion;
+  }
 }

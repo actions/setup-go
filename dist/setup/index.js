@@ -63213,7 +63213,7 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", ({ value: true }));
-exports.parseGoVersionFile = exports.makeSemver = exports.getVersionsDist = exports.findMatch = exports.getInfoFromManifest = exports.extractGoArchive = exports.resolveVersionFromManifest = exports.getGo = void 0;
+exports.parseGoVersionFile = exports.makeSemver = exports.getVersionsDist = exports.findMatch = exports.getInfoFromManifest = exports.getAllReleases = exports.extractGoArchive = exports.resolveVersionFromManifest = exports.getGo = void 0;
 const tc = __importStar(__nccwpck_require__(7784));
 const core = __importStar(__nccwpck_require__(2186));
 const path = __importStar(__nccwpck_require__(1017));
@@ -63222,12 +63222,12 @@ const httpm = __importStar(__nccwpck_require__(6255));
 const sys = __importStar(__nccwpck_require__(4300));
 const fs_1 = __importDefault(__nccwpck_require__(7147));
 const os_1 = __importDefault(__nccwpck_require__(2037));
-function getGo(versionSpec, checkLatest, auth, arch = os_1.default.arch()) {
+function getGo(versionSpec, checkLatest, auth, arch = os_1.default.arch(), releases) {
     return __awaiter(this, void 0, void 0, function* () {
         let osPlat = os_1.default.platform();
         if (checkLatest) {
             core.info('Attempting to resolve the latest version from the manifest...');
-            const resolvedVersion = yield resolveVersionFromManifest(versionSpec, true, auth, arch);
+            const resolvedVersion = yield resolveVersionFromManifest(versionSpec, true, auth, arch, releases);
             if (resolvedVersion) {
                 versionSpec = resolvedVersion;
                 core.info(`Resolved as '${versionSpec}'`);
@@ -63290,10 +63290,10 @@ function getGo(versionSpec, checkLatest, auth, arch = os_1.default.arch()) {
     });
 }
 exports.getGo = getGo;
-function resolveVersionFromManifest(versionSpec, stable, auth, arch) {
+function resolveVersionFromManifest(versionSpec, stable, auth, arch, releases) {
     return __awaiter(this, void 0, void 0, function* () {
         try {
-            const info = yield getInfoFromManifest(versionSpec, stable, auth, arch);
+            const info = yield getInfoFromManifest(versionSpec, stable, auth, arch, releases);
             return info === null || info === void 0 ? void 0 : info.resolvedVersion;
         }
         catch (err) {
@@ -63337,18 +63337,18 @@ function extractGoArchive(archivePath) {
     });
 }
 exports.extractGoArchive = extractGoArchive;
-function getInfoFromManifest(versionSpec, stable, auth, arch = os_1.default.arch()) {
+function getAllReleases(auth) {
+    return __awaiter(this, void 0, void 0, function* () {
+        return yield tc.getManifestFromRepo('actions', 'go-versions', auth, 'main');
+    });
+}
+exports.getAllReleases = getAllReleases;
+function getInfoFromManifest(versionSpec, stable, auth, arch = os_1.default.arch(), releases) {
     return __awaiter(this, void 0, void 0, function* () {
         let info = null;
-        const releases = yield tc.getManifestFromRepo('actions', 'go-versions', auth, 'main');
+        releases = releases ? releases : yield getAllReleases(auth);
         core.info(`matching ${versionSpec}...`);
-        let rel;
-        if (versionSpec === 'stable') {
-            rel = releases[0];
-        }
-        else {
-            rel = yield tc.findFromManifest(versionSpec, stable, releases, arch);
-        }
+        let rel = yield tc.findFromManifest(versionSpec, stable, releases, arch);
         if (rel && rel.files.length > 0) {
             info = {};
             info.type = 'manifest';
@@ -63511,6 +63511,7 @@ const cache_utils_1 = __nccwpck_require__(1678);
 const child_process_1 = __importDefault(__nccwpck_require__(2081));
 const fs_1 = __importDefault(__nccwpck_require__(7147));
 const os_1 = __importDefault(__nccwpck_require__(2037));
+const utils_1 = __nccwpck_require__(1314);
 function run() {
     return __awaiter(this, void 0, void 0, function* () {
         try {
@@ -63528,11 +63529,13 @@ function run() {
             if (versionSpec) {
                 let token = core.getInput('token');
                 let auth = !token ? undefined : `token ${token}`;
+                const releases = yield installer.getAllReleases(auth);
                 const checkLatest = core.getBooleanInput('check-latest');
-                if (versionSpec === 'stable' || versionSpec === 'oldstable') {
-                    versionSpec = yield resolveStableVersionInput(versionSpec, auth, arch);
+                if (versionSpec === utils_1.StableReleaseAlias.Stable ||
+                    versionSpec === utils_1.StableReleaseAlias.OldStable) {
+                    versionSpec = yield resolveStableVersionInput(versionSpec, auth, arch, releases);
                 }
-                const installDir = yield installer.getGo(versionSpec, checkLatest, auth, arch);
+                const installDir = yield installer.getGo(versionSpec, checkLatest, auth, arch, releases);
                 core.addPath(path_1.default.join(installDir, 'bin'));
                 core.info('Added go to the path');
                 const version = installer.makeSemver(versionSpec);
@@ -63624,19 +63627,22 @@ function resolveVersionInput() {
     }
     return version;
 }
-function resolveStableVersionInput(versionSpec, auth, arch = os_1.default.arch()) {
+function resolveStableVersionInput(versionSpec, auth, arch = os_1.default.arch(), releases) {
     return __awaiter(this, void 0, void 0, function* () {
-        let resolvedVersion = yield installer.resolveVersionFromManifest('stable', true, auth, arch);
-        core.info(`Stable version resolved as ${resolvedVersion}`);
-        if (versionSpec === 'oldstable') {
-            if (resolvedVersion) {
-                // example: if version is 1.19.4, semver expression will be: <1.19.0
-                const semverExpression = `<${semver.major(resolvedVersion)}.${semver.minor(resolvedVersion)}.0`;
-                resolvedVersion = yield installer.resolveVersionFromManifest(semverExpression, true, auth, arch);
-                core.info(`Oldstable version resolved as ${resolvedVersion}`);
-            }
+        if (versionSpec === utils_1.StableReleaseAlias.Stable) {
+            core.info(`Stable version resolved as ${releases[0].version}`);
+            return releases[0].version;
         }
-        return resolvedVersion ? resolvedVersion : versionSpec;
+        else {
+            const versions = releases.map(release => `${semver.major(release.version)}.${semver.minor(release.version)}`);
+            const uniqueVersions = Array.from(new Set(versions));
+            core.info(`Oldstable version resolved as ${uniqueVersions[1]}`);
+            const oldstableVersion = yield installer.getInfoFromManifest(versionSpec, true, auth, arch, releases);
+            if (!oldstableVersion) {
+                return versionSpec;
+            }
+            return oldstableVersion.resolvedVersion;
+        }
     });
 }
 
@@ -63701,6 +63707,22 @@ function getArch(arch) {
     return arch;
 }
 exports.getArch = getArch;
+
+
+/***/ }),
+
+/***/ 1314:
+/***/ ((__unused_webpack_module, exports) => {
+
+"use strict";
+
+Object.defineProperty(exports, "__esModule", ({ value: true }));
+exports.StableReleaseAlias = void 0;
+var StableReleaseAlias;
+(function (StableReleaseAlias) {
+    StableReleaseAlias["Stable"] = "stable";
+    StableReleaseAlias["OldStable"] = "oldstable";
+})(StableReleaseAlias = exports.StableReleaseAlias || (exports.StableReleaseAlias = {}));
 
 
 /***/ }),
