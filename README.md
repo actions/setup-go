@@ -99,7 +99,7 @@ steps:
 
 ## stable/oldstable aliases
 
-Given the fact that Go doesn't use semver syntax ranges, and that many Go projects want to run tests based on `stable` and `oldstable` aliases, these aliases are introduced in this action as possible values of the input `go-version`. When alias `stable` is provided, and `check-latest` input is set to `true` action will get the latest stable version from the [`go-versions`](https://github.com/actions/go-versions/blob/main/versions-manifest.json) repository. When `check-latest` is not provided, or set to false, the action will resolve `stable` as the most recent present version from the runners tool cache directory. In case of the `oldstable` alias, if current release is 1.19.x, action will resolve version as 1.18.x, where x is the latest patch release. The `check-latest` rules described above will apply for `oldstable` as well.
+Given the fact that Go doesn't use semver syntax ranges, and that many Go projects want to run tests based on `stable` and `oldstable` aliases, these aliases are introduced in the action as possible values of the input `go-version`. When alias `stable` is provided, and `check-latest` input is set to `true` action will get the latest stable version from the [`go-versions`](https://github.com/actions/go-versions/blob/main/versions-manifest.json) repository manifest. When `check-latest` is not provided, or set to false, the action will resolve `stable` as the most recent present version from the runners tool cache directory. In case of the `oldstable` alias, if current release is 1.19.x, action will resolve version as 1.18.x, where x is the latest patch release. The `check-latest` rules described above will apply for `oldstable` as well.
 
 ```yaml
 steps:
