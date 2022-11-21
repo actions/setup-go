@@ -63641,7 +63641,7 @@ function resolveStableVersionInput(versionSpec, auth, arch = os_1.default.arch()
         }
         else {
             releases = yield installer.getAllToolCacheReleases(arch);
-            core.info(releases.join(","));
+            releases.reverse();
         }
         if (versionSpec === utils_1.StableReleaseAlias.Stable) {
             core.info(`Stable version resolved as ${releases[0]}`);
@@ -63656,7 +63656,7 @@ function resolveStableVersionInput(versionSpec, auth, arch = os_1.default.arch()
                 oldstableVersion = oldstableVersion === null || oldstableVersion === void 0 ? void 0 : oldstableVersion.resolvedVersion;
             }
             else {
-                oldstableVersion = uniqueVersions[1];
+                oldstableVersion = releases[1];
             }
             core.info(`Oldstable version resolved as ${oldstableVersion}`);
             if (!oldstableVersion) {

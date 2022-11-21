@@ -175,7 +175,7 @@ async function resolveStableVersionInput(
     releases = manifestReleases.map(release => release.version);
   } else {
     releases = await installer.getAllToolCacheReleases(arch);
-    core.info(releases.join(","));
+    releases.reverse();
   }
 
   if (versionSpec === StableReleaseAlias.Stable) {
@@ -200,7 +200,7 @@ async function resolveStableVersionInput(
       );
       oldstableVersion = oldstableVersion?.resolvedVersion;
     } else {
-      oldstableVersion = uniqueVersions[1];
+      oldstableVersion = releases[1];
     }
 
     core.info(`Oldstable version resolved as ${oldstableVersion}`);
