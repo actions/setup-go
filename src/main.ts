@@ -8,7 +8,6 @@ import {isCacheFeatureAvailable} from './cache-utils';
 import cp from 'child_process';
 import fs from 'fs';
 import os from 'os';
-import {IToolRelease} from '@actions/tool-cache';
 import {StableReleaseAlias} from './utils';
 
 export async function run() {
@@ -17,7 +16,7 @@ export async function run() {
     // versionSpec is optional.  If supplied, install / use from the tool cache
     // If not supplied then problem matchers will still be setup.  Useful for self-hosted.
     //
-    const versionSpec = resolveVersionInput();
+    let versionSpec = resolveVersionInput();
 
     const cache = core.getBooleanInput('cache');
     core.info(`Setup go version spec ${versionSpec}`);
@@ -35,6 +34,18 @@ export async function run() {
       const manifest = await installer.getManifest(auth);
 
       const checkLatest = core.getBooleanInput('check-latest');
+
+      if (
+        versionSpec === StableReleaseAlias.Stable ||
+        versionSpec === StableReleaseAlias.OldStable
+      ) {
+        versionSpec = await installer.resolveStableVersionInput(
+          versionSpec,
+          auth,
+          arch,
+          manifest
+        );
+      }
 
       const installDir = await installer.getGo(
         versionSpec,

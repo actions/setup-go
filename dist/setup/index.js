@@ -63213,7 +63213,7 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", ({ value: true }));
-exports.parseGoVersionFile = exports.makeSemver = exports.getVersionsDist = exports.findMatch = exports.getInfoFromManifest = exports.getManifest = exports.extractGoArchive = exports.resolveVersionFromManifest = exports.getGo = void 0;
+exports.resolveStableVersionInput = exports.parseGoVersionFile = exports.makeSemver = exports.getVersionsDist = exports.findMatch = exports.getInfoFromManifest = exports.getManifest = exports.extractGoArchive = exports.resolveVersionFromManifest = exports.getGo = void 0;
 const tc = __importStar(__nccwpck_require__(7784));
 const core = __importStar(__nccwpck_require__(2186));
 const path = __importStar(__nccwpck_require__(1017));
@@ -63236,10 +63236,6 @@ function getGo(versionSpec, checkLatest, auth, arch = os_1.default.arch(), manif
             else {
                 core.info(`Failed to resolve version ${versionSpec} from manifest`);
             }
-        }
-        if (versionSpec === utils_1.StableReleaseAlias.Stable ||
-            versionSpec === utils_1.StableReleaseAlias.OldStable) {
-            versionSpec = yield resolveStableVersionInput(versionSpec, auth, arch, manifest);
         }
         // check cache
         let toolPath;
@@ -63490,6 +63486,7 @@ function resolveStableVersionInput(versionSpec, auth, arch = os_1.default.arch()
         }
     });
 }
+exports.resolveStableVersionInput = resolveStableVersionInput;
 
 
 /***/ }),
@@ -63542,6 +63539,7 @@ const cache_utils_1 = __nccwpck_require__(1678);
 const child_process_1 = __importDefault(__nccwpck_require__(2081));
 const fs_1 = __importDefault(__nccwpck_require__(7147));
 const os_1 = __importDefault(__nccwpck_require__(2037));
+const utils_1 = __nccwpck_require__(1314);
 function run() {
     return __awaiter(this, void 0, void 0, function* () {
         try {
@@ -63549,7 +63547,7 @@ function run() {
             // versionSpec is optional.  If supplied, install / use from the tool cache
             // If not supplied then problem matchers will still be setup.  Useful for self-hosted.
             //
-            const versionSpec = resolveVersionInput();
+            let versionSpec = resolveVersionInput();
             const cache = core.getBooleanInput('cache');
             core.info(`Setup go version spec ${versionSpec}`);
             let arch = core.getInput('architecture');
@@ -63561,6 +63559,10 @@ function run() {
                 let auth = !token ? undefined : `token ${token}`;
                 const manifest = yield installer.getManifest(auth);
                 const checkLatest = core.getBooleanInput('check-latest');
+                if (versionSpec === utils_1.StableReleaseAlias.Stable ||
+                    versionSpec === utils_1.StableReleaseAlias.OldStable) {
+                    versionSpec = yield installer.resolveStableVersionInput(versionSpec, auth, arch, manifest);
+                }
                 const installDir = yield installer.getGo(versionSpec, checkLatest, auth, arch, manifest);
                 core.addPath(path_1.default.join(installDir, 'bin'));
                 core.info('Added go to the path');

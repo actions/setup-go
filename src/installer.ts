@@ -56,18 +56,6 @@ export async function getGo(
     }
   }
 
-  if (
-    versionSpec === StableReleaseAlias.Stable ||
-    versionSpec === StableReleaseAlias.OldStable
-  ) {
-    versionSpec = await resolveStableVersionInput(
-      versionSpec,
-      auth,
-      arch,
-      manifest
-    );
-  }
-
   // check cache
   let toolPath: string;
   toolPath = tc.find('go', versionSpec, arch);
@@ -354,7 +342,7 @@ export function parseGoVersionFile(versionFilePath: string): string {
   return contents.trim();
 }
 
-async function resolveStableVersionInput(
+export async function resolveStableVersionInput(
   versionSpec: string,
   auth: string | undefined,
   arch = os.arch(),
