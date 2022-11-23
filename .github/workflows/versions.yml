@@ -25,44 +25,10 @@ jobs:
         with:
           go-version: stable
           architecture: x64
-          check-latest: true
       - name: Verify Go
         run: go version
 
   oldstable:
-    runs-on: ${{ matrix.os }}
-    strategy:
-      fail-fast: false
-      matrix:
-        os: [ubuntu-latest, windows-latest, macos-latest]
-    steps:
-      - uses: actions/checkout@v3
-      - name: Setup Go and check latest
-        uses: ./
-        with:
-          go-version: oldstable
-          architecture: x64
-          check-latest: true
-      - name: Verify Go
-        run: go version
-
-  stable-no-check-latest:
-    runs-on: ${{ matrix.os }}
-    strategy:
-      fail-fast: false
-      matrix:
-        os: [ubuntu-latest, windows-latest, macos-latest]
-    steps:
-      - uses: actions/checkout@v3
-      - name: Setup Go and check latest
-        uses: ./
-        with:
-          go-version: stable
-          architecture: x64
-      - name: Verify Go
-        run: go version
-
-  oldstable-no-check-latest:
     runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false

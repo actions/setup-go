@@ -17,7 +17,7 @@ export async function run() {
     // versionSpec is optional.  If supplied, install / use from the tool cache
     // If not supplied then problem matchers will still be setup.  Useful for self-hosted.
     //
-    let versionSpec = resolveVersionInput();
+    const versionSpec = resolveVersionInput();
 
     const cache = core.getBooleanInput('cache');
     core.info(`Setup go version spec ${versionSpec}`);
@@ -32,29 +32,16 @@ export async function run() {
       let token = core.getInput('token');
       let auth = !token ? undefined : `token ${token}`;
 
-      const releases = await installer.getAllManifestReleases(auth);
+      const manifest = await installer.getManifest(auth);
 
       const checkLatest = core.getBooleanInput('check-latest');
-
-      if (
-        versionSpec === StableReleaseAlias.Stable ||
-        versionSpec === StableReleaseAlias.OldStable
-      ) {
-        versionSpec = await resolveStableVersionInput(
-          versionSpec,
-          auth,
-          arch,
-          releases,
-          checkLatest
-        );
-      }
 
       const installDir = await installer.getGo(
         versionSpec,
         checkLatest,
         auth,
         arch,
-        releases
+        manifest
       );
 
       core.addPath(path.join(installDir, 'bin'));
@@ -161,54 +148,4 @@ function resolveVersionInput(): string {
   }
 
   return version;
-}
-
-async function resolveStableVersionInput(
-  versionSpec: string,
-  auth: string | undefined,
-  arch = os.arch(),
-  manifestReleases: IToolRelease[],
-  checkLatest = false
-): Promise<string> {
-  let releases;
-  if (checkLatest) {
-    releases = manifestReleases.map(release => release.version);
-  } else {
-    releases = await installer.getAllToolCacheReleases(arch);
-    releases.reverse();
-  }
-
-  if (versionSpec === StableReleaseAlias.Stable) {
-    core.info(`Stable version resolved as ${releases[0]}`);
-
-    return releases[0];
-  } else {
-    const versions = releases.map(
-      release => `${semver.major(release)}.${semver.minor(release)}`
-    );
-    const uniqueVersions = Array.from(new Set(versions));
-
-    let oldstableVersion;
-
-    if (checkLatest) {
-      oldstableVersion = await installer.getInfoFromManifest(
-        uniqueVersions[1],
-        true,
-        auth,
-        arch,
-        manifestReleases
-      );
-      oldstableVersion = oldstableVersion?.resolvedVersion;
-    } else {
-      oldstableVersion = releases[1];
-    }
-
-    core.info(`Oldstable version resolved as ${oldstableVersion}`);
-
-    if (!oldstableVersion) {
-      return versionSpec;
-    }
-
-    return oldstableVersion;
-  }
 }

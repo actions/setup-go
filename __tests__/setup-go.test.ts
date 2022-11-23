@@ -84,7 +84,7 @@ describe('setup-go', () => {
     cacheSpy = jest.spyOn(tc, 'cacheDir');
     getSpy = jest.spyOn(im, 'getVersionsDist');
     getManifestSpy = jest.spyOn(tc, 'getManifestFromRepo');
-    getAllVersionsSpy = jest.spyOn(im, 'getAllManifestReleases');
+    getAllVersionsSpy = jest.spyOn(im, 'getManifest');
 
     // io
     whichSpy = jest.spyOn(io, 'which');
@@ -929,5 +929,32 @@ use .
         );
       }
     }, 100000);
+
+    it.each(['stable', 'oldstable'])(
+      'acquires latest go version with %s go-version input',
+      async (alias: string) => {
+        const arch = 'x64';
+        os.platform = 'darwin';
+        os.arch = arch;
+
+        inputs['go-version'] = alias;
+        inputs['architecture'] = os.arch;
+
+        // ... but not in the local cache
+        findSpy.mockImplementation(() => '');
+
+        dlSpy.mockImplementation(async () => '/some/temp/path');
+        let toolPath = path.normalize(`/cache/go/${alias}/${arch}`);
+        cacheSpy.mockImplementation(async () => toolPath);
+
+        await main.run();
+
+        const releaseIndex = alias === 'stable' ? 0 : 1;
+
+        expect(logSpy).toHaveBeenCalledWith(
+          `${alias} version resolved as ${goTestManifest[releaseIndex].version}`
+        );
+      }
+    );
   });
 });

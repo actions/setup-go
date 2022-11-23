@@ -63213,7 +63213,7 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", ({ value: true }));
-exports.parseGoVersionFile = exports.makeSemver = exports.getVersionsDist = exports.findMatch = exports.getInfoFromManifest = exports.getAllToolCacheReleases = exports.getAllManifestReleases = exports.extractGoArchive = exports.resolveVersionFromManifest = exports.getGo = void 0;
+exports.parseGoVersionFile = exports.makeSemver = exports.getVersionsDist = exports.findMatch = exports.getInfoFromManifest = exports.getManifest = exports.extractGoArchive = exports.resolveVersionFromManifest = exports.getGo = void 0;
 const tc = __importStar(__nccwpck_require__(7784));
 const core = __importStar(__nccwpck_require__(2186));
 const path = __importStar(__nccwpck_require__(1017));
@@ -63222,12 +63222,13 @@ const httpm = __importStar(__nccwpck_require__(6255));
 const sys = __importStar(__nccwpck_require__(4300));
 const fs_1 = __importDefault(__nccwpck_require__(7147));
 const os_1 = __importDefault(__nccwpck_require__(2037));
-function getGo(versionSpec, checkLatest, auth, arch = os_1.default.arch(), releases) {
+const utils_1 = __nccwpck_require__(1314);
+function getGo(versionSpec, checkLatest, auth, arch = os_1.default.arch(), manifest) {
     return __awaiter(this, void 0, void 0, function* () {
         let osPlat = os_1.default.platform();
         if (checkLatest) {
             core.info('Attempting to resolve the latest version from the manifest...');
-            const resolvedVersion = yield resolveVersionFromManifest(versionSpec, true, auth, arch, releases);
+            const resolvedVersion = yield resolveVersionFromManifest(versionSpec, true, auth, arch, manifest);
             if (resolvedVersion) {
                 versionSpec = resolvedVersion;
                 core.info(`Resolved as '${versionSpec}'`);
@@ -63235,6 +63236,10 @@ function getGo(versionSpec, checkLatest, auth, arch = os_1.default.arch(), relea
             else {
                 core.info(`Failed to resolve version ${versionSpec} from manifest`);
             }
+        }
+        if (versionSpec === utils_1.StableReleaseAlias.Stable ||
+            versionSpec === utils_1.StableReleaseAlias.OldStable) {
+            versionSpec = yield resolveStableVersionInput(versionSpec, auth, arch, manifest);
         }
         // check cache
         let toolPath;
@@ -63290,10 +63295,10 @@ function getGo(versionSpec, checkLatest, auth, arch = os_1.default.arch(), relea
     });
 }
 exports.getGo = getGo;
-function resolveVersionFromManifest(versionSpec, stable, auth, arch, releases) {
+function resolveVersionFromManifest(versionSpec, stable, auth, arch, manifest) {
     return __awaiter(this, void 0, void 0, function* () {
         try {
-            const info = yield getInfoFromManifest(versionSpec, stable, auth, arch, releases);
+            const info = yield getInfoFromManifest(versionSpec, stable, auth, arch, manifest);
             return info === null || info === void 0 ? void 0 : info.resolvedVersion;
         }
         catch (err) {
@@ -63337,24 +63342,21 @@ function extractGoArchive(archivePath) {
     });
 }
 exports.extractGoArchive = extractGoArchive;
-function getAllManifestReleases(auth) {
+function getManifest(auth) {
     return __awaiter(this, void 0, void 0, function* () {
         return tc.getManifestFromRepo('actions', 'go-versions', auth, 'main');
     });
 }
-exports.getAllManifestReleases = getAllManifestReleases;
-function getAllToolCacheReleases(arch = os_1.default.arch()) {
-    return __awaiter(this, void 0, void 0, function* () {
-        return tc.findAllVersions('go', arch);
-    });
-}
-exports.getAllToolCacheReleases = getAllToolCacheReleases;
-function getInfoFromManifest(versionSpec, stable, auth, arch = os_1.default.arch(), releases) {
+exports.getManifest = getManifest;
+function getInfoFromManifest(versionSpec, stable, auth, arch = os_1.default.arch(), manifest) {
     return __awaiter(this, void 0, void 0, function* () {
         let info = null;
-        releases = releases ? releases : yield getAllManifestReleases(auth);
+        if (!manifest) {
+            core.debug('No manifest cached');
+            manifest = yield getManifest(auth);
+        }
         core.info(`matching ${versionSpec}...`);
-        let rel = yield tc.findFromManifest(versionSpec, stable, releases, arch);
+        const rel = yield tc.findFromManifest(versionSpec, stable, manifest, arch);
         if (rel && rel.files.length > 0) {
             info = {};
             info.type = 'manifest';
@@ -63465,6 +63467,29 @@ function parseGoVersionFile(versionFilePath) {
     return contents.trim();
 }
 exports.parseGoVersionFile = parseGoVersionFile;
+function resolveStableVersionInput(versionSpec, auth, arch = os_1.default.arch(), manifest) {
+    return __awaiter(this, void 0, void 0, function* () {
+        if (!manifest) {
+            core.debug('No manifest cached');
+            manifest = yield getManifest(auth);
+        }
+        const releases = manifest.map(release => release.version);
+        if (versionSpec === utils_1.StableReleaseAlias.Stable) {
+            core.info(`stable version resolved as ${releases[0]}`);
+            return releases[0];
+        }
+        else {
+            const versions = releases.map(release => `${semver.major(release)}.${semver.minor(release)}`);
+            const uniqueVersions = Array.from(new Set(versions));
+            const oldstableVersion = yield getInfoFromManifest(uniqueVersions[1], true, auth, arch, manifest);
+            core.info(`oldstable version resolved as ${oldstableVersion === null || oldstableVersion === void 0 ? void 0 : oldstableVersion.resolvedVersion}`);
+            if (!oldstableVersion) {
+                return versionSpec;
+            }
+            return oldstableVersion.resolvedVersion;
+        }
+    });
+}
 
 
 /***/ }),
@@ -63517,7 +63542,6 @@ const cache_utils_1 = __nccwpck_require__(1678);
 const child_process_1 = __importDefault(__nccwpck_require__(2081));
 const fs_1 = __importDefault(__nccwpck_require__(7147));
 const os_1 = __importDefault(__nccwpck_require__(2037));
-const utils_1 = __nccwpck_require__(1314);
 function run() {
     return __awaiter(this, void 0, void 0, function* () {
         try {
@@ -63525,7 +63549,7 @@ function run() {
             // versionSpec is optional.  If supplied, install / use from the tool cache
             // If not supplied then problem matchers will still be setup.  Useful for self-hosted.
             //
-            let versionSpec = resolveVersionInput();
+            const versionSpec = resolveVersionInput();
             const cache = core.getBooleanInput('cache');
             core.info(`Setup go version spec ${versionSpec}`);
             let arch = core.getInput('architecture');
@@ -63535,13 +63559,9 @@ function run() {
             if (versionSpec) {
                 let token = core.getInput('token');
                 let auth = !token ? undefined : `token ${token}`;
-                const releases = yield installer.getAllManifestReleases(auth);
+                const manifest = yield installer.getManifest(auth);
                 const checkLatest = core.getBooleanInput('check-latest');
-                if (versionSpec === utils_1.StableReleaseAlias.Stable ||
-                    versionSpec === utils_1.StableReleaseAlias.OldStable) {
-                    versionSpec = yield resolveStableVersionInput(versionSpec, auth, arch, releases, checkLatest);
-                }
-                const installDir = yield installer.getGo(versionSpec, checkLatest, auth, arch, releases);
+                const installDir = yield installer.getGo(versionSpec, checkLatest, auth, arch, manifest);
                 core.addPath(path_1.default.join(installDir, 'bin'));
                 core.info('Added go to the path');
                 const version = installer.makeSemver(versionSpec);
@@ -63632,39 +63652,6 @@ function resolveVersionInput() {
         version = installer.parseGoVersionFile(versionFilePath);
     }
     return version;
-}
-function resolveStableVersionInput(versionSpec, auth, arch = os_1.default.arch(), manifestReleases, checkLatest = false) {
-    return __awaiter(this, void 0, void 0, function* () {
-        let releases;
-        if (checkLatest) {
-            releases = manifestReleases.map(release => release.version);
-        }
-        else {
-            releases = yield installer.getAllToolCacheReleases(arch);
-            releases.reverse();
-        }
-        if (versionSpec === utils_1.StableReleaseAlias.Stable) {
-            core.info(`Stable version resolved as ${releases[0]}`);
-            return releases[0];
-        }
-        else {
-            const versions = releases.map(release => `${semver.major(release)}.${semver.minor(release)}`);
-            const uniqueVersions = Array.from(new Set(versions));
-            let oldstableVersion;
-            if (checkLatest) {
-                oldstableVersion = yield installer.getInfoFromManifest(uniqueVersions[1], true, auth, arch, manifestReleases);
-                oldstableVersion = oldstableVersion === null || oldstableVersion === void 0 ? void 0 : oldstableVersion.resolvedVersion;
-            }
-            else {
-                oldstableVersion = releases[1];
-            }
-            core.info(`Oldstable version resolved as ${oldstableVersion}`);
-            if (!oldstableVersion) {
-                return versionSpec;
-            }
-            return oldstableVersion;
-        }
-    });
 }
 
 

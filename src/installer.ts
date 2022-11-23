@@ -6,6 +6,7 @@ import * as httpm from '@actions/http-client';
 import * as sys from './system';
 import fs from 'fs';
 import os, {arch} from 'os';
+import {StableReleaseAlias} from './utils';
 
 type InstallationType = 'dist' | 'manifest';
 
@@ -34,7 +35,7 @@ export async function getGo(
   checkLatest: boolean,
   auth: string | undefined,
   arch = os.arch(),
-  releases: tc.IToolRelease[] | undefined
+  manifest: tc.IToolRelease[] | undefined
 ) {
   let osPlat: string = os.platform();
 
@@ -45,7 +46,7 @@ export async function getGo(
       true,
       auth,
       arch,
-      releases
+      manifest
     );
     if (resolvedVersion) {
       versionSpec = resolvedVersion;
@@ -53,6 +54,18 @@ export async function getGo(
     } else {
       core.info(`Failed to resolve version ${versionSpec} from manifest`);
     }
+  }
+
+  if (
+    versionSpec === StableReleaseAlias.Stable ||
+    versionSpec === StableReleaseAlias.OldStable
+  ) {
+    versionSpec = await resolveStableVersionInput(
+      versionSpec,
+      auth,
+      arch,
+      manifest
+    );
   }
 
   // check cache
@@ -121,7 +134,7 @@ export async function resolveVersionFromManifest(
   stable: boolean,
   auth: string | undefined,
   arch: string,
-  releases: tc.IToolRelease[] | undefined
+  manifest: tc.IToolRelease[] | undefined
 ): Promise<string | undefined> {
   try {
     const info = await getInfoFromManifest(
@@ -129,7 +142,7 @@ export async function resolveVersionFromManifest(
       stable,
       auth,
       arch,
-      releases
+      manifest
     );
     return info?.resolvedVersion;
   } catch (err) {
@@ -183,12 +196,8 @@ export async function extractGoArchive(archivePath: string): Promise<string> {
   return extPath;
 }
 
-export async function getAllManifestReleases(auth: string | undefined) {
+export async function getManifest(auth: string | undefined) {
   return tc.getManifestFromRepo('actions', 'go-versions', auth, 'main');
-}
-
-export async function getAllToolCacheReleases(arch = os.arch()) {
-  return tc.findAllVersions('go', arch);
 }
 
 export async function getInfoFromManifest(
@@ -196,14 +205,17 @@ export async function getInfoFromManifest(
   stable: boolean,
   auth: string | undefined,
   arch = os.arch(),
-  releases?: tc.IToolRelease[] | undefined
+  manifest?: tc.IToolRelease[] | undefined
 ): Promise<IGoVersionInfo | null> {
   let info: IGoVersionInfo | null = null;
-  releases = releases ? releases : await getAllManifestReleases(auth);
+  if (!manifest) {
+    core.debug('No manifest cached');
+    manifest = await getManifest(auth);
+  }
 
   core.info(`matching ${versionSpec}...`);
 
-  let rel = await tc.findFromManifest(versionSpec, stable, releases, arch);
+  const rel = await tc.findFromManifest(versionSpec, stable, manifest, arch);
 
   if (rel && rel.files.length > 0) {
     info = <IGoVersionInfo>{};
@@ -340,4 +352,47 @@ export function parseGoVersionFile(versionFilePath: string): string {
   }
 
   return contents.trim();
+}
+
+async function resolveStableVersionInput(
+  versionSpec: string,
+  auth: string | undefined,
+  arch = os.arch(),
+  manifest: tc.IToolRelease[] | undefined
+): Promise<string> {
+  if (!manifest) {
+    core.debug('No manifest cached');
+    manifest = await getManifest(auth);
+  }
+
+  const releases = manifest.map(release => release.version);
+
+  if (versionSpec === StableReleaseAlias.Stable) {
+    core.info(`stable version resolved as ${releases[0]}`);
+
+    return releases[0];
+  } else {
+    const versions = releases.map(
+      release => `${semver.major(release)}.${semver.minor(release)}`
+    );
+    const uniqueVersions = Array.from(new Set(versions));
+
+    const oldstableVersion = await getInfoFromManifest(
+      uniqueVersions[1],
+      true,
+      auth,
+      arch,
+      manifest
+    );
+
+    core.info(
+      `oldstable version resolved as ${oldstableVersion?.resolvedVersion}`
+    );
+
+    if (!oldstableVersion) {
+      return versionSpec;
+    }
+
+    return oldstableVersion.resolvedVersion;
+  }
 }
