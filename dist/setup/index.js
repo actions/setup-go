@@ -63237,6 +63237,10 @@ function getGo(versionSpec, checkLatest, auth, arch = os_1.default.arch(), manif
                 core.info(`Failed to resolve version ${versionSpec} from manifest`);
             }
         }
+        if (versionSpec === utils_1.StableReleaseAlias.Stable ||
+            versionSpec === utils_1.StableReleaseAlias.OldStable) {
+            versionSpec = yield resolveStableVersionInput(versionSpec, auth, arch, manifest);
+        }
         // check cache
         let toolPath;
         toolPath = tc.find('go', versionSpec, arch);
@@ -63559,11 +63563,13 @@ function run() {
                 let auth = !token ? undefined : `token ${token}`;
                 const manifest = yield installer.getManifest(auth);
                 const checkLatest = core.getBooleanInput('check-latest');
-                if (versionSpec === utils_1.StableReleaseAlias.Stable ||
-                    versionSpec === utils_1.StableReleaseAlias.OldStable) {
-                    versionSpec = yield installer.resolveStableVersionInput(versionSpec, auth, arch, manifest);
-                }
                 const installDir = yield installer.getGo(versionSpec, checkLatest, auth, arch, manifest);
+                if (utils_1.IS_WINDOWS) {
+                    versionSpec = installDir.split('\\').reverse()[1];
+                }
+                else {
+                    versionSpec = installDir.split('/').reverse()[1];
+                }
                 core.addPath(path_1.default.join(installDir, 'bin'));
                 core.info('Added go to the path');
                 const version = installer.makeSemver(versionSpec);
@@ -63727,12 +63733,13 @@ exports.getArch = getArch;
 "use strict";
 
 Object.defineProperty(exports, "__esModule", ({ value: true }));
-exports.StableReleaseAlias = void 0;
+exports.IS_WINDOWS = exports.StableReleaseAlias = void 0;
 var StableReleaseAlias;
 (function (StableReleaseAlias) {
     StableReleaseAlias["Stable"] = "stable";
     StableReleaseAlias["OldStable"] = "oldstable";
 })(StableReleaseAlias = exports.StableReleaseAlias || (exports.StableReleaseAlias = {}));
+exports.IS_WINDOWS = process.platform === 'win32';
 
 
 /***/ }),

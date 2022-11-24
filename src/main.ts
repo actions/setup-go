@@ -8,7 +8,7 @@ import {isCacheFeatureAvailable} from './cache-utils';
 import cp from 'child_process';
 import fs from 'fs';
 import os from 'os';
-import {StableReleaseAlias} from './utils';
+import {IS_WINDOWS} from './utils';
 
 export async function run() {
   try {
@@ -35,18 +35,6 @@ export async function run() {
 
       const checkLatest = core.getBooleanInput('check-latest');
 
-      if (
-        versionSpec === StableReleaseAlias.Stable ||
-        versionSpec === StableReleaseAlias.OldStable
-      ) {
-        versionSpec = await installer.resolveStableVersionInput(
-          versionSpec,
-          auth,
-          arch,
-          manifest
-        );
-      }
-
       const installDir = await installer.getGo(
         versionSpec,
         checkLatest,
@@ -54,6 +42,12 @@ export async function run() {
         arch,
         manifest
       );
+
+      if (IS_WINDOWS) {
+        versionSpec = installDir.split('\\').reverse()[1];
+      } else {
+        versionSpec = installDir.split('/').reverse()[1];
+      }
 
       core.addPath(path.join(installDir, 'bin'));
       core.info('Added go to the path');

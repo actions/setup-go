@@ -5,7 +5,7 @@ import * as semver from 'semver';
 import * as httpm from '@actions/http-client';
 import * as sys from './system';
 import fs from 'fs';
-import os, {arch} from 'os';
+import os from 'os';
 import {StableReleaseAlias} from './utils';
 
 type InstallationType = 'dist' | 'manifest';
@@ -54,6 +54,18 @@ export async function getGo(
     } else {
       core.info(`Failed to resolve version ${versionSpec} from manifest`);
     }
+  }
+
+  if (
+    versionSpec === StableReleaseAlias.Stable ||
+    versionSpec === StableReleaseAlias.OldStable
+  ) {
+    versionSpec = await resolveStableVersionInput(
+      versionSpec,
+      auth,
+      arch,
+      manifest
+    );
   }
 
   // check cache

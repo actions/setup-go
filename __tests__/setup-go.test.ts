@@ -702,7 +702,7 @@ describe('setup-go', () => {
 
       findSpy.mockImplementation(() => '');
       dlSpy.mockImplementation(async () => '/some/temp/path');
-      const toolPath = path.normalize('/cache/go/1.17.5/x64');
+      const toolPath = path.normalize('/cache/go/1.17.6/x64');
       extractTarSpy.mockImplementation(async () => '/some/other/temp/path');
       cacheSpy.mockImplementation(async () => toolPath);
 
@@ -722,7 +722,7 @@ describe('setup-go', () => {
       expect(logSpy).toHaveBeenCalledWith('Adding to the cache ...');
       expect(logSpy).toHaveBeenCalledWith('Added go to the path');
       expect(logSpy).toHaveBeenCalledWith(
-        `Successfully set up Go version ${versionSpec}`
+        `Successfully set up Go version ${patchVersion}`
       );
     });
 
