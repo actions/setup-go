@@ -722,7 +722,7 @@ describe('setup-go', () => {
       expect(logSpy).toHaveBeenCalledWith('Adding to the cache ...');
       expect(logSpy).toHaveBeenCalledWith('Added go to the path');
       expect(logSpy).toHaveBeenCalledWith(
-        `Successfully set up Go version ${patchVersion}`
+        `Successfully set up Go version ${versionSpec}`
       );
     });
 

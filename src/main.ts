@@ -8,7 +8,6 @@ import {isCacheFeatureAvailable} from './cache-utils';
 import cp from 'child_process';
 import fs from 'fs';
 import os from 'os';
-import {IS_WINDOWS} from './utils';
 
 export async function run() {
   try {
@@ -16,7 +15,7 @@ export async function run() {
     // versionSpec is optional.  If supplied, install / use from the tool cache
     // If not supplied then problem matchers will still be setup.  Useful for self-hosted.
     //
-    let versionSpec = resolveVersionInput();
+    const versionSpec = resolveVersionInput();
 
     const cache = core.getBooleanInput('cache');
     core.info(`Setup go version spec ${versionSpec}`);
@@ -43,16 +42,12 @@ export async function run() {
         manifest
       );
 
-      if (IS_WINDOWS) {
-        versionSpec = installDir.split('\\').reverse()[1];
-      } else {
-        versionSpec = installDir.split('/').reverse()[1];
-      }
+      const installDirVersion = path.basename(path.dirname(installDir));
 
       core.addPath(path.join(installDir, 'bin'));
       core.info('Added go to the path');
 
-      const version = installer.makeSemver(versionSpec);
+      const version = installer.makeSemver(installDirVersion);
       // Go versions less than 1.9 require GOROOT to be set
       if (semver.lt(version, '1.9.0')) {
         core.info('Setting GOROOT for Go version < 1.9');

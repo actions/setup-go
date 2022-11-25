@@ -129,7 +129,7 @@ export async function getGo(
   return downloadPath;
 }
 
-export async function resolveVersionFromManifest(
+async function resolveVersionFromManifest(
   versionSpec: string,
   stable: boolean,
   auth: string | undefined,
@@ -358,7 +358,7 @@ export async function resolveStableVersionInput(
   versionSpec: string,
   auth: string | undefined,
   arch = os.arch(),
-  manifest: tc.IToolRelease[] | undefined
+  manifest: tc.IToolRelease[] | undefined,
 ): Promise<string> {
   if (!manifest) {
     core.debug('No manifest cached');

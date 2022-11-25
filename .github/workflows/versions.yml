@@ -24,7 +24,6 @@ jobs:
         uses: ./
         with:
           go-version: stable
-          architecture: x64
       - name: Verify Go
         run: go version
 
@@ -40,7 +39,6 @@ jobs:
         uses: ./
         with:
           go-version: oldstable
-          architecture: x64
       - name: Verify Go
         run: go version
 
