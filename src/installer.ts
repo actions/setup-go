@@ -358,7 +358,7 @@ export async function resolveStableVersionInput(
   versionSpec: string,
   auth: string | undefined,
   arch = os.arch(),
-  manifest: tc.IToolRelease[] | undefined,
+  manifest: tc.IToolRelease[] | undefined
 ): Promise<string> {
   if (!manifest) {
     core.debug('No manifest cached');

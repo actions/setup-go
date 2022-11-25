@@ -63213,7 +63213,7 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", ({ value: true }));
-exports.resolveStableVersionInput = exports.parseGoVersionFile = exports.makeSemver = exports.getVersionsDist = exports.findMatch = exports.getInfoFromManifest = exports.getManifest = exports.extractGoArchive = exports.resolveVersionFromManifest = exports.getGo = void 0;
+exports.resolveStableVersionInput = exports.parseGoVersionFile = exports.makeSemver = exports.getVersionsDist = exports.findMatch = exports.getInfoFromManifest = exports.getManifest = exports.extractGoArchive = exports.getGo = void 0;
 const tc = __importStar(__nccwpck_require__(7784));
 const core = __importStar(__nccwpck_require__(2186));
 const path = __importStar(__nccwpck_require__(1017));
@@ -63307,7 +63307,6 @@ function resolveVersionFromManifest(versionSpec, stable, auth, arch, manifest) {
         }
     });
 }
-exports.resolveVersionFromManifest = resolveVersionFromManifest;
 function installGoVersion(info, auth, arch) {
     return __awaiter(this, void 0, void 0, function* () {
         core.info(`Acquiring ${info.resolvedVersion} from ${info.downloadUrl}`);
@@ -63543,7 +63542,6 @@ const cache_utils_1 = __nccwpck_require__(1678);
 const child_process_1 = __importDefault(__nccwpck_require__(2081));
 const fs_1 = __importDefault(__nccwpck_require__(7147));
 const os_1 = __importDefault(__nccwpck_require__(2037));
-const utils_1 = __nccwpck_require__(1314);
 function run() {
     return __awaiter(this, void 0, void 0, function* () {
         try {
@@ -63551,7 +63549,7 @@ function run() {
             // versionSpec is optional.  If supplied, install / use from the tool cache
             // If not supplied then problem matchers will still be setup.  Useful for self-hosted.
             //
-            let versionSpec = resolveVersionInput();
+            const versionSpec = resolveVersionInput();
             const cache = core.getBooleanInput('cache');
             core.info(`Setup go version spec ${versionSpec}`);
             let arch = core.getInput('architecture');
@@ -63564,15 +63562,10 @@ function run() {
                 const manifest = yield installer.getManifest(auth);
                 const checkLatest = core.getBooleanInput('check-latest');
                 const installDir = yield installer.getGo(versionSpec, checkLatest, auth, arch, manifest);
-                if (utils_1.IS_WINDOWS) {
-                    versionSpec = installDir.split('\\').reverse()[1];
-                }
-                else {
-                    versionSpec = installDir.split('/').reverse()[1];
-                }
+                const installDirVersion = path_1.default.basename(path_1.default.dirname(installDir));
                 core.addPath(path_1.default.join(installDir, 'bin'));
                 core.info('Added go to the path');
-                const version = installer.makeSemver(versionSpec);
+                const version = installer.makeSemver(installDirVersion);
                 // Go versions less than 1.9 require GOROOT to be set
                 if (semver.lt(version, '1.9.0')) {
                     core.info('Setting GOROOT for Go version < 1.9');
@@ -63733,13 +63726,12 @@ exports.getArch = getArch;
 "use strict";
 
 Object.defineProperty(exports, "__esModule", ({ value: true }));
-exports.IS_WINDOWS = exports.StableReleaseAlias = void 0;
+exports.StableReleaseAlias = void 0;
 var StableReleaseAlias;
 (function (StableReleaseAlias) {
     StableReleaseAlias["Stable"] = "stable";
     StableReleaseAlias["OldStable"] = "oldstable";
 })(StableReleaseAlias = exports.StableReleaseAlias || (exports.StableReleaseAlias = {}));
-exports.IS_WINDOWS = process.platform === 'win32';
 
 
 /***/ }),
