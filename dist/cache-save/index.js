@@ -60313,7 +60313,7 @@ var __setModuleDefault = (this && this.__setModuleDefault) || (Object.create ? (
 var __importStar = (this && this.__importStar) || function (mod) {
     if (mod && mod.__esModule) return mod;
     var result = {};
-    if (mod != null) for (var k in mod) if (k !== "default" && Object.hasOwnProperty.call(mod, k)) __createBinding(result, mod, k);
+    if (mod != null) for (var k in mod) if (k !== "default" && Object.prototype.hasOwnProperty.call(mod, k)) __createBinding(result, mod, k);
     __setModuleDefault(result, mod);
     return result;
 };
@@ -60418,7 +60418,7 @@ var __setModuleDefault = (this && this.__setModuleDefault) || (Object.create ? (
 var __importStar = (this && this.__importStar) || function (mod) {
     if (mod && mod.__esModule) return mod;
     var result = {};
-    if (mod != null) for (var k in mod) if (k !== "default" && Object.hasOwnProperty.call(mod, k)) __createBinding(result, mod, k);
+    if (mod != null) for (var k in mod) if (k !== "default" && Object.prototype.hasOwnProperty.call(mod, k)) __createBinding(result, mod, k);
     __setModuleDefault(result, mod);
     return result;
 };
@@ -60437,7 +60437,7 @@ const cache = __importStar(__nccwpck_require__(7799));
 const core = __importStar(__nccwpck_require__(2186));
 const exec = __importStar(__nccwpck_require__(1514));
 const package_managers_1 = __nccwpck_require__(6663);
-exports.getCommandOutput = (toolCommand) => __awaiter(void 0, void 0, void 0, function* () {
+const getCommandOutput = (toolCommand) => __awaiter(void 0, void 0, void 0, function* () {
     let { stdout, stderr, exitCode } = yield exec.getExecOutput(toolCommand, undefined, { ignoreReturnCode: true });
     if (exitCode) {
         stderr = !stderr.trim()
@@ -60447,14 +60447,16 @@ exports.getCommandOutput = (toolCommand) => __awaiter(void 0, void 0, void 0, fu
     }
     return stdout.trim();
 });
-exports.getPackageManagerInfo = (packageManager) => __awaiter(void 0, void 0, void 0, function* () {
+exports.getCommandOutput = getCommandOutput;
+const getPackageManagerInfo = (packageManager) => __awaiter(void 0, void 0, void 0, function* () {
     if (!package_managers_1.supportedPackageManagers[packageManager]) {
         throw new Error(`It's not possible to use ${packageManager}, please, check correctness of the package manager name spelling.`);
     }
     const obtainedPackageManager = package_managers_1.supportedPackageManagers[packageManager];
     return obtainedPackageManager;
 });
-exports.getCacheDirectoryPath = (packageManagerInfo) => __awaiter(void 0, void 0, void 0, function* () {
+exports.getPackageManagerInfo = getPackageManagerInfo;
+const getCacheDirectoryPath = (packageManagerInfo) => __awaiter(void 0, void 0, void 0, function* () {
     let pathList = yield Promise.all(packageManagerInfo.cacheFolderCommandList.map(command => exports.getCommandOutput(command)));
     const emptyPaths = pathList.filter(item => !item);
     if (emptyPaths.length) {
@@ -60462,6 +60464,7 @@ exports.getCacheDirectoryPath = (packageManagerInfo) => __awaiter(void 0, void 0
     }
     return pathList;
 });
+exports.getCacheDirectoryPath = getCacheDirectoryPath;
 function isGhes() {
     const ghUrl = new URL(process.env['GITHUB_SERVER_URL'] || 'https://github.com');
     return ghUrl.hostname.toUpperCase() !== 'GITHUB.COM';

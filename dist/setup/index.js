@@ -63007,7 +63007,7 @@ var __setModuleDefault = (this && this.__setModuleDefault) || (Object.create ? (
 var __importStar = (this && this.__importStar) || function (mod) {
     if (mod && mod.__esModule) return mod;
     var result = {};
-    if (mod != null) for (var k in mod) if (k !== "default" && Object.hasOwnProperty.call(mod, k)) __createBinding(result, mod, k);
+    if (mod != null) for (var k in mod) if (k !== "default" && Object.prototype.hasOwnProperty.call(mod, k)) __createBinding(result, mod, k);
     __setModuleDefault(result, mod);
     return result;
 };
@@ -63032,7 +63032,7 @@ const path_1 = __importDefault(__nccwpck_require__(1017));
 const fs_1 = __importDefault(__nccwpck_require__(7147));
 const constants_1 = __nccwpck_require__(9042);
 const cache_utils_1 = __nccwpck_require__(1678);
-exports.restoreCache = (versionSpec, packageManager, cacheDependencyPath) => __awaiter(void 0, void 0, void 0, function* () {
+const restoreCache = (versionSpec, packageManager, cacheDependencyPath) => __awaiter(void 0, void 0, void 0, function* () {
     const packageManagerInfo = yield cache_utils_1.getPackageManagerInfo(packageManager);
     const platform = process.env.RUNNER_OS;
     const cachePaths = yield cache_utils_1.getCacheDirectoryPath(packageManagerInfo);
@@ -63056,6 +63056,7 @@ exports.restoreCache = (versionSpec, packageManager, cacheDependencyPath) => __a
     core.saveState(constants_1.State.CacheMatchedKey, cacheKey);
     core.info(`Cache restored from key: ${cacheKey}`);
 });
+exports.restoreCache = restoreCache;
 const findDependencyFile = (packageManager) => {
     let dependencyFile = packageManager.dependencyFilePattern;
     const workspace = process.env.GITHUB_WORKSPACE;
@@ -63090,7 +63091,7 @@ var __setModuleDefault = (this && this.__setModuleDefault) || (Object.create ? (
 var __importStar = (this && this.__importStar) || function (mod) {
     if (mod && mod.__esModule) return mod;
     var result = {};
-    if (mod != null) for (var k in mod) if (k !== "default" && Object.hasOwnProperty.call(mod, k)) __createBinding(result, mod, k);
+    if (mod != null) for (var k in mod) if (k !== "default" && Object.prototype.hasOwnProperty.call(mod, k)) __createBinding(result, mod, k);
     __setModuleDefault(result, mod);
     return result;
 };
@@ -63109,7 +63110,7 @@ const cache = __importStar(__nccwpck_require__(7799));
 const core = __importStar(__nccwpck_require__(2186));
 const exec = __importStar(__nccwpck_require__(1514));
 const package_managers_1 = __nccwpck_require__(6663);
-exports.getCommandOutput = (toolCommand) => __awaiter(void 0, void 0, void 0, function* () {
+const getCommandOutput = (toolCommand) => __awaiter(void 0, void 0, void 0, function* () {
     let { stdout, stderr, exitCode } = yield exec.getExecOutput(toolCommand, undefined, { ignoreReturnCode: true });
     if (exitCode) {
         stderr = !stderr.trim()
@@ -63119,14 +63120,16 @@ exports.getCommandOutput = (toolCommand) => __awaiter(void 0, void 0, void 0, fu
     }
     return stdout.trim();
 });
-exports.getPackageManagerInfo = (packageManager) => __awaiter(void 0, void 0, void 0, function* () {
+exports.getCommandOutput = getCommandOutput;
+const getPackageManagerInfo = (packageManager) => __awaiter(void 0, void 0, void 0, function* () {
     if (!package_managers_1.supportedPackageManagers[packageManager]) {
         throw new Error(`It's not possible to use ${packageManager}, please, check correctness of the package manager name spelling.`);
     }
     const obtainedPackageManager = package_managers_1.supportedPackageManagers[packageManager];
     return obtainedPackageManager;
 });
-exports.getCacheDirectoryPath = (packageManagerInfo) => __awaiter(void 0, void 0, void 0, function* () {
+exports.getPackageManagerInfo = getPackageManagerInfo;
+const getCacheDirectoryPath = (packageManagerInfo) => __awaiter(void 0, void 0, void 0, function* () {
     let pathList = yield Promise.all(packageManagerInfo.cacheFolderCommandList.map(command => exports.getCommandOutput(command)));
     const emptyPaths = pathList.filter(item => !item);
     if (emptyPaths.length) {
@@ -63134,6 +63137,7 @@ exports.getCacheDirectoryPath = (packageManagerInfo) => __awaiter(void 0, void 0
     }
     return pathList;
 });
+exports.getCacheDirectoryPath = getCacheDirectoryPath;
 function isGhes() {
     const ghUrl = new URL(process.env['GITHUB_SERVER_URL'] || 'https://github.com');
     return ghUrl.hostname.toUpperCase() !== 'GITHUB.COM';
@@ -63196,7 +63200,7 @@ var __setModuleDefault = (this && this.__setModuleDefault) || (Object.create ? (
 var __importStar = (this && this.__importStar) || function (mod) {
     if (mod && mod.__esModule) return mod;
     var result = {};
-    if (mod != null) for (var k in mod) if (k !== "default" && Object.hasOwnProperty.call(mod, k)) __createBinding(result, mod, k);
+    if (mod != null) for (var k in mod) if (k !== "default" && Object.prototype.hasOwnProperty.call(mod, k)) __createBinding(result, mod, k);
     __setModuleDefault(result, mod);
     return result;
 };
@@ -63223,11 +63227,13 @@ const sys = __importStar(__nccwpck_require__(4300));
 const fs_1 = __importDefault(__nccwpck_require__(7147));
 const os_1 = __importDefault(__nccwpck_require__(2037));
 const utils_1 = __nccwpck_require__(1314);
-function getGo(versionSpec, checkLatest, auth, arch = os_1.default.arch(), manifest) {
+function getGo(versionSpec, checkLatest, auth, arch = os_1.default.arch()) {
     return __awaiter(this, void 0, void 0, function* () {
+        let manifest;
         let osPlat = os_1.default.platform();
         if (checkLatest) {
             core.info('Attempting to resolve the latest version from the manifest...');
+            manifest = yield getManifest(auth);
             const resolvedVersion = yield resolveVersionFromManifest(versionSpec, true, auth, arch, manifest);
             if (resolvedVersion) {
                 versionSpec = resolvedVersion;
@@ -63239,6 +63245,7 @@ function getGo(versionSpec, checkLatest, auth, arch = os_1.default.arch(), manif
         }
         if (versionSpec === utils_1.StableReleaseAlias.Stable ||
             versionSpec === utils_1.StableReleaseAlias.OldStable) {
+            manifest !== null && manifest !== void 0 ? manifest : (manifest = yield getManifest(auth));
             versionSpec = yield resolveStableVersionInput(versionSpec, auth, arch, manifest);
         }
         // check cache
@@ -63394,6 +63401,10 @@ function findMatch(versionSpec, arch = os_1.default.arch()) {
         if (!candidates) {
             throw new Error(`golang download url did not return results`);
         }
+        if (versionSpec === utils_1.StableReleaseAlias.Stable ||
+            versionSpec === utils_1.StableReleaseAlias.OldStable) {
+            versionSpec = yield resolveStableVersionInput(versionSpec, undefined, arch, candidates);
+        }
         let goFile;
         for (let i = 0; i < candidates.length; i++) {
             let candidate = candidates[i];
@@ -63470,9 +63481,11 @@ function resolveStableVersionInput(versionSpec, auth, arch = os_1.default.arch()
     return __awaiter(this, void 0, void 0, function* () {
         if (!manifest) {
             core.debug('No manifest cached');
-            manifest = yield getManifest(auth);
+            manifest = (yield getManifest(auth));
         }
-        const releases = manifest.map(release => release.version);
+        const releases = manifest
+            .filter(release => !!release.files.find(file => file.arch === arch))
+            .map(release => release.version);
         if (versionSpec === utils_1.StableReleaseAlias.Stable) {
             core.info(`stable version resolved as ${releases[0]}`);
             return releases[0];
@@ -63480,12 +63493,12 @@ function resolveStableVersionInput(versionSpec, auth, arch = os_1.default.arch()
         else {
             const versions = releases.map(release => `${semver.major(release)}.${semver.minor(release)}`);
             const uniqueVersions = Array.from(new Set(versions));
-            const oldstableVersion = yield getInfoFromManifest(uniqueVersions[1], true, auth, arch, manifest);
-            core.info(`oldstable version resolved as ${oldstableVersion === null || oldstableVersion === void 0 ? void 0 : oldstableVersion.resolvedVersion}`);
+            const oldstableVersion = releases.find(item => item.startsWith(uniqueVersions[1]));
+            core.info(`oldstable version resolved as ${oldstableVersion}`);
             if (!oldstableVersion) {
                 return versionSpec;
             }
-            return oldstableVersion.resolvedVersion;
+            return oldstableVersion;
         }
     });
 }
@@ -63514,7 +63527,7 @@ var __setModuleDefault = (this && this.__setModuleDefault) || (Object.create ? (
 var __importStar = (this && this.__importStar) || function (mod) {
     if (mod && mod.__esModule) return mod;
     var result = {};
-    if (mod != null) for (var k in mod) if (k !== "default" && Object.hasOwnProperty.call(mod, k)) __createBinding(result, mod, k);
+    if (mod != null) for (var k in mod) if (k !== "default" && Object.prototype.hasOwnProperty.call(mod, k)) __createBinding(result, mod, k);
     __setModuleDefault(result, mod);
     return result;
 };
@@ -63559,9 +63572,8 @@ function run() {
             if (versionSpec) {
                 let token = core.getInput('token');
                 let auth = !token ? undefined : `token ${token}`;
-                const manifest = yield installer.getManifest(auth);
                 const checkLatest = core.getBooleanInput('check-latest');
-                const installDir = yield installer.getGo(versionSpec, checkLatest, auth, arch, manifest);
+                const installDir = yield installer.getGo(versionSpec, checkLatest, auth, arch);
                 const installDirVersion = path_1.default.basename(path_1.default.dirname(installDir));
                 core.addPath(path_1.default.join(installDir, 'bin'));
                 core.info('Added go to the path');

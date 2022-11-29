@@ -34,13 +34,14 @@ export async function getGo(
   versionSpec: string,
   checkLatest: boolean,
   auth: string | undefined,
-  arch = os.arch(),
-  manifest: tc.IToolRelease[] | undefined
+  arch = os.arch()
 ) {
+  let manifest: tc.IToolRelease[] | undefined;
   let osPlat: string = os.platform();
 
   if (checkLatest) {
     core.info('Attempting to resolve the latest version from the manifest...');
+    manifest = await getManifest(auth);
     const resolvedVersion = await resolveVersionFromManifest(
       versionSpec,
       true,
@@ -60,11 +61,12 @@ export async function getGo(
     versionSpec === StableReleaseAlias.Stable ||
     versionSpec === StableReleaseAlias.OldStable
   ) {
+    manifest ??= await getManifest(auth);
     versionSpec = await resolveStableVersionInput(
       versionSpec,
       auth,
       arch,
-      manifest
+      manifest as (tc.IToolRelease & IGoVersion)[]
     );
   }
 
@@ -266,6 +268,18 @@ export async function findMatch(
     throw new Error(`golang download url did not return results`);
   }
 
+  if (
+    versionSpec === StableReleaseAlias.Stable ||
+    versionSpec === StableReleaseAlias.OldStable
+  ) {
+    versionSpec = await resolveStableVersionInput(
+      versionSpec,
+      undefined,
+      arch,
+      candidates as (tc.IToolRelease & IGoVersion)[]
+    );
+  }
+
   let goFile: IGoVersionFile | undefined;
   for (let i = 0; i < candidates.length; i++) {
     let candidate: IGoVersion = candidates[i];
@@ -358,14 +372,16 @@ export async function resolveStableVersionInput(
   versionSpec: string,
   auth: string | undefined,
   arch = os.arch(),
-  manifest: tc.IToolRelease[] | undefined
+  manifest: (tc.IToolRelease & IGoVersion)[] | undefined
 ): Promise<string> {
   if (!manifest) {
     core.debug('No manifest cached');
-    manifest = await getManifest(auth);
+    manifest = (await getManifest(auth)) as (tc.IToolRelease & IGoVersion)[];
   }
 
-  const releases = manifest.map(release => release.version);
+  const releases = manifest
+    .filter(release => !!release.files.find(file => file.arch === arch))
+    .map(release => release.version);
 
   if (versionSpec === StableReleaseAlias.Stable) {
     core.info(`stable version resolved as ${releases[0]}`);
@@ -377,22 +393,16 @@ export async function resolveStableVersionInput(
     );
     const uniqueVersions = Array.from(new Set(versions));
 
-    const oldstableVersion = await getInfoFromManifest(
-      uniqueVersions[1],
-      true,
-      auth,
-      arch,
-      manifest
+    const oldstableVersion = releases.find(item =>
+      item.startsWith(uniqueVersions[1])
     );
 
-    core.info(
-      `oldstable version resolved as ${oldstableVersion?.resolvedVersion}`
-    );
+    core.info(`oldstable version resolved as ${oldstableVersion}`);
 
     if (!oldstableVersion) {
       return versionSpec;
     }
 
-    return oldstableVersion.resolvedVersion;
+    return oldstableVersion;
   }
 }
