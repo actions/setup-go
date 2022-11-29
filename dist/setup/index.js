@@ -63403,7 +63403,10 @@ function findMatch(versionSpec, arch = os_1.default.arch()) {
         }
         if (versionSpec === utils_1.StableReleaseAlias.Stable ||
             versionSpec === utils_1.StableReleaseAlias.OldStable) {
-            versionSpec = yield resolveStableVersionInput(versionSpec, undefined, arch, candidates);
+            const fixedCandidates = candidates.map(item => {
+                return Object.assign(Object.assign({}, item), { version: makeSemver(item.version) });
+            });
+            versionSpec = yield resolveStableVersionInput(versionSpec, undefined, arch, fixedCandidates);
         }
         let goFile;
         for (let i = 0; i < candidates.length; i++) {

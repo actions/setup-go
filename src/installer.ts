@@ -272,11 +272,14 @@ export async function findMatch(
     versionSpec === StableReleaseAlias.Stable ||
     versionSpec === StableReleaseAlias.OldStable
   ) {
+    const fixedCandidates = candidates.map(item => {
+      return {...item, version: makeSemver(item.version)};
+    });
     versionSpec = await resolveStableVersionInput(
       versionSpec,
       undefined,
       arch,
-      candidates as (tc.IToolRelease & IGoVersion)[]
+      fixedCandidates as (tc.IToolRelease & IGoVersion)[]
     );
   }
 
