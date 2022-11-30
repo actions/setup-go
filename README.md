@@ -125,11 +125,16 @@ steps:
       cache-dependency-path: subdir/go.sum
   - run: go run hello.go
   ```
-## Getting go version from the go.mod file
-
-The `go-version-file` input accepts a path to a `go.mod` file or a `go.work` file that contains the version of Go to be used by a project. As the `go.mod` file contains only major and minor (e.g. 1.18) tags, the action will search for the latest available patch version sequentially in the runner's directory with the cached tools, in the [version-manifest.json](https://github.com/actions/go-versions/blob/main/versions-manifest.json) file or at the go servers.
+## Getting go version from a file
 
 If both the `go-version` and the `go-version-file` inputs are provided then the `go-version` input is used.
+
+If the file contains only major and minor (e.g. 1.18) tags, the action will search for the latest available patch version sequentially in the runner's directory with the cached tools, in the [version-manifest.json](https://github.com/actions/go-versions/blob/main/versions-manifest.json) file or at the go servers.
+
+### If the go.mod file
+
+The `go-version-file` input accepts a path to a `go.mod` file or a `go.work` file that contains the version of Go to be used by a project. As the `go.mod` file contains only major and minor (e.g. 1.18) tags, the action will follow the above-mentioned approach.
+
 > The action will search for the `go.mod` file relative to the repository root
 
 ```yaml
@@ -138,6 +143,21 @@ steps:
 - uses: actions/setup-go@v3
   with:
     go-version-file: 'path/to/go.mod'
+- run: go version
+```
+
+### If a different file
+
+The `go-version-file` input accepts a path to a file file that contains the version of Go to be used by a project. It supports either major and minor (e.g 1.18) or major, minor and patch (e.g 1.18.7) tags
+
+> The action will search for the `.go-version` file relative to the repository root
+
+```yaml
+steps:
+- uses: actions/checkout@v3
+- uses: actions/setup-go@v3
+  with:
+    go-version-file: 'path/to/.go-version'
 - run: go version
 ```
 
