@@ -148,7 +148,7 @@ steps:
 
 ### If a different file
 
-The `go-version-file` input accepts a path to a file file that contains the version of Go to be used by a project. It supports either major and minor (e.g 1.18) or major, minor and patch (e.g 1.18.7) tags
+The `go-version-file` input accepts a path to a file that contains the version of Go to be used by a project. It supports either major and minor (e.g 1.18) or major, minor and patch (e.g 1.18.7) tags. If the file contains only major and minor (e.g. 1.18) tags, the action will follow the above-mentioned approach.
 
 > The action will search for the `.go-version` file relative to the repository root
 
