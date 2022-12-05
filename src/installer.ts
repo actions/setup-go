@@ -66,7 +66,7 @@ export async function getGo(
       versionSpec,
       auth,
       arch,
-      manifest as (tc.IToolRelease & IGoVersion)[]
+      manifest
     );
   }
 
@@ -279,7 +279,7 @@ export async function findMatch(
       versionSpec,
       undefined,
       arch,
-      fixedCandidates as (tc.IToolRelease & IGoVersion)[]
+      fixedCandidates
     );
   }
 
@@ -375,16 +375,22 @@ export async function resolveStableVersionInput(
   versionSpec: string,
   auth: string | undefined,
   arch = os.arch(),
-  manifest: (tc.IToolRelease & IGoVersion)[] | undefined
+  manifest: tc.IToolRelease[] | IGoVersion[] | undefined
 ): Promise<string> {
   if (!manifest) {
     core.debug('No manifest cached');
-    manifest = (await getManifest(auth)) as (tc.IToolRelease & IGoVersion)[];
+    manifest = await getManifest(auth);
   }
 
   const releases = manifest
-    .filter(release => !!release.files.find(file => file.arch === arch))
-    .map(release => release.version);
+    .map(item => {
+      const index = item.files.findIndex(item => item.arch === arch);
+      if (index === -1) {
+        return '';
+      }
+      return item.version;
+    })
+    .filter(item => !!item);
 
   if (versionSpec === StableReleaseAlias.Stable) {
     core.info(`stable version resolved as ${releases[0]}`);

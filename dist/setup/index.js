@@ -63484,11 +63484,17 @@ function resolveStableVersionInput(versionSpec, auth, arch = os_1.default.arch()
     return __awaiter(this, void 0, void 0, function* () {
         if (!manifest) {
             core.debug('No manifest cached');
-            manifest = (yield getManifest(auth));
+            manifest = yield getManifest(auth);
         }
         const releases = manifest
-            .filter(release => !!release.files.find(file => file.arch === arch))
-            .map(release => release.version);
+            .map(item => {
+            const index = item.files.findIndex(item => item.arch === arch);
+            if (index === -1) {
+                return '';
+            }
+            return item.version;
+        })
+            .filter(item => !!item);
         if (versionSpec === utils_1.StableReleaseAlias.Stable) {
             core.info(`stable version resolved as ${releases[0]}`);
             return releases[0];
