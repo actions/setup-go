@@ -147,7 +147,6 @@ async function resolveVersionFromManifest(
     );
     return info?.resolvedVersion;
   } catch (err) {
-    console.log('didnt fail');
     core.info('Unable to resolve a version from the manifest...');
     core.debug(err.message);
   }
@@ -214,7 +213,7 @@ export async function getInfoFromManifest(
     core.debug('No manifest cached');
     manifest = await getManifest(auth);
   }
-  console.log('didnt fail898998');
+  
   core.info(`matching ${versionSpec}...`);
 
   const rel = await tc.findFromManifest(versionSpec, stable, manifest, arch);

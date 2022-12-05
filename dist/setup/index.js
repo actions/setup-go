@@ -63308,7 +63308,6 @@ function resolveVersionFromManifest(versionSpec, stable, auth, arch, manifest) {
             return info === null || info === void 0 ? void 0 : info.resolvedVersion;
         }
         catch (err) {
-            console.log('didnt fail');
             core.info('Unable to resolve a version from the manifest...');
             core.debug(err.message);
         }
@@ -63361,7 +63360,6 @@ function getInfoFromManifest(versionSpec, stable, auth, arch = os_1.default.arch
             core.debug('No manifest cached');
             manifest = yield getManifest(auth);
         }
-        console.log('didnt fail898998');
         core.info(`matching ${versionSpec}...`);
         const rel = yield tc.findFromManifest(versionSpec, stable, manifest, arch);
         if (rel && rel.files.length > 0) {
