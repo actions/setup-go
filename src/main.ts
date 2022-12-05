@@ -30,16 +30,13 @@ export async function run() {
       let token = core.getInput('token');
       let auth = !token ? undefined : `token ${token}`;
 
-      const manifest = await installer.getManifest(auth);
-
       const checkLatest = core.getBooleanInput('check-latest');
 
       const installDir = await installer.getGo(
         versionSpec,
         checkLatest,
         auth,
-        arch,
-        manifest
+        arch
       );
 
       const installDirVersion = path.basename(path.dirname(installDir));
