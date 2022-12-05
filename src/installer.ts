@@ -213,7 +213,7 @@ export async function getInfoFromManifest(
     core.debug('No manifest cached');
     manifest = await getManifest(auth);
   }
-  
+
   core.info(`matching ${versionSpec}...`);
 
   const rel = await tc.findFromManifest(versionSpec, stable, manifest, arch);
