@@ -39,9 +39,21 @@ export async function getGo(
   let manifest: tc.IToolRelease[] | undefined;
   let osPlat: string = os.platform();
 
+  if (
+    versionSpec === StableReleaseAlias.Stable ||
+    versionSpec === StableReleaseAlias.OldStable
+  ) {
+    manifest = await getManifest(auth);
+    versionSpec = await resolveStableVersionInput(
+      versionSpec,
+      auth,
+      arch,
+      manifest
+    );
+  }
+
   if (checkLatest) {
     core.info('Attempting to resolve the latest version from the manifest...');
-    manifest = await getManifest(auth);
     const resolvedVersion = await resolveVersionFromManifest(
       versionSpec,
       true,
@@ -55,19 +67,6 @@ export async function getGo(
     } else {
       core.info(`Failed to resolve version ${versionSpec} from manifest`);
     }
-  }
-
-  if (
-    versionSpec === StableReleaseAlias.Stable ||
-    versionSpec === StableReleaseAlias.OldStable
-  ) {
-    manifest ??= await getManifest(auth);
-    versionSpec = await resolveStableVersionInput(
-      versionSpec,
-      auth,
-      arch,
-      manifest
-    );
   }
 
   // check cache
@@ -86,7 +85,7 @@ export async function getGo(
   // Try download from internal distribution (popular versions only)
   //
   try {
-    info = await getInfoFromManifest(versionSpec, true, auth, arch);
+    info = await getInfoFromManifest(versionSpec, true, auth, arch, manifest);
     if (info) {
       downloadPath = await installGoVersion(info, auth, arch);
     } else {
@@ -148,6 +147,7 @@ async function resolveVersionFromManifest(
     );
     return info?.resolvedVersion;
   } catch (err) {
+    console.log('didnt fail');
     core.info('Unable to resolve a version from the manifest...');
     core.debug(err.message);
   }
@@ -214,7 +214,7 @@ export async function getInfoFromManifest(
     core.debug('No manifest cached');
     manifest = await getManifest(auth);
   }
-
+  console.log('didnt fail898998');
   core.info(`matching ${versionSpec}...`);
 
   const rel = await tc.findFromManifest(versionSpec, stable, manifest, arch);
