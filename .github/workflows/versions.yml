@@ -42,6 +42,134 @@ jobs:
       - name: Verify Go
         run: go version
 
+  stable_arm64:
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+    steps:
+      - uses: actions/checkout@v3
+      - name: Setup Go and check latest
+        uses: ./
+        with:
+          go-version: stable
+          architecture: arm64
+      - name: Verify Go
+        run: go version
+
+  oldstable_arm64:
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+    steps:
+      - uses: actions/checkout@v3
+      - name: Setup Go and check latest
+        uses: ./
+        with:
+          go-version: oldstable
+          architecture: arm64
+      - name: Verify Go
+        run: go version
+
+  stable_x64:
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+    steps:
+      - uses: actions/checkout@v3
+      - name: Setup Go and check latest
+        uses: ./
+        with:
+          go-version: stable
+          architecture: x64
+      - name: Verify Go
+        run: go version
+
+  oldstable_x64:
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+    steps:
+      - uses: actions/checkout@v3
+      - name: Setup Go and check latest
+        uses: ./
+        with:
+          go-version: oldstable
+          architecture: x64
+      - name: Verify Go
+        run: go version
+
+  stable_arm32:
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+    steps:
+      - uses: actions/checkout@v3
+      - name: Setup Go and check latest
+        uses: ./
+        with:
+          go-version: stable
+          architecture: arm
+      - name: Verify Go
+        run: go version
+
+  oldstable_arm32:
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+    steps:
+      - uses: actions/checkout@v3
+      - name: Setup Go and check latest
+        uses: ./
+        with:
+          go-version: oldstable
+          architecture: arm
+      - name: Verify Go
+        run: go version
+
+  stable_x86:
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+    steps:
+      - uses: actions/checkout@v3
+      - name: Setup Go and check latest
+        uses: ./
+        with:
+          go-version: stable
+          architecture: x86
+      - name: Verify Go
+        run: go version
+
+  oldstable_x86:
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+    steps:
+      - uses: actions/checkout@v3
+      - name: Setup Go and check latest
+        uses: ./
+        with:
+          go-version: oldstable
+          architecture: x86
+      - name: Verify Go
+        run: go version
+
   local-cache:
     name: Setup local-cache version
     runs-on: ${{ matrix.os }}
