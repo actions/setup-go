@@ -277,7 +277,7 @@ export async function findMatch(
     versionSpec = await resolveStableVersionInput(
       versionSpec,
       undefined,
-      arch,
+      archFilter,
       fixedCandidates
     );
   }
@@ -394,7 +394,7 @@ export async function resolveStableVersionInput(
   if (versionSpec === StableReleaseAlias.Stable) {
     core.info(`stable version resolved as ${releases[0]}`);
 
-    return releases[0];
+    return releases[0] ?? versionSpec;
   } else {
     const versions = releases.map(
       release => `${semver.major(release)}.${semver.minor(release)}`

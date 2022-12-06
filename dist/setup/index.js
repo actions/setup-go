@@ -63405,7 +63405,7 @@ function findMatch(versionSpec, arch = os_1.default.arch()) {
             const fixedCandidates = candidates.map(item => {
                 return Object.assign(Object.assign({}, item), { version: makeSemver(item.version) });
             });
-            versionSpec = yield resolveStableVersionInput(versionSpec, undefined, arch, fixedCandidates);
+            versionSpec = yield resolveStableVersionInput(versionSpec, undefined, archFilter, fixedCandidates);
         }
         let goFile;
         for (let i = 0; i < candidates.length; i++) {
@@ -63480,6 +63480,7 @@ function parseGoVersionFile(versionFilePath) {
 }
 exports.parseGoVersionFile = parseGoVersionFile;
 function resolveStableVersionInput(versionSpec, auth, arch = os_1.default.arch(), manifest) {
+    var _a;
     return __awaiter(this, void 0, void 0, function* () {
         if (!manifest) {
             core.debug('No manifest cached');
@@ -63496,7 +63497,7 @@ function resolveStableVersionInput(versionSpec, auth, arch = os_1.default.arch()
             .filter(item => !!item);
         if (versionSpec === utils_1.StableReleaseAlias.Stable) {
             core.info(`stable version resolved as ${releases[0]}`);
-            return releases[0];
+            return (_a = releases[0]) !== null && _a !== void 0 ? _a : versionSpec;
         }
         else {
             const versions = releases.map(release => `${semver.major(release)}.${semver.minor(release)}`);
