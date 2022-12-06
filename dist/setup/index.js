@@ -63231,9 +63231,13 @@ function getGo(versionSpec, checkLatest, auth, arch = os_1.default.arch()) {
     return __awaiter(this, void 0, void 0, function* () {
         let manifest;
         let osPlat = os_1.default.platform();
+        if (versionSpec === utils_1.StableReleaseAlias.Stable ||
+            versionSpec === utils_1.StableReleaseAlias.OldStable) {
+            manifest = yield getManifest(auth);
+            versionSpec = yield resolveStableVersionInput(versionSpec, auth, arch, manifest);
+        }
         if (checkLatest) {
             core.info('Attempting to resolve the latest version from the manifest...');
-            manifest = yield getManifest(auth);
             const resolvedVersion = yield resolveVersionFromManifest(versionSpec, true, auth, arch, manifest);
             if (resolvedVersion) {
                 versionSpec = resolvedVersion;
@@ -63242,11 +63246,6 @@ function getGo(versionSpec, checkLatest, auth, arch = os_1.default.arch()) {
             else {
                 core.info(`Failed to resolve version ${versionSpec} from manifest`);
             }
-        }
-        if (versionSpec === utils_1.StableReleaseAlias.Stable ||
-            versionSpec === utils_1.StableReleaseAlias.OldStable) {
-            manifest !== null && manifest !== void 0 ? manifest : (manifest = yield getManifest(auth));
-            versionSpec = yield resolveStableVersionInput(versionSpec, auth, arch, manifest);
         }
         // check cache
         let toolPath;
@@ -63263,7 +63262,7 @@ function getGo(versionSpec, checkLatest, auth, arch = os_1.default.arch()) {
         // Try download from internal distribution (popular versions only)
         //
         try {
-            info = yield getInfoFromManifest(versionSpec, true, auth, arch);
+            info = yield getInfoFromManifest(versionSpec, true, auth, arch, manifest);
             if (info) {
                 downloadPath = yield installGoVersion(info, auth, arch);
             }
