@@ -63234,7 +63234,7 @@ function getGo(versionSpec, checkLatest, auth, arch = os_1.default.arch()) {
         if (versionSpec === utils_1.StableReleaseAlias.Stable ||
             versionSpec === utils_1.StableReleaseAlias.OldStable) {
             manifest = yield getManifest(auth);
-            versionSpec = yield resolveStableVersionInput(versionSpec, arch, manifest);
+            versionSpec = yield resolveStableVersionInput(versionSpec, arch, osPlat, manifest);
         }
         if (checkLatest) {
             core.info('Attempting to resolve the latest version from the manifest...');
@@ -63405,7 +63405,7 @@ function findMatch(versionSpec, arch = os_1.default.arch()) {
             const fixedCandidates = candidates.map(item => {
                 return Object.assign(Object.assign({}, item), { version: makeSemver(item.version) });
             });
-            versionSpec = yield resolveStableVersionInput(versionSpec, archFilter, fixedCandidates);
+            versionSpec = yield resolveStableVersionInput(versionSpec, archFilter, platFilter, fixedCandidates);
         }
         let goFile;
         for (let i = 0; i < candidates.length; i++) {
@@ -63479,12 +63479,12 @@ function parseGoVersionFile(versionFilePath) {
     return contents.trim();
 }
 exports.parseGoVersionFile = parseGoVersionFile;
-function resolveStableVersionInput(versionSpec, arch = os_1.default.arch(), manifest) {
+function resolveStableVersionInput(versionSpec, arch = os_1.default.arch(), platform, manifest) {
     var _a;
     return __awaiter(this, void 0, void 0, function* () {
         const releases = manifest
             .map(item => {
-            const index = item.files.findIndex(item => item.arch === arch);
+            const index = item.files.findIndex(item => item.arch === arch && item.filename.includes(platform));
             if (index === -1) {
                 return '';
             }

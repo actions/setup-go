@@ -44,7 +44,12 @@ export async function getGo(
     versionSpec === StableReleaseAlias.OldStable
   ) {
     manifest = await getManifest(auth);
-    versionSpec = await resolveStableVersionInput(versionSpec, arch, manifest);
+    versionSpec = await resolveStableVersionInput(
+      versionSpec,
+      arch,
+      osPlat,
+      manifest
+    );
   }
 
   if (checkLatest) {
@@ -267,11 +272,15 @@ export async function findMatch(
     versionSpec === StableReleaseAlias.OldStable
   ) {
     const fixedCandidates = candidates.map(item => {
-      return {...item, version: makeSemver(item.version)};
+      return {
+        ...item,
+        version: makeSemver(item.version)
+      };
     });
     versionSpec = await resolveStableVersionInput(
       versionSpec,
       archFilter,
+      platFilter,
       fixedCandidates
     );
   }
@@ -367,11 +376,14 @@ export function parseGoVersionFile(versionFilePath: string): string {
 export async function resolveStableVersionInput(
   versionSpec: string,
   arch = os.arch(),
+  platform: string,
   manifest: tc.IToolRelease[] | IGoVersion[]
 ): Promise<string> {
   const releases = manifest
     .map(item => {
-      const index = item.files.findIndex(item => item.arch === arch);
+      const index = item.files.findIndex(
+        item => item.arch === arch && item.filename.includes(platform)
+      );
       if (index === -1) {
         return '';
       }
