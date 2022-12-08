@@ -44,12 +44,36 @@ export async function getGo(
     versionSpec === StableReleaseAlias.OldStable
   ) {
     manifest = await getManifest(auth);
-    versionSpec = await resolveStableVersionInput(
+    let stableVersion = await resolveStableVersionInput(
       versionSpec,
       arch,
       osPlat,
       manifest
     );
+
+    if (!stableVersion) {
+      const dlUrl: string = 'https://golang.org/dl/?mode=json&include=all';
+      let candidates:
+        | IGoVersion[]
+        | null = await module.exports.getVersionsDist(dlUrl);
+      if (!candidates) {
+        throw new Error(`golang download url did not return results`);
+      }
+
+      const fixedCandidates = candidates.map(item => {
+        return {
+          ...item,
+          version: makeSemver(item.version)
+        };
+      });
+
+      stableVersion = await resolveStableVersionInput(
+        versionSpec,
+        arch,
+        osPlat,
+        fixedCandidates
+      );
+    }
   }
 
   if (checkLatest) {
@@ -267,24 +291,6 @@ export async function findMatch(
     throw new Error(`golang download url did not return results`);
   }
 
-  if (
-    versionSpec === StableReleaseAlias.Stable ||
-    versionSpec === StableReleaseAlias.OldStable
-  ) {
-    const fixedCandidates = candidates.map(item => {
-      return {
-        ...item,
-        version: makeSemver(item.version)
-      };
-    });
-    versionSpec = await resolveStableVersionInput(
-      versionSpec,
-      archFilter,
-      platFilter,
-      fixedCandidates
-    );
-  }
-
   let goFile: IGoVersionFile | undefined;
   for (let i = 0; i < candidates.length; i++) {
     let candidate: IGoVersion = candidates[i];
@@ -378,7 +384,7 @@ export async function resolveStableVersionInput(
   arch: string,
   platform: string,
   manifest: tc.IToolRelease[] | IGoVersion[]
-): Promise<string> {
+) {
   const releases = manifest
     .map(item => {
       const index = item.files.findIndex(
@@ -394,7 +400,7 @@ export async function resolveStableVersionInput(
   if (versionSpec === StableReleaseAlias.Stable) {
     core.info(`stable version resolved as ${releases[0]}`);
 
-    return releases[0] ?? versionSpec;
+    return releases[0];
   } else {
     const versions = releases.map(
       release => `${semver.major(release)}.${semver.minor(release)}`
@@ -406,10 +412,6 @@ export async function resolveStableVersionInput(
     );
 
     core.info(`oldstable version resolved as ${oldstableVersion}`);
-
-    if (!oldstableVersion) {
-      return versionSpec;
-    }
 
     return oldstableVersion;
   }
