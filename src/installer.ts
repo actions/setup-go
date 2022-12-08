@@ -389,7 +389,7 @@ export async function resolveStableVersionInput(
       }
       return item.version;
     })
-    .filter(item => !!item);
+    .filter(item => !!item && !semver.prerelease(item));
 
   if (versionSpec === StableReleaseAlias.Stable) {
     core.info(`stable version resolved as ${releases[0]}`);

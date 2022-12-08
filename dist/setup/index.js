@@ -63490,7 +63490,7 @@ function resolveStableVersionInput(versionSpec, arch, platform, manifest) {
             }
             return item.version;
         })
-            .filter(item => !!item);
+            .filter(item => !!item && !semver.prerelease(item));
         if (versionSpec === utils_1.StableReleaseAlias.Stable) {
             core.info(`stable version resolved as ${releases[0]}`);
             return (_a = releases[0]) !== null && _a !== void 0 ? _a : versionSpec;
