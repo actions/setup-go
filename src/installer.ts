@@ -52,6 +52,8 @@ export async function getGo(
     );
 
     if (!stableVersion) {
+      let archFilter = sys.getArch(arch);
+      let platFilter = sys.getPlatform();
       const dlUrl: string = 'https://golang.org/dl/?mode=json&include=all';
       let candidates:
         | IGoVersion[]
@@ -69,11 +71,19 @@ export async function getGo(
 
       stableVersion = await resolveStableVersionInput(
         versionSpec,
-        arch,
-        osPlat,
+        archFilter,
+        platFilter,
         fixedCandidates
       );
+
+      if (!stableVersion) {
+        throw new Error(
+          `Unable to find Go version '${versionSpec}' for platform ${osPlat} and architecture ${arch}.`
+        );
+      }
     }
+
+    versionSpec = stableVersion;
   }
 
   if (checkLatest) {

@@ -63236,6 +63236,8 @@ function getGo(versionSpec, checkLatest, auth, arch = os_1.default.arch()) {
             manifest = yield getManifest(auth);
             let stableVersion = yield resolveStableVersionInput(versionSpec, arch, osPlat, manifest);
             if (!stableVersion) {
+                let archFilter = sys.getArch(arch);
+                let platFilter = sys.getPlatform();
                 const dlUrl = 'https://golang.org/dl/?mode=json&include=all';
                 let candidates = yield module.exports.getVersionsDist(dlUrl);
                 if (!candidates) {
@@ -63244,8 +63246,12 @@ function getGo(versionSpec, checkLatest, auth, arch = os_1.default.arch()) {
                 const fixedCandidates = candidates.map(item => {
                     return Object.assign(Object.assign({}, item), { version: makeSemver(item.version) });
                 });
-                stableVersion = yield resolveStableVersionInput(versionSpec, arch, osPlat, fixedCandidates);
+                stableVersion = yield resolveStableVersionInput(versionSpec, archFilter, platFilter, fixedCandidates);
+                if (!stableVersion) {
+                    throw new Error(`Unable to find Go version '${versionSpec}' for platform ${osPlat} and architecture ${arch}.`);
+                }
             }
+            versionSpec = stableVersion;
         }
         if (checkLatest) {
             core.info('Attempting to resolve the latest version from the manifest...');
