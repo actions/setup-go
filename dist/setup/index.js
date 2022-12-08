@@ -63236,17 +63236,7 @@ function getGo(versionSpec, checkLatest, auth, arch = os_1.default.arch()) {
             manifest = yield getManifest(auth);
             let stableVersion = yield resolveStableVersionInput(versionSpec, arch, osPlat, manifest);
             if (!stableVersion) {
-                let archFilter = sys.getArch(arch);
-                let platFilter = sys.getPlatform();
-                const dlUrl = 'https://golang.org/dl/?mode=json&include=all';
-                let candidates = yield module.exports.getVersionsDist(dlUrl);
-                if (!candidates) {
-                    throw new Error(`golang download url did not return results`);
-                }
-                const fixedCandidates = candidates.map(item => {
-                    return Object.assign(Object.assign({}, item), { version: makeSemver(item.version) });
-                });
-                stableVersion = yield resolveStableVersionInput(versionSpec, archFilter, platFilter, fixedCandidates);
+                stableVersion = yield resolveStableVersionDist(versionSpec, arch);
                 if (!stableVersion) {
                     throw new Error(`Unable to find Go version '${versionSpec}' for platform ${osPlat} and architecture ${arch}.`);
                 }
@@ -63489,6 +63479,22 @@ function parseGoVersionFile(versionFilePath) {
     return contents.trim();
 }
 exports.parseGoVersionFile = parseGoVersionFile;
+function resolveStableVersionDist(versionSpec, arch) {
+    return __awaiter(this, void 0, void 0, function* () {
+        let archFilter = sys.getArch(arch);
+        let platFilter = sys.getPlatform();
+        const dlUrl = 'https://golang.org/dl/?mode=json&include=all';
+        let candidates = yield module.exports.getVersionsDist(dlUrl);
+        if (!candidates) {
+            throw new Error(`golang download url did not return results`);
+        }
+        const fixedCandidates = candidates.map(item => {
+            return Object.assign(Object.assign({}, item), { version: makeSemver(item.version) });
+        });
+        const stableVersion = yield resolveStableVersionInput(versionSpec, archFilter, platFilter, fixedCandidates);
+        return stableVersion;
+    });
+}
 function resolveStableVersionInput(versionSpec, arch, platform, manifest) {
     return __awaiter(this, void 0, void 0, function* () {
         const releases = manifest

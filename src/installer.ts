@@ -52,30 +52,7 @@ export async function getGo(
     );
 
     if (!stableVersion) {
-      let archFilter = sys.getArch(arch);
-      let platFilter = sys.getPlatform();
-      const dlUrl: string = 'https://golang.org/dl/?mode=json&include=all';
-      let candidates:
-        | IGoVersion[]
-        | null = await module.exports.getVersionsDist(dlUrl);
-      if (!candidates) {
-        throw new Error(`golang download url did not return results`);
-      }
-
-      const fixedCandidates = candidates.map(item => {
-        return {
-          ...item,
-          version: makeSemver(item.version)
-        };
-      });
-
-      stableVersion = await resolveStableVersionInput(
-        versionSpec,
-        archFilter,
-        platFilter,
-        fixedCandidates
-      );
-
+      stableVersion = await resolveStableVersionDist(versionSpec, arch);
       if (!stableVersion) {
         throw new Error(
           `Unable to find Go version '${versionSpec}' for platform ${osPlat} and architecture ${arch}.`
@@ -387,6 +364,34 @@ export function parseGoVersionFile(versionFilePath: string): string {
   }
 
   return contents.trim();
+}
+
+async function resolveStableVersionDist(versionSpec: string, arch: string) {
+  let archFilter = sys.getArch(arch);
+  let platFilter = sys.getPlatform();
+  const dlUrl: string = 'https://golang.org/dl/?mode=json&include=all';
+  let candidates: IGoVersion[] | null = await module.exports.getVersionsDist(
+    dlUrl
+  );
+  if (!candidates) {
+    throw new Error(`golang download url did not return results`);
+  }
+
+  const fixedCandidates = candidates.map(item => {
+    return {
+      ...item,
+      version: makeSemver(item.version)
+    };
+  });
+
+  const stableVersion = await resolveStableVersionInput(
+    versionSpec,
+    archFilter,
+    platFilter,
+    fixedCandidates
+  );
+
+  return stableVersion;
 }
 
 export async function resolveStableVersionInput(
