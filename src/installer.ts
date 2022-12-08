@@ -375,7 +375,7 @@ export function parseGoVersionFile(versionFilePath: string): string {
 
 export async function resolveStableVersionInput(
   versionSpec: string,
-  arch = os.arch(),
+  arch: string,
   platform: string,
   manifest: tc.IToolRelease[] | IGoVersion[]
 ): Promise<string> {

@@ -63479,7 +63479,7 @@ function parseGoVersionFile(versionFilePath) {
     return contents.trim();
 }
 exports.parseGoVersionFile = parseGoVersionFile;
-function resolveStableVersionInput(versionSpec, arch = os_1.default.arch(), platform, manifest) {
+function resolveStableVersionInput(versionSpec, arch, platform, manifest) {
     var _a;
     return __awaiter(this, void 0, void 0, function* () {
         const releases = manifest
