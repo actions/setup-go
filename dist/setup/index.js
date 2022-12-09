@@ -63234,7 +63234,14 @@ function getGo(versionSpec, checkLatest, auth, arch = os_1.default.arch()) {
         if (versionSpec === utils_1.StableReleaseAlias.Stable ||
             versionSpec === utils_1.StableReleaseAlias.OldStable) {
             manifest = yield getManifest(auth);
-            versionSpec = yield resolveStableVersionInput(versionSpec, arch, osPlat, manifest);
+            let stableVersion = yield resolveStableVersionInput(versionSpec, arch, osPlat, manifest);
+            if (!stableVersion) {
+                stableVersion = yield resolveStableVersionDist(versionSpec, arch);
+                if (!stableVersion) {
+                    throw new Error(`Unable to find Go version '${versionSpec}' for platform ${osPlat} and architecture ${arch}.`);
+                }
+            }
+            versionSpec = stableVersion;
         }
         if (checkLatest) {
             core.info('Attempting to resolve the latest version from the manifest...');
@@ -63400,13 +63407,6 @@ function findMatch(versionSpec, arch = os_1.default.arch()) {
         if (!candidates) {
             throw new Error(`golang download url did not return results`);
         }
-        if (versionSpec === utils_1.StableReleaseAlias.Stable ||
-            versionSpec === utils_1.StableReleaseAlias.OldStable) {
-            const fixedCandidates = candidates.map(item => {
-                return Object.assign(Object.assign({}, item), { version: makeSemver(item.version) });
-            });
-            versionSpec = yield resolveStableVersionInput(versionSpec, archFilter, platFilter, fixedCandidates);
-        }
         let goFile;
         for (let i = 0; i < candidates.length; i++) {
             let candidate = candidates[i];
@@ -63479,8 +63479,23 @@ function parseGoVersionFile(versionFilePath) {
     return contents.trim();
 }
 exports.parseGoVersionFile = parseGoVersionFile;
+function resolveStableVersionDist(versionSpec, arch) {
+    return __awaiter(this, void 0, void 0, function* () {
+        let archFilter = sys.getArch(arch);
+        let platFilter = sys.getPlatform();
+        const dlUrl = 'https://golang.org/dl/?mode=json&include=all';
+        let candidates = yield module.exports.getVersionsDist(dlUrl);
+        if (!candidates) {
+            throw new Error(`golang download url did not return results`);
+        }
+        const fixedCandidates = candidates.map(item => {
+            return Object.assign(Object.assign({}, item), { version: makeSemver(item.version) });
+        });
+        const stableVersion = yield resolveStableVersionInput(versionSpec, archFilter, platFilter, fixedCandidates);
+        return stableVersion;
+    });
+}
 function resolveStableVersionInput(versionSpec, arch, platform, manifest) {
-    var _a;
     return __awaiter(this, void 0, void 0, function* () {
         const releases = manifest
             .map(item => {
@@ -63493,16 +63508,13 @@ function resolveStableVersionInput(versionSpec, arch, platform, manifest) {
             .filter(item => !!item && !semver.prerelease(item));
         if (versionSpec === utils_1.StableReleaseAlias.Stable) {
             core.info(`stable version resolved as ${releases[0]}`);
-            return (_a = releases[0]) !== null && _a !== void 0 ? _a : versionSpec;
+            return releases[0];
         }
         else {
             const versions = releases.map(release => `${semver.major(release)}.${semver.minor(release)}`);
             const uniqueVersions = Array.from(new Set(versions));
             const oldstableVersion = releases.find(item => item.startsWith(uniqueVersions[1]));
             core.info(`oldstable version resolved as ${oldstableVersion}`);
-            if (!oldstableVersion) {
-                return versionSpec;
-            }
             return oldstableVersion;
         }
     });
