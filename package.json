@@ -42,6 +42,6 @@
     "nock": "^10.0.6",
     "prettier": "^1.17.1",
     "ts-jest": "^27.0.5",
-    "typescript": "^3.8.3"
+    "typescript": "^4.3.3"
   }
 }

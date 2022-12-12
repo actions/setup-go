@@ -16,6 +16,7 @@ The V3 edition of the action offers:
 - Proxy support
 - Check latest version
 - Caching packages dependencies
+- stable and oldstable aliases
 - Bug Fixes (including issues around version matching and semver)
 
 The action will first check the local cache for a version match. If a version is not found locally, it will pull it from the `main` branch of the [go-versions](https://github.com/actions/go-versions/blob/main/versions-manifest.json) repository. On miss or failure, it will fall back to downloading directly from [go dist](https://storage.googleapis.com/golang). To change the default behavior, please use the [check-latest input](#check-latest-version).
@@ -95,6 +96,33 @@ steps:
       check-latest: true
   - run: go run hello.go
 ```
+
+## Using stable/oldstable aliases
+
+If `stable` is provided, action will get the latest stable version from the [`go-versions`](https://github.com/actions/go-versions/blob/main/versions-manifest.json) repository manifest. 
+
+If `oldstable` is provided, when current release is 1.19.x, action will resolve version as 1.18.x, where x is the latest patch release.
+
+**Note:** using these aliases will result in same version as using corresponding minor release with `check-latest` input set to `true`
+
+```yaml
+steps:
+  - uses: actions/checkout@v3
+  - uses: actions/setup-go@v3
+    with:
+      go-version: 'stable'
+  - run: go run hello.go
+```
+
+```yaml
+steps:
+  - uses: actions/checkout@v3
+  - uses: actions/setup-go@v3
+    with:
+      go-version: 'oldstable'
+  - run: go run hello.go
+```
+
 ## Caching dependency files and build outputs:
 
 The action has a built-in functionality for caching and restoring go modules and build outputs. It uses [actions/cache](https://github.com/actions/cache) under the hood but requires less configuration settings. The `cache` input is optional, and caching is turned off by default.

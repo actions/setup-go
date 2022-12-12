@@ -6,6 +6,7 @@ import * as httpm from '@actions/http-client';
 import * as sys from './system';
 import fs from 'fs';
 import os from 'os';
+import {StableReleaseAlias} from './utils';
 
 type InstallationType = 'dist' | 'manifest';
 
@@ -35,7 +36,32 @@ export async function getGo(
   auth: string | undefined,
   arch = os.arch()
 ) {
+  let manifest: tc.IToolRelease[] | undefined;
   let osPlat: string = os.platform();
+
+  if (
+    versionSpec === StableReleaseAlias.Stable ||
+    versionSpec === StableReleaseAlias.OldStable
+  ) {
+    manifest = await getManifest(auth);
+    let stableVersion = await resolveStableVersionInput(
+      versionSpec,
+      arch,
+      osPlat,
+      manifest
+    );
+
+    if (!stableVersion) {
+      stableVersion = await resolveStableVersionDist(versionSpec, arch);
+      if (!stableVersion) {
+        throw new Error(
+          `Unable to find Go version '${versionSpec}' for platform ${osPlat} and architecture ${arch}.`
+        );
+      }
+    }
+
+    versionSpec = stableVersion;
+  }
 
   if (checkLatest) {
     core.info('Attempting to resolve the latest version from the manifest...');
@@ -43,7 +69,8 @@ export async function getGo(
       versionSpec,
       true,
       auth,
-      arch
+      arch,
+      manifest
     );
     if (resolvedVersion) {
       versionSpec = resolvedVersion;
@@ -69,7 +96,7 @@ export async function getGo(
   // Try download from internal distribution (popular versions only)
   //
   try {
-    info = await getInfoFromManifest(versionSpec, true, auth, arch);
+    info = await getInfoFromManifest(versionSpec, true, auth, arch, manifest);
     if (info) {
       downloadPath = await installGoVersion(info, auth, arch);
     } else {
@@ -118,10 +145,17 @@ async function resolveVersionFromManifest(
   versionSpec: string,
   stable: boolean,
   auth: string | undefined,
-  arch: string
+  arch: string,
+  manifest: tc.IToolRelease[] | undefined
 ): Promise<string | undefined> {
   try {
-    const info = await getInfoFromManifest(versionSpec, stable, auth, arch);
+    const info = await getInfoFromManifest(
+      versionSpec,
+      stable,
+      auth,
+      arch,
+      manifest
+    );
     return info?.resolvedVersion;
   } catch (err) {
     core.info('Unable to resolve a version from the manifest...');
@@ -174,21 +208,26 @@ export async function extractGoArchive(archivePath: string): Promise<string> {
   return extPath;
 }
 
+export async function getManifest(auth: string | undefined) {
+  return tc.getManifestFromRepo('actions', 'go-versions', auth, 'main');
+}
+
 export async function getInfoFromManifest(
   versionSpec: string,
   stable: boolean,
   auth: string | undefined,
-  arch = os.arch()
+  arch = os.arch(),
+  manifest?: tc.IToolRelease[] | undefined
 ): Promise<IGoVersionInfo | null> {
   let info: IGoVersionInfo | null = null;
-  const releases = await tc.getManifestFromRepo(
-    'actions',
-    'go-versions',
-    auth,
-    'main'
-  );
+  if (!manifest) {
+    core.debug('No manifest cached');
+    manifest = await getManifest(auth);
+  }
+
   core.info(`matching ${versionSpec}...`);
-  const rel = await tc.findFromManifest(versionSpec, stable, releases, arch);
+
+  const rel = await tc.findFromManifest(versionSpec, stable, manifest, arch);
 
   if (rel && rel.files.length > 0) {
     info = <IGoVersionInfo>{};
@@ -325,4 +364,70 @@ export function parseGoVersionFile(versionFilePath: string): string {
   }
 
   return contents.trim();
+}
+
+async function resolveStableVersionDist(versionSpec: string, arch: string) {
+  let archFilter = sys.getArch(arch);
+  let platFilter = sys.getPlatform();
+  const dlUrl: string = 'https://golang.org/dl/?mode=json&include=all';
+  let candidates: IGoVersion[] | null = await module.exports.getVersionsDist(
+    dlUrl
+  );
+  if (!candidates) {
+    throw new Error(`golang download url did not return results`);
+  }
+
+  const fixedCandidates = candidates.map(item => {
+    return {
+      ...item,
+      version: makeSemver(item.version)
+    };
+  });
+
+  const stableVersion = await resolveStableVersionInput(
+    versionSpec,
+    archFilter,
+    platFilter,
+    fixedCandidates
+  );
+
+  return stableVersion;
+}
+
+export async function resolveStableVersionInput(
+  versionSpec: string,
+  arch: string,
+  platform: string,
+  manifest: tc.IToolRelease[] | IGoVersion[]
+) {
+  const releases = manifest
+    .map(item => {
+      const index = item.files.findIndex(
+        item => item.arch === arch && item.filename.includes(platform)
+      );
+      if (index === -1) {
+        return '';
+      }
+      return item.version;
+    })
+    .filter(item => !!item && !semver.prerelease(item));
+
+  if (versionSpec === StableReleaseAlias.Stable) {
+    core.info(`stable version resolved as ${releases[0]}`);
+
+    return releases[0];
+  } else {
+    const versions = releases.map(
+      release => `${semver.major(release)}.${semver.minor(release)}`
+    );
+    const uniqueVersions = Array.from(new Set(versions));
+
+    const oldstableVersion = releases.find(item =>
+      item.startsWith(uniqueVersions[1])
+    );
+
+    core.info(`oldstable version resolved as ${oldstableVersion}`);
+
+    return oldstableVersion;
+  }
 }

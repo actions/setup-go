@@ -4,7 +4,7 @@ import * as installer from './installer';
 import * as semver from 'semver';
 import path from 'path';
 import {restoreCache} from './cache-restore';
-import {isGhes, isCacheFeatureAvailable} from './cache-utils';
+import {isCacheFeatureAvailable} from './cache-utils';
 import cp from 'child_process';
 import fs from 'fs';
 import os from 'os';
@@ -31,6 +31,7 @@ export async function run() {
       let auth = !token ? undefined : `token ${token}`;
 
       const checkLatest = core.getBooleanInput('check-latest');
+
       const installDir = await installer.getGo(
         versionSpec,
         checkLatest,
@@ -38,10 +39,12 @@ export async function run() {
         arch
       );
 
+      const installDirVersion = path.basename(path.dirname(installDir));
+
       core.addPath(path.join(installDir, 'bin'));
       core.info('Added go to the path');
 
-      const version = installer.makeSemver(versionSpec);
+      const version = installer.makeSemver(installDirVersion);
       // Go versions less than 1.9 require GOROOT to be set
       if (semver.lt(version, '1.9.0')) {
         core.info('Setting GOROOT for Go version < 1.9');
