@@ -63241,6 +63241,7 @@ function getGo(versionSpec, checkLatest, auth, arch = os_1.default.arch()) {
                     throw new Error(`Unable to find Go version '${versionSpec}' for platform ${osPlat} and architecture ${arch}.`);
                 }
             }
+            core.info(`${versionSpec} version resolved as ${stableVersion}`);
             versionSpec = stableVersion;
         }
         if (checkLatest) {
@@ -63507,14 +63508,12 @@ function resolveStableVersionInput(versionSpec, arch, platform, manifest) {
         })
             .filter(item => !!item && !semver.prerelease(item));
         if (versionSpec === utils_1.StableReleaseAlias.Stable) {
-            core.info(`stable version resolved as ${releases[0]}`);
             return releases[0];
         }
         else {
             const versions = releases.map(release => `${semver.major(release)}.${semver.minor(release)}`);
             const uniqueVersions = Array.from(new Set(versions));
             const oldstableVersion = releases.find(item => item.startsWith(uniqueVersions[1]));
-            core.info(`oldstable version resolved as ${oldstableVersion}`);
             return oldstableVersion;
         }
     });
