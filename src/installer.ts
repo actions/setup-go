@@ -60,6 +60,8 @@ export async function getGo(
       }
     }
 
+    core.info(`${versionSpec} version resolved as ${stableVersion}`);
+
     versionSpec = stableVersion;
   }
 
@@ -413,8 +415,6 @@ export async function resolveStableVersionInput(
     .filter(item => !!item && !semver.prerelease(item));
 
   if (versionSpec === StableReleaseAlias.Stable) {
-    core.info(`stable version resolved as ${releases[0]}`);
-
     return releases[0];
   } else {
     const versions = releases.map(
@@ -425,8 +425,6 @@ export async function resolveStableVersionInput(
     const oldstableVersion = releases.find(item =>
       item.startsWith(uniqueVersions[1])
     );
-
-    core.info(`oldstable version resolved as ${oldstableVersion}`);
 
     return oldstableVersion;
   }
