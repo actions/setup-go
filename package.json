@@ -1,6 +1,6 @@
 {
   "name": "setup-go",
-  "version": "1.0.0",
+  "version": "3.3.0",
   "private": true,
   "description": "setup go action",
   "main": "lib/setup-go.js",
@@ -24,7 +24,7 @@
   "license": "MIT",
   "dependencies": {
     "@actions/cache": "^3.0.0",
-    "@actions/core": "^1.6.0",
+    "@actions/core": "^1.10.0",
     "@actions/exec": "^1.1.0",
     "@actions/glob": "^0.2.0",
     "@actions/http-client": "^2.0.1",
@@ -42,6 +42,6 @@
     "nock": "^10.0.6",
     "prettier": "^1.17.1",
     "ts-jest": "^27.0.5",
-    "typescript": "^3.8.3"
+    "typescript": "^4.3.3"
   }
 }

@@ -4,9 +4,10 @@ import * as installer from './installer';
 import * as semver from 'semver';
 import path from 'path';
 import {restoreCache} from './cache-restore';
-import {isGhes, isCacheFeatureAvailable} from './cache-utils';
+import {isCacheFeatureAvailable} from './cache-utils';
 import cp from 'child_process';
 import fs from 'fs';
+import os from 'os';
 
 export async function run() {
   try {
@@ -19,17 +20,31 @@ export async function run() {
     const cache = core.getBooleanInput('cache');
     core.info(`Setup go version spec ${versionSpec}`);
 
+    let arch = core.getInput('architecture');
+
+    if (!arch) {
+      arch = os.arch();
+    }
+
     if (versionSpec) {
       let token = core.getInput('token');
-      let auth = !token || isGhes() ? undefined : `token ${token}`;
+      let auth = !token ? undefined : `token ${token}`;
 
       const checkLatest = core.getBooleanInput('check-latest');
-      const installDir = await installer.getGo(versionSpec, checkLatest, auth);
+
+      const installDir = await installer.getGo(
+        versionSpec,
+        checkLatest,
+        auth,
+        arch
+      );
+
+      const installDirVersion = path.basename(path.dirname(installDir));
 
       core.addPath(path.join(installDir, 'bin'));
       core.info('Added go to the path');
 
-      const version = installer.makeSemver(versionSpec);
+      const version = installer.makeSemver(installDirVersion);
       // Go versions less than 1.9 require GOROOT to be set
       if (semver.lt(version, '1.9.0')) {
         core.info('Setting GOROOT for Go version < 1.9');
@@ -44,7 +59,7 @@ export async function run() {
     if (cache && isCacheFeatureAvailable()) {
       const packageManager = 'default';
       const cacheDependencyPath = core.getInput('cache-dependency-path');
-      await restoreCache(packageManager, cacheDependencyPath);
+      await restoreCache(versionSpec, packageManager, cacheDependencyPath);
     }
 
     // add problem matchers

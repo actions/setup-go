@@ -16,6 +16,7 @@ The V3 edition of the action offers:
 - Proxy support
 - Check latest version
 - Caching packages dependencies
+- stable and oldstable aliases
 - Bug Fixes (including issues around version matching and semver)
 
 The action will first check the local cache for a version match. If a version is not found locally, it will pull it from the `main` branch of the [go-versions](https://github.com/actions/go-versions/blob/main/versions-manifest.json) repository. On miss or failure, it will fall back to downloading directly from [go dist](https://storage.googleapis.com/golang). To change the default behavior, please use the [check-latest input](#check-latest-version).
@@ -95,6 +96,33 @@ steps:
       check-latest: true
   - run: go run hello.go
 ```
+
+## Using stable/oldstable aliases
+
+If `stable` is provided, action will get the latest stable version from the [`go-versions`](https://github.com/actions/go-versions/blob/main/versions-manifest.json) repository manifest. 
+
+If `oldstable` is provided, when current release is 1.19.x, action will resolve version as 1.18.x, where x is the latest patch release.
+
+**Note:** using these aliases will result in same version as using corresponding minor release with `check-latest` input set to `true`
+
+```yaml
+steps:
+  - uses: actions/checkout@v3
+  - uses: actions/setup-go@v3
+    with:
+      go-version: 'stable'
+  - run: go run hello.go
+```
+
+```yaml
+steps:
+  - uses: actions/checkout@v3
+  - uses: actions/setup-go@v3
+    with:
+      go-version: 'oldstable'
+  - run: go run hello.go
+```
+
 ## Caching dependency files and build outputs:
 
 The action has a built-in functionality for caching and restoring go modules and build outputs. It uses [actions/cache](https://github.com/actions/cache) under the hood but requires less configuration settings. The `cache` input is optional, and caching is turned off by default.
@@ -127,7 +155,7 @@ steps:
   ```
 ## Getting go version from the go.mod file
 
-The `go-version-file` input accepts a path to a `go.mod` file containing the version of Go to be used by a project. As the `go.mod` file contains only major and minor (e.g. 1.18) tags, the action will search for the latest available patch version sequentially in the runner's directory with the cached tools, in the [version-manifest.json](https://github.com/actions/go-versions/blob/main/versions-manifest.json) file or at the go servers.
+The `go-version-file` input accepts a path to a `go.mod` file or a `go.work` file that contains the version of Go to be used by a project. As the `go.mod` file contains only major and minor (e.g. 1.18) tags, the action will search for the latest available patch version sequentially in the runner's directory with the cached tools, in the [version-manifest.json](https://github.com/actions/go-versions/blob/main/versions-manifest.json) file or at the go servers.
 
 If both the `go-version` and the `go-version-file` inputs are provided then the `go-version` input is used.
 > The action will search for the `go.mod` file relative to the repository root
@@ -169,6 +197,21 @@ The `go-version` input supports the following syntax:
 
 For more information about semantic versioning, please refer to [semver](https://github.com/npm/node-semver) documentation.
 
+## Using `setup-go` on GHES
+
+`setup-go` comes pre-installed on the appliance with GHES if Actions is enabled. When dynamically downloading Go distributions, `setup-go` downloads distributions from [`actions/go-versions`](https://github.com/actions/go-versions) on github.com (outside of the appliance). These calls to `actions/go-versions` are made via unauthenticated requests, which are limited to [60 requests per hour per IP](https://docs.github.com/en/rest/overview/resources-in-the-rest-api#rate-limiting). If more requests are made within the time frame, then you will start to see rate-limit errors during downloading that looks like: `##[error]API rate limit exceeded for...`. After that error the action will try to download versions directly from https://storage.googleapis.com/golang, but it also can have rate limit so it's better to put token.
+
+To get a higher rate limit, you can [generate a personal access token on github.com](https://github.com/settings/tokens/new) and pass it as the `token` input for the action:
+
+```yaml
+uses: actions/setup-go@v3
+with:
+  token: ${{ secrets.GH_DOTCOM_TOKEN }}
+  go-version: 1.18
+```
+
+If the runner is not able to access github.com, any Go versions requested during a workflow run must come from the runner's tool cache. See "[Setting up the tool cache on self-hosted runners without internet access](https://docs.github.com/en/enterprise-server@3.2/admin/github-actions/managing-access-to-actions-from-githubcom/setting-up-the-tool-cache-on-self-hosted-runners-without-internet-access)" for more information.
+
 # License
 
 The scripts and documentation in this project are released under the [MIT License](LICENSE)
@@ -179,4 +222,4 @@ Contributions are welcome! See [Contributor's Guide](docs/contributors.md)
 
 ## Code of Conduct
 
-:wave: Be nice. See [our code of conduct](CONDUCT)
+:wave: Be nice. See [our code of conduct](CODE_OF_CONDUCT.md)

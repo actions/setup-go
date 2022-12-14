@@ -6,6 +6,7 @@ import * as httpm from '@actions/http-client';
 import * as sys from './system';
 import fs from 'fs';
 import os from 'os';
+import {StableReleaseAlias} from './utils';
 
 type InstallationType = 'dist' | 'manifest';
 
@@ -32,17 +33,46 @@ export interface IGoVersionInfo {
 export async function getGo(
   versionSpec: string,
   checkLatest: boolean,
-  auth: string | undefined
+  auth: string | undefined,
+  arch = os.arch()
 ) {
+  let manifest: tc.IToolRelease[] | undefined;
   let osPlat: string = os.platform();
-  let osArch: string = os.arch();
+
+  if (
+    versionSpec === StableReleaseAlias.Stable ||
+    versionSpec === StableReleaseAlias.OldStable
+  ) {
+    manifest = await getManifest(auth);
+    let stableVersion = await resolveStableVersionInput(
+      versionSpec,
+      arch,
+      osPlat,
+      manifest
+    );
+
+    if (!stableVersion) {
+      stableVersion = await resolveStableVersionDist(versionSpec, arch);
+      if (!stableVersion) {
+        throw new Error(
+          `Unable to find Go version '${versionSpec}' for platform ${osPlat} and architecture ${arch}.`
+        );
+      }
+    }
+
+    core.info(`${versionSpec} version resolved as ${stableVersion}`);
+
+    versionSpec = stableVersion;
+  }
 
   if (checkLatest) {
     core.info('Attempting to resolve the latest version from the manifest...');
     const resolvedVersion = await resolveVersionFromManifest(
       versionSpec,
       true,
-      auth
+      auth,
+      arch,
+      manifest
     );
     if (resolvedVersion) {
       versionSpec = resolvedVersion;
@@ -54,7 +84,7 @@ export async function getGo(
 
   // check cache
   let toolPath: string;
-  toolPath = tc.find('go', versionSpec);
+  toolPath = tc.find('go', versionSpec, arch);
   // If not found in cache, download
   if (toolPath) {
     core.info(`Found in cache @ ${toolPath}`);
@@ -68,9 +98,9 @@ export async function getGo(
   // Try download from internal distribution (popular versions only)
   //
   try {
-    info = await getInfoFromManifest(versionSpec, true, auth);
+    info = await getInfoFromManifest(versionSpec, true, auth, arch, manifest);
     if (info) {
-      downloadPath = await installGoVersion(info, auth);
+      downloadPath = await installGoVersion(info, auth, arch);
     } else {
       core.info(
         'Not found in manifest.  Falling back to download directly from Go'
@@ -95,16 +125,16 @@ export async function getGo(
   // Download from storage.googleapis.com
   //
   if (!downloadPath) {
-    info = await getInfoFromDist(versionSpec);
+    info = await getInfoFromDist(versionSpec, arch);
     if (!info) {
       throw new Error(
-        `Unable to find Go version '${versionSpec}' for platform ${osPlat} and architecture ${osArch}.`
+        `Unable to find Go version '${versionSpec}' for platform ${osPlat} and architecture ${arch}.`
       );
     }
 
     try {
       core.info('Install from dist');
-      downloadPath = await installGoVersion(info, undefined);
+      downloadPath = await installGoVersion(info, undefined, arch);
     } catch (err) {
       throw new Error(`Failed to download version ${versionSpec}: ${err}`);
     }
@@ -116,10 +146,18 @@ export async function getGo(
 async function resolveVersionFromManifest(
   versionSpec: string,
   stable: boolean,
-  auth: string | undefined
+  auth: string | undefined,
+  arch: string,
+  manifest: tc.IToolRelease[] | undefined
 ): Promise<string | undefined> {
   try {
-    const info = await getInfoFromManifest(versionSpec, stable, auth);
+    const info = await getInfoFromManifest(
+      versionSpec,
+      stable,
+      auth,
+      arch,
+      manifest
+    );
     return info?.resolvedVersion;
   } catch (err) {
     core.info('Unable to resolve a version from the manifest...');
@@ -129,10 +167,17 @@ async function resolveVersionFromManifest(
 
 async function installGoVersion(
   info: IGoVersionInfo,
-  auth: string | undefined
+  auth: string | undefined,
+  arch: string
 ): Promise<string> {
   core.info(`Acquiring ${info.resolvedVersion} from ${info.downloadUrl}`);
-  const downloadPath = await tc.downloadTool(info.downloadUrl, undefined, auth);
+
+  // Windows requires that we keep the extension (.zip) for extraction
+  const isWindows = os.platform() === 'win32';
+  const tempDir = process.env.RUNNER_TEMP || '.';
+  const fileName = isWindows ? path.join(tempDir, info.fileName) : undefined;
+
+  const downloadPath = await tc.downloadTool(info.downloadUrl, fileName, auth);
 
   core.info('Extracting Go...');
   let extPath = await extractGoArchive(downloadPath);
@@ -145,7 +190,8 @@ async function installGoVersion(
   const cachedDir = await tc.cacheDir(
     extPath,
     'go',
-    makeSemver(info.resolvedVersion)
+    makeSemver(info.resolvedVersion),
+    arch
   );
   core.info(`Successfully cached go to ${cachedDir}`);
   return cachedDir;
@@ -164,20 +210,26 @@ export async function extractGoArchive(archivePath: string): Promise<string> {
   return extPath;
 }
 
+export async function getManifest(auth: string | undefined) {
+  return tc.getManifestFromRepo('actions', 'go-versions', auth, 'main');
+}
+
 export async function getInfoFromManifest(
   versionSpec: string,
   stable: boolean,
-  auth: string | undefined
+  auth: string | undefined,
+  arch = os.arch(),
+  manifest?: tc.IToolRelease[] | undefined
 ): Promise<IGoVersionInfo | null> {
   let info: IGoVersionInfo | null = null;
-  const releases = await tc.getManifestFromRepo(
-    'actions',
-    'go-versions',
-    auth,
-    'main'
-  );
+  if (!manifest) {
+    core.debug('No manifest cached');
+    manifest = await getManifest(auth);
+  }
+
   core.info(`matching ${versionSpec}...`);
-  const rel = await tc.findFromManifest(versionSpec, stable, releases);
+
+  const rel = await tc.findFromManifest(versionSpec, stable, manifest, arch);
 
   if (rel && rel.files.length > 0) {
     info = <IGoVersionInfo>{};
@@ -191,10 +243,11 @@ export async function getInfoFromManifest(
 }
 
 async function getInfoFromDist(
-  versionSpec: string
+  versionSpec: string,
+  arch: string
 ): Promise<IGoVersionInfo | null> {
   let version: IGoVersion | undefined;
-  version = await findMatch(versionSpec);
+  version = await findMatch(versionSpec, arch);
   if (!version) {
     return null;
   }
@@ -210,9 +263,10 @@ async function getInfoFromDist(
 }
 
 export async function findMatch(
-  versionSpec: string
+  versionSpec: string,
+  arch = os.arch()
 ): Promise<IGoVersion | undefined> {
-  let archFilter = sys.getArch();
+  let archFilter = sys.getArch(arch);
   let platFilter = sys.getPlatform();
 
   let result: IGoVersion | undefined;
@@ -303,10 +357,75 @@ export function makeSemver(version: string): string {
 export function parseGoVersionFile(versionFilePath: string): string {
   const contents = fs.readFileSync(versionFilePath).toString();
 
-  if (path.basename(versionFilePath) === 'go.mod') {
+  if (
+    path.basename(versionFilePath) === 'go.mod' ||
+    path.basename(versionFilePath) === 'go.work'
+  ) {
     const match = contents.match(/^go (\d+(\.\d+)*)/m);
     return match ? match[1] : '';
   }
 
   return contents.trim();
+}
+
+async function resolveStableVersionDist(versionSpec: string, arch: string) {
+  let archFilter = sys.getArch(arch);
+  let platFilter = sys.getPlatform();
+  const dlUrl: string = 'https://golang.org/dl/?mode=json&include=all';
+  let candidates: IGoVersion[] | null = await module.exports.getVersionsDist(
+    dlUrl
+  );
+  if (!candidates) {
+    throw new Error(`golang download url did not return results`);
+  }
+
+  const fixedCandidates = candidates.map(item => {
+    return {
+      ...item,
+      version: makeSemver(item.version)
+    };
+  });
+
+  const stableVersion = await resolveStableVersionInput(
+    versionSpec,
+    archFilter,
+    platFilter,
+    fixedCandidates
+  );
+
+  return stableVersion;
+}
+
+export async function resolveStableVersionInput(
+  versionSpec: string,
+  arch: string,
+  platform: string,
+  manifest: tc.IToolRelease[] | IGoVersion[]
+) {
+  const releases = manifest
+    .map(item => {
+      const index = item.files.findIndex(
+        item => item.arch === arch && item.filename.includes(platform)
+      );
+      if (index === -1) {
+        return '';
+      }
+      return item.version;
+    })
+    .filter(item => !!item && !semver.prerelease(item));
+
+  if (versionSpec === StableReleaseAlias.Stable) {
+    return releases[0];
+  } else {
+    const versions = releases.map(
+      release => `${semver.major(release)}.${semver.minor(release)}`
+    );
+    const uniqueVersions = Array.from(new Set(versions));
+
+    const oldstableVersion = releases.find(item =>
+      item.startsWith(uniqueVersions[1])
+    );
+
+    return oldstableVersion;
+  }
 }
