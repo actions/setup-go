@@ -34,19 +34,19 @@ export const getPackageManagerInfo = async (packageManager: string) => {
 export const getCacheDirectoryPath = async (
   packageManagerInfo: PackageManagerInfo
 ) => {
-  let pathList = await Promise.all(
+  const pathList = await Promise.all(
     packageManagerInfo.cacheFolderCommandList.map(command =>
       getCommandOutput(command)
     )
   );
 
-  const emptyPaths = pathList.filter(item => !item);
+  const notEmptyPaths = pathList.filter(item => item);
 
-  if (emptyPaths.length) {
+  if (!notEmptyPaths.length) {
     throw new Error(`Could not get cache folder paths.`);
   }
 
-  return pathList;
+  return notEmptyPaths;
 };
 
 export function isGhes(): boolean {

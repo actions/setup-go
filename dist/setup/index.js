@@ -63130,12 +63130,12 @@ const getPackageManagerInfo = (packageManager) => __awaiter(void 0, void 0, void
 });
 exports.getPackageManagerInfo = getPackageManagerInfo;
 const getCacheDirectoryPath = (packageManagerInfo) => __awaiter(void 0, void 0, void 0, function* () {
-    let pathList = yield Promise.all(packageManagerInfo.cacheFolderCommandList.map(command => exports.getCommandOutput(command)));
-    const emptyPaths = pathList.filter(item => !item);
-    if (emptyPaths.length) {
+    const pathList = yield Promise.all(packageManagerInfo.cacheFolderCommandList.map(command => exports.getCommandOutput(command)));
+    const notEmptyPaths = pathList.filter(item => item);
+    if (!notEmptyPaths.length) {
         throw new Error(`Could not get cache folder paths.`);
     }
-    return pathList;
+    return notEmptyPaths;
 });
 exports.getCacheDirectoryPath = getCacheDirectoryPath;
 function isGhes() {
