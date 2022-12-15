@@ -1,4 +1,5 @@
 name: Validate 'setup-go'
+
 on:
   push:
     branches:
