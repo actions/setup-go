@@ -191,3 +191,4 @@ jobs:
           architecture: x64
       - name: Verify Go
         run: go version
+|
