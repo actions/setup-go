@@ -93,6 +93,41 @@ describe('getCacheDirectoryPath', () => {
       .then(data => expect(data).toEqual(expectedResult));
   });
 
+  it('should return path to the cache folder if one command return empty str', async () => {
+    //Arrange
+    getExecOutputSpy.mockImplementationOnce((commandLine: string) => {
+      return new Promise<exec.ExecOutput>(resolve => {
+        resolve({exitCode: 0, stdout: 'path/to/cache/folder', stderr: ''});
+      });
+    });
+
+    getExecOutputSpy.mockImplementationOnce((commandLine: string) => {
+      return new Promise<exec.ExecOutput>(resolve => {
+        resolve({exitCode: 0, stdout: '', stderr: ''});
+      });
+    });
+
+    const expectedResult = ['path/to/cache/folder'];
+
+    //Act + Assert
+    return cacheUtils
+      .getCacheDirectoryPath(validPackageManager)
+      .then(data => expect(data).toEqual(expectedResult));
+  });
+
+  it('should throw if the both commands return empty str', async () => {
+    getExecOutputSpy.mockImplementation((commandLine: string) => {
+      return new Promise<exec.ExecOutput>(resolve => {
+        resolve({exitCode: 10, stdout: '', stderr: ''});
+      });
+    });
+
+    //Act + Assert
+    expect(async () => {
+      await cacheUtils.getCacheDirectoryPath(validPackageManager);
+    }).rejects.toThrow();
+  });
+
   it('should throw if the specified package name is invalid', async () => {
     getExecOutputSpy.mockImplementation((commandLine: string) => {
       return new Promise<exec.ExecOutput>(resolve => {
