@@ -197,7 +197,7 @@ describe('isCacheFeatureAvailable', () => {
     expect(functionResult).toBeFalsy();
   });
 
-  it('should throw when cache feature is unavailable and GHES is used', () => {
+  it('should warn when cache feature is unavailable and GHES is used', () => {
     //Arrange
     isFeatureAvailableSpy.mockImplementation(() => {
       return false;
@@ -205,10 +205,11 @@ describe('isCacheFeatureAvailable', () => {
 
     process.env['GITHUB_SERVER_URL'] = 'https://nongithub.com';
 
-    let errorMessage =
+    let warningMessage =
       'Cache action is only supported on GHES version >= 3.5. If you are on version >=3.5 Please check with GHES admin if Actions cache service is enabled or not.';
 
     //Act + Assert
-    expect(() => cacheUtils.isCacheFeatureAvailable()).toThrow(errorMessage);
+    expect(cacheUtils.isCacheFeatureAvailable()).toBeFalsy();
+    expect(warningSpy).toHaveBeenCalledWith(warningMessage);
   });
 });

@@ -60457,12 +60457,12 @@ const getPackageManagerInfo = (packageManager) => __awaiter(void 0, void 0, void
 });
 exports.getPackageManagerInfo = getPackageManagerInfo;
 const getCacheDirectoryPath = (packageManagerInfo) => __awaiter(void 0, void 0, void 0, function* () {
-    const pathList = yield Promise.all(packageManagerInfo.cacheFolderCommandList.map(command => exports.getCommandOutput(command)));
-    const cachePaths = pathList.filter(item => item);
-    if (!cachePaths.length) {
+    let pathList = yield Promise.all(packageManagerInfo.cacheFolderCommandList.map(command => exports.getCommandOutput(command)));
+    const emptyPaths = pathList.filter(item => !item);
+    if (emptyPaths.length) {
         throw new Error(`Could not get cache folder paths.`);
     }
-    return cachePaths;
+    return pathList;
 });
 exports.getCacheDirectoryPath = getCacheDirectoryPath;
 function isGhes() {
@@ -60471,16 +60471,15 @@ function isGhes() {
 }
 exports.isGhes = isGhes;
 function isCacheFeatureAvailable() {
-    if (!cache.isFeatureAvailable()) {
-        if (isGhes()) {
-            throw new Error('Cache action is only supported on GHES version >= 3.5. If you are on version >=3.5 Please check with GHES admin if Actions cache service is enabled or not.');
-        }
-        else {
-            core.warning('The runner was not able to contact the cache service. Caching will be skipped');
-        }
+    if (cache.isFeatureAvailable()) {
+        return true;
+    }
+    if (isGhes()) {
+        core.warning('Cache action is only supported on GHES version >= 3.5. If you are on version >=3.5 Please check with GHES admin if Actions cache service is enabled or not.');
         return false;
     }
-    return true;
+    core.warning('The runner was not able to contact the cache service. Caching will be skipped');
+    return false;
 }
 exports.isCacheFeatureAvailable = isCacheFeatureAvailable;
 
