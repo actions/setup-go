@@ -40,13 +40,13 @@ export const getCacheDirectoryPath = async (
     )
   );
 
-  const cachePaths  = pathList.filter(item => item);
+  const cachePaths = pathList.filter(item => item);
 
   if (!cachePaths.length) {
     throw new Error(`Could not get cache folder paths.`);
   }
 
-  return cachePaths ;
+  return cachePaths;
 };
 
 export function isGhes(): boolean {
