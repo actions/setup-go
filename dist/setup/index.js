@@ -63226,7 +63226,7 @@ const sys = __importStar(__nccwpck_require__(4300));
 const fs_1 = __importDefault(__nccwpck_require__(7147));
 const os_1 = __importDefault(__nccwpck_require__(2037));
 const utils_1 = __nccwpck_require__(1314);
-function getGo(versionSpec, checkLatest, auth, arch = os_1.default.arch()) {
+function getGo(versionSpec, checkLatest, auth, arch = os_1.default.arch(), downloadBaseUrl) {
     return __awaiter(this, void 0, void 0, function* () {
         let manifest;
         let osPlat = os_1.default.platform();
@@ -63245,7 +63245,7 @@ function getGo(versionSpec, checkLatest, auth, arch = os_1.default.arch()) {
         }
         if (checkLatest) {
             core.info('Attempting to resolve the latest version from the manifest...');
-            const resolvedVersion = yield resolveVersionFromManifest(versionSpec, true, auth, arch, manifest);
+            const resolvedVersion = yield resolveVersionFromManifest(versionSpec, true, auth, arch, manifest, downloadBaseUrl);
             if (resolvedVersion) {
                 versionSpec = resolvedVersion;
                 core.info(`Resolved as '${versionSpec}'`);
@@ -63308,10 +63308,10 @@ function getGo(versionSpec, checkLatest, auth, arch = os_1.default.arch()) {
     });
 }
 exports.getGo = getGo;
-function resolveVersionFromManifest(versionSpec, stable, auth, arch, manifest) {
+function resolveVersionFromManifest(versionSpec, stable, auth, arch, manifest, downloadBaseUrl) {
     return __awaiter(this, void 0, void 0, function* () {
         try {
-            const info = yield getInfoFromManifest(versionSpec, stable, auth, arch, manifest);
+            const info = yield getInfoFromManifest(versionSpec, stable, auth, arch, manifest, downloadBaseUrl);
             return info === null || info === void 0 ? void 0 : info.resolvedVersion;
         }
         catch (err) {
@@ -63360,7 +63360,7 @@ function getManifest(auth) {
     });
 }
 exports.getManifest = getManifest;
-function getInfoFromManifest(versionSpec, stable, auth, arch = os_1.default.arch(), manifest) {
+function getInfoFromManifest(versionSpec, stable, auth, arch = os_1.default.arch(), manifest, downloadBaseUrl) {
     return __awaiter(this, void 0, void 0, function* () {
         let info = null;
         if (!manifest) {
@@ -63374,6 +63374,9 @@ function getInfoFromManifest(versionSpec, stable, auth, arch = os_1.default.arch
             info.type = 'manifest';
             info.resolvedVersion = rel.version;
             info.downloadUrl = rel.files[0].download_url;
+            if (downloadBaseUrl) {
+                info.downloadUrl = info.downloadUrl.replace('https://github.com', downloadBaseUrl);
+            }
             info.fileName = rel.files[0].filename;
         }
         return info;
@@ -63581,6 +63584,7 @@ function run() {
             const cache = core.getBooleanInput('cache');
             core.info(`Setup go version spec ${versionSpec}`);
             let arch = core.getInput('architecture');
+            let downloadBaseUrl = core.getInput('download-base-url');
             if (!arch) {
                 arch = os_1.default.arch();
             }
@@ -63588,7 +63592,7 @@ function run() {
                 let token = core.getInput('token');
                 let auth = !token ? undefined : `token ${token}`;
                 const checkLatest = core.getBooleanInput('check-latest');
-                const installDir = yield installer.getGo(versionSpec, checkLatest, auth, arch);
+                const installDir = yield installer.getGo(versionSpec, checkLatest, auth, arch, downloadBaseUrl);
                 const installDirVersion = path_1.default.basename(path_1.default.dirname(installDir));
                 core.addPath(path_1.default.join(installDir, 'bin'));
                 core.info('Added go to the path');

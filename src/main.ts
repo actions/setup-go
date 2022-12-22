@@ -21,6 +21,7 @@ export async function run() {
     core.info(`Setup go version spec ${versionSpec}`);
 
     let arch = core.getInput('architecture');
+    let downloadBaseUrl = core.getInput('download-base-url');
 
     if (!arch) {
       arch = os.arch();
@@ -36,7 +37,8 @@ export async function run() {
         versionSpec,
         checkLatest,
         auth,
-        arch
+        arch,
+        downloadBaseUrl
       );
 
       const installDirVersion = path.basename(path.dirname(installDir));

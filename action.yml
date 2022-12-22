@@ -12,6 +12,9 @@ inputs:
   token:
     description: Used to pull node distributions from go-versions. Since there's a default, this is typically not supplied by the user. When running this action on github.com, the default value is sufficient. When running on GHES, you can pass a personal access token for github.com if you are experiencing rate limiting.
     default: ${{ github.server_url == 'https://github.com' && github.token || '' }}
+  download-base-url:
+    description: 'The download base url to use instead of the https://github.com'
+    required: false
   cache:
     description: Used to specify whether caching is needed. Set to true, if you'd like to enable caching.
     default: false
@@ -19,6 +22,7 @@ inputs:
     description: 'Used to specify the path to a dependency file - go.sum'
   architecture:
     description: 'Target architecture for Go to use. Examples: x86, x64. Will use system architecture by default.'
+
 outputs:
   go-version:
     description: 'The installed Go version. Useful when given a version range as input.'

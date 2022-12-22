@@ -34,7 +34,8 @@ export async function getGo(
   versionSpec: string,
   checkLatest: boolean,
   auth: string | undefined,
-  arch = os.arch()
+  arch = os.arch(),
+  downloadBaseUrl?: string | undefined
 ) {
   let manifest: tc.IToolRelease[] | undefined;
   let osPlat: string = os.platform();
@@ -72,7 +73,8 @@ export async function getGo(
       true,
       auth,
       arch,
-      manifest
+      manifest,
+      downloadBaseUrl
     );
     if (resolvedVersion) {
       versionSpec = resolvedVersion;
@@ -148,7 +150,8 @@ async function resolveVersionFromManifest(
   stable: boolean,
   auth: string | undefined,
   arch: string,
-  manifest: tc.IToolRelease[] | undefined
+  manifest: tc.IToolRelease[] | undefined,
+  downloadBaseUrl?: string | undefined
 ): Promise<string | undefined> {
   try {
     const info = await getInfoFromManifest(
@@ -156,7 +159,8 @@ async function resolveVersionFromManifest(
       stable,
       auth,
       arch,
-      manifest
+      manifest,
+      downloadBaseUrl
     );
     return info?.resolvedVersion;
   } catch (err) {
@@ -219,7 +223,8 @@ export async function getInfoFromManifest(
   stable: boolean,
   auth: string | undefined,
   arch = os.arch(),
-  manifest?: tc.IToolRelease[] | undefined
+  manifest?: tc.IToolRelease[] | undefined,
+  downloadBaseUrl?: string | undefined
 ): Promise<IGoVersionInfo | null> {
   let info: IGoVersionInfo | null = null;
   if (!manifest) {
@@ -236,6 +241,13 @@ export async function getInfoFromManifest(
     info.type = 'manifest';
     info.resolvedVersion = rel.version;
     info.downloadUrl = rel.files[0].download_url;
+    if (downloadBaseUrl) {
+      info.downloadUrl = info.downloadUrl.replace(
+        'https://github.com',
+        downloadBaseUrl
+      );
+    }
+
     info.fileName = rel.files[0].filename;
   }
 
