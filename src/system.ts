@@ -24,9 +24,9 @@ export function getArch(arch: string): string {
     case 'x64':
       arch = 'amd64';
       break;
-    // case 'ppc':
-    //   arch = 'ppc64';
-    //   break;
+    case 'ppc64':
+      arch = 'ppc64le';
+      break;
     case 'x32':
       arch = '386';
       break;
