@@ -63602,19 +63602,18 @@ function run() {
                 core.debug(`add bin ${added}`);
                 core.info(`Successfully set up Go version ${versionSpec}`);
             }
+            let goPath = yield io.which('go');
+            let goVersion = (child_process_1.default.execSync(`${goPath} version`) || '').toString();
             if (cache && cache_utils_1.isCacheFeatureAvailable()) {
                 const packageManager = 'default';
                 const cacheDependencyPath = core.getInput('cache-dependency-path');
-                let goPath = yield io.which('go');
-                core.info(`Version spec is ${versionSpec}, go path is ${goPath}`);
-                yield cache_restore_1.restoreCache(versionSpec, packageManager, cacheDependencyPath);
+                core.info(`Version spec is ${versionSpec}, go version is ${goVersion}`);
+                yield cache_restore_1.restoreCache(goVersion, packageManager, cacheDependencyPath);
             }
             // add problem matchers
             const matchersPath = path_1.default.join(__dirname, '../..', 'matchers.json');
             core.info(`##[add-matcher]${matchersPath}`);
             // output the version actually being used
-            let goPath = yield io.which('go');
-            let goVersion = (child_process_1.default.execSync(`${goPath} version`) || '').toString();
             core.info(goVersion);
             core.setOutput('go-version', parseGoVersion(goVersion));
             core.startGroup('go env');

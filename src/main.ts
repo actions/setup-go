@@ -56,12 +56,14 @@ export async function run() {
       core.info(`Successfully set up Go version ${versionSpec}`);
     }
 
+    let goPath = await io.which('go');
+    let goVersion = (cp.execSync(`${goPath} version`) || '').toString();
+
     if (cache && isCacheFeatureAvailable()) {
       const packageManager = 'default';
       const cacheDependencyPath = core.getInput('cache-dependency-path');
-      let goPath = await io.which('go');
-      core.info(`Version spec is ${versionSpec}, go path is ${goPath}`)
-      await restoreCache(versionSpec, packageManager, cacheDependencyPath);
+      core.info(`Version spec is ${versionSpec}, go version is ${goVersion}`)
+      await restoreCache(goVersion, packageManager, cacheDependencyPath);
     }
 
     // add problem matchers
@@ -69,8 +71,6 @@ export async function run() {
     core.info(`##[add-matcher]${matchersPath}`);
 
     // output the version actually being used
-    let goPath = await io.which('go');
-    let goVersion = (cp.execSync(`${goPath} version`) || '').toString();
     core.info(goVersion);
 
     core.setOutput('go-version', parseGoVersion(goVersion));
