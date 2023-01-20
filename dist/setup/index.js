@@ -63607,8 +63607,7 @@ function run() {
             if (cache && cache_utils_1.isCacheFeatureAvailable()) {
                 const packageManager = 'default';
                 const cacheDependencyPath = core.getInput('cache-dependency-path');
-                core.info(`Version spec is ${versionSpec}, go version is ${goVersion}`);
-                yield cache_restore_1.restoreCache(goVersion, packageManager, cacheDependencyPath);
+                yield cache_restore_1.restoreCache(parseGoVersion(goVersion), packageManager, cacheDependencyPath);
             }
             // add problem matchers
             const matchersPath = path_1.default.join(__dirname, '../..', 'matchers.json');

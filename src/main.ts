@@ -62,8 +62,7 @@ export async function run() {
     if (cache && isCacheFeatureAvailable()) {
       const packageManager = 'default';
       const cacheDependencyPath = core.getInput('cache-dependency-path');
-      core.info(`Version spec is ${versionSpec}, go version is ${goVersion}`)
-      await restoreCache(goVersion, packageManager, cacheDependencyPath);
+      await restoreCache(parseGoVersion(goVersion), packageManager, cacheDependencyPath);
     }
 
     // add problem matchers
