@@ -63605,7 +63605,8 @@ function run() {
             if (cache && cache_utils_1.isCacheFeatureAvailable()) {
                 const packageManager = 'default';
                 const cacheDependencyPath = core.getInput('cache-dependency-path');
-                core.info(`Version spec is ${versionSpec}`);
+                let goPath = yield io.which('go');
+                core.info(`Version spec is ${versionSpec}, go path is ${goPath}`);
                 yield cache_restore_1.restoreCache(versionSpec, packageManager, cacheDependencyPath);
             }
             // add problem matchers
