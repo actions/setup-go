@@ -63398,12 +63398,12 @@ function getInfoFromDist(versionSpec, arch) {
 }
 function findMatch(versionSpec, arch = os_1.default.arch()) {
     return __awaiter(this, void 0, void 0, function* () {
-        let archFilter = sys.getArch(arch);
-        let platFilter = sys.getPlatform();
+        const archFilter = sys.getArch(arch);
+        const platFilter = sys.getPlatform();
         let result;
         let match;
         const dlUrl = 'https://golang.org/dl/?mode=json&include=all';
-        let candidates = yield module.exports.getVersionsDist(dlUrl);
+        const candidates = yield module.exports.getVersionsDist(dlUrl);
         if (!candidates) {
             throw new Error(`golang download url did not return results`);
         }
@@ -63436,7 +63436,7 @@ exports.findMatch = findMatch;
 function getVersionsDist(dlUrl) {
     return __awaiter(this, void 0, void 0, function* () {
         // this returns versions descending so latest is first
-        let http = new httpm.HttpClient('setup-go', [], {
+        const http = new httpm.HttpClient('setup-go', [], {
             allowRedirects: true,
             maxRedirects: 3
         });
@@ -63484,7 +63484,7 @@ function resolveStableVersionDist(versionSpec, arch) {
         let archFilter = sys.getArch(arch);
         let platFilter = sys.getPlatform();
         const dlUrl = 'https://golang.org/dl/?mode=json&include=all';
-        let candidates = yield module.exports.getVersionsDist(dlUrl);
+        const candidates = yield module.exports.getVersionsDist(dlUrl);
         if (!candidates) {
             throw new Error(`golang download url did not return results`);
         }
@@ -63611,8 +63611,8 @@ function run() {
             const matchersPath = path_1.default.join(__dirname, '../..', 'matchers.json');
             core.info(`##[add-matcher]${matchersPath}`);
             // output the version actually being used
-            let goPath = yield io.which('go');
-            let goVersion = (child_process_1.default.execSync(`${goPath} version`) || '').toString();
+            const goPath = yield io.which('go');
+            const goVersion = (child_process_1.default.execSync(`${goPath} version`) || '').toString();
             core.info(goVersion);
             core.setOutput('go-version', parseGoVersion(goVersion));
             core.startGroup('go env');

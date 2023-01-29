@@ -67,8 +67,8 @@ export async function run() {
     core.info(`##[add-matcher]${matchersPath}`);
 
     // output the version actually being used
-    let goPath = await io.which('go');
-    let goVersion = (cp.execSync(`${goPath} version`) || '').toString();
+    const goPath = await io.which('go');
+    const goVersion = (cp.execSync(`${goPath} version`) || '').toString();
     core.info(goVersion);
 
     core.setOutput('go-version', parseGoVersion(goVersion));

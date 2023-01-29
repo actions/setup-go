@@ -266,14 +266,14 @@ export async function findMatch(
   versionSpec: string,
   arch = os.arch()
 ): Promise<IGoVersion | undefined> {
-  let archFilter = sys.getArch(arch);
-  let platFilter = sys.getPlatform();
+  const archFilter = sys.getArch(arch);
+  const platFilter = sys.getPlatform();
 
   let result: IGoVersion | undefined;
   let match: IGoVersion | undefined;
 
-  const dlUrl: string = 'https://golang.org/dl/?mode=json&include=all';
-  let candidates: IGoVersion[] | null = await module.exports.getVersionsDist(
+  const dlUrl = 'https://golang.org/dl/?mode=json&include=all';
+  const candidates: IGoVersion[] | null = await module.exports.getVersionsDist(
     dlUrl
   );
   if (!candidates) {
@@ -315,7 +315,7 @@ export async function getVersionsDist(
   dlUrl: string
 ): Promise<IGoVersion[] | null> {
   // this returns versions descending so latest is first
-  let http: httpm.HttpClient = new httpm.HttpClient('setup-go', [], {
+  const http: httpm.HttpClient = new httpm.HttpClient('setup-go', [], {
     allowRedirects: true,
     maxRedirects: 3
   });
@@ -372,7 +372,7 @@ async function resolveStableVersionDist(versionSpec: string, arch: string) {
   let archFilter = sys.getArch(arch);
   let platFilter = sys.getPlatform();
   const dlUrl: string = 'https://golang.org/dl/?mode=json&include=all';
-  let candidates: IGoVersion[] | null = await module.exports.getVersionsDist(
+  const candidates: IGoVersion[] | null = await module.exports.getVersionsDist(
     dlUrl
   );
   if (!candidates) {
