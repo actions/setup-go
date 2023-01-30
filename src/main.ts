@@ -4,10 +4,11 @@ import * as installer from './installer';
 import * as semver from 'semver';
 import path from 'path';
 import {restoreCache} from './cache-restore';
-import {isCacheFeatureAvailable} from './cache-utils';
+import {isCacheEnabled, isCacheFeatureAvailable} from './cache-utils';
 import cp from 'child_process';
 import fs from 'fs';
 import os from 'os';
+import {getCurrentPackageManager} from './package-managers';
 
 export async function run() {
   try {
@@ -17,7 +18,6 @@ export async function run() {
     //
     const versionSpec = resolveVersionInput();
 
-    const cache = core.getBooleanInput('cache');
     core.info(`Setup go version spec ${versionSpec}`);
 
     let arch = core.getInput('architecture');
@@ -59,8 +59,8 @@ export async function run() {
     let goPath = await io.which('go');
     let goVersion = (cp.execSync(`${goPath} version`) || '').toString();
 
-    if (cache && isCacheFeatureAvailable()) {
-      const packageManager = 'default';
+    if ((await isCacheEnabled()) && isCacheFeatureAvailable()) {
+      const packageManager = getCurrentPackageManager();
       const cacheDependencyPath = core.getInput('cache-dependency-path');
       await restoreCache(
         parseGoVersion(goVersion),
