@@ -13,3 +13,5 @@ export const supportedPackageManagers: SupportedPackageManagers = {
     cacheFolderCommandList: ['go env GOMODCACHE', 'go env GOCACHE']
   }
 };
+
+export const getCurrentPackageManager = (): string => 'default';
