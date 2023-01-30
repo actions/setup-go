@@ -1,7 +1,12 @@
 import * as cache from '@actions/cache';
 import * as core from '@actions/core';
 import * as exec from '@actions/exec';
-import {supportedPackageManagers, PackageManagerInfo} from './package-managers';
+import {
+  supportedPackageManagers,
+  PackageManagerInfo,
+  getCurrentPackageManager
+} from './package-managers';
+import {findDependencyFile} from './cache-restore';
 
 export const getCommandOutput = async (toolCommand: string) => {
   let {stdout, stderr, exitCode} = await exec.getExecOutput(
@@ -72,4 +77,17 @@ export function isCacheFeatureAvailable(): boolean {
     'The runner was not able to contact the cache service. Caching will be skipped'
   );
   return false;
+}
+
+export async function isCacheEnabled() {
+  const cacheInput = core.getInput('cache');
+  if (cacheInput) {
+    return core.getBooleanInput('cache');
+  }
+
+  const packageManager = getCurrentPackageManager();
+  const packageManagerInfo = await getPackageManagerInfo(packageManager);
+  const cachePaths = findDependencyFile(packageManagerInfo);
+
+  return cachePaths.length > 0;
 }
