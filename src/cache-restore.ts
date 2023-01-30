@@ -47,7 +47,7 @@ export const restoreCache = async (
   core.info(`Cache restored from key: ${cacheKey}`);
 };
 
-const findDependencyFile = (packageManager: PackageManagerInfo) => {
+export const findDependencyFile = (packageManager: PackageManagerInfo) => {
   let dependencyFile = packageManager.dependencyFilePattern;
   const workspace = process.env.GITHUB_WORKSPACE!;
   const rootContent = fs.readdirSync(workspace);
