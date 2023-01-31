@@ -155,7 +155,7 @@ steps:
   ```
 ## Getting go version from the go.mod file
 
-The `go-version-file` input accepts a path to a `go.mod` file or a `go.work` file that contains the version of Go to be used by a project. As the `go.mod` file contains only major and minor (e.g. 1.18) tags, the action will search for the latest available patch version sequentially in the runner's directory with the cached tools, in the [version-manifest.json](https://github.com/actions/go-versions/blob/main/versions-manifest.json) file or at the go servers.
+The `go-version-file` input accepts a path to a `go.mod` file or a `go.work` file that contains the version of Go to be used by a project. As the `go.mod` file contains only major and minor (e.g. 1.18) tags, the action will search for the latest available patch version sequentially in the runner's directory with the cached tools, in the [versions-manifest.json](https://github.com/actions/go-versions/blob/main/versions-manifest.json) file or at the go servers.
 
 If both the `go-version` and the `go-version-file` inputs are provided then the `go-version` input is used.
 > The action will search for the `go.mod` file relative to the repository root
