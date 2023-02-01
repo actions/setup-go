@@ -959,7 +959,7 @@ use .
   });
 
   it('should not throw exception if `cache` is not set', async () => {
-    process.env['GITHUB_WORKSPACE'] = '/tmp';
+    process.env['GITHUB_WORKSPACE'] = '.';
 
     const arch = 'x64';
     os.platform = 'darwin';
