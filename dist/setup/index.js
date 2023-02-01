@@ -63032,7 +63032,7 @@ const path_1 = __importDefault(__nccwpck_require__(1017));
 const fs_1 = __importDefault(__nccwpck_require__(7147));
 const constants_1 = __nccwpck_require__(9042);
 const cache_utils_1 = __nccwpck_require__(1678);
-const restoreCache = (versionSpec, packageManager, cacheDependencyPath) => __awaiter(void 0, void 0, void 0, function* () {
+const restoreCache = (versionSpec, packageManager, cacheDependencyPath, cacheKeySuffix) => __awaiter(void 0, void 0, void 0, function* () {
     const packageManagerInfo = yield cache_utils_1.getPackageManagerInfo(packageManager);
     const platform = process.env.RUNNER_OS;
     const cachePaths = yield cache_utils_1.getCacheDirectoryPath(packageManagerInfo);
@@ -63043,7 +63043,8 @@ const restoreCache = (versionSpec, packageManager, cacheDependencyPath) => __awa
     if (!fileHash) {
         throw new Error('Some specified paths were not resolved, unable to cache dependencies.');
     }
-    const primaryKey = `setup-go-${platform}-go-${versionSpec}-${fileHash}`;
+    const primaryKey = `setup-go-${platform}-go-${versionSpec}-${fileHash}${cacheKeySuffix ||
+        ''}`;
     core.debug(`primary key is ${primaryKey}`);
     core.saveState(constants_1.State.CachePrimaryKey, primaryKey);
     const cacheKey = yield cache.restoreCache(cachePaths, primaryKey);
@@ -63607,7 +63608,8 @@ function run() {
             if (cache && cache_utils_1.isCacheFeatureAvailable()) {
                 const packageManager = 'default';
                 const cacheDependencyPath = core.getInput('cache-dependency-path');
-                yield cache_restore_1.restoreCache(parseGoVersion(goVersion), packageManager, cacheDependencyPath);
+                const cacheKeySuffix = core.getInput('cache-key-suffix');
+                yield cache_restore_1.restoreCache(parseGoVersion(goVersion), packageManager, cacheDependencyPath, cacheKeySuffix);
             }
             // add problem matchers
             const matchersPath = path_1.default.join(__dirname, '../..', 'matchers.json');

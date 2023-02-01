@@ -153,6 +153,33 @@ steps:
       cache-dependency-path: subdir/go.sum
   - run: go run hello.go
   ```
+
+**Caching for different build profiles**
+Suppose you have multiple builds that depend on different dependencies, spread over multiple workflows or jobs. 
+If the same go.sum file is used, they will fight for the cache. Set `cache-key-suffix` to distinguish these caches.
+
+```yaml
+steps:
+  - uses: actions/checkout@v3
+  - uses: actions/setup-go@v3
+    with:
+      go-version: '1.17'
+      check-latest: true
+      cache: true
+      cache-key-suffix: hello
+  - run: go run hello.go
+
+# another workflow job
+steps:
+  - uses: actions/checkout@v3
+  - uses: actions/setup-go@v3
+    with:
+      go-version: '1.17'
+      check-latest: true
+      cache: true
+      cache-key-suffix: server
+  - run: go build -o /server ./cmd/
+  ```
 ## Getting go version from the go.mod file
 
 The `go-version-file` input accepts a path to a `go.mod` file or a `go.work` file that contains the version of Go to be used by a project. As the `go.mod` file contains only major and minor (e.g. 1.18) tags, the action will search for the latest available patch version sequentially in the runner's directory with the cached tools, in the [versions-manifest.json](https://github.com/actions/go-versions/blob/main/versions-manifest.json) file or at the go servers.

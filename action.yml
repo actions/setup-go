@@ -17,6 +17,8 @@ inputs:
     default: false
   cache-dependency-path:
     description: 'Used to specify the path to a dependency file - go.sum'
+  cache-key-suffix:
+    description: 'Used to diversify the cache if you have multiple build targets in the same module - e.g. cmd1, cmd2'
   architecture:
     description: 'Target architecture for Go to use. Examples: x86, x64. Will use system architecture by default.'
 outputs:

@@ -62,10 +62,12 @@ export async function run() {
     if (cache && isCacheFeatureAvailable()) {
       const packageManager = 'default';
       const cacheDependencyPath = core.getInput('cache-dependency-path');
+      const cacheKeySuffix = core.getInput('cache-key-suffix');
       await restoreCache(
         parseGoVersion(goVersion),
         packageManager,
-        cacheDependencyPath
+        cacheDependencyPath,
+        cacheKeySuffix
       );
     }
 

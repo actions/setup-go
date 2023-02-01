@@ -11,7 +11,8 @@ import {getCacheDirectoryPath, getPackageManagerInfo} from './cache-utils';
 export const restoreCache = async (
   versionSpec: string,
   packageManager: string,
-  cacheDependencyPath?: string
+  cacheDependencyPath?: string,
+  cacheKeySuffix?: string
 ) => {
   const packageManagerInfo = await getPackageManagerInfo(packageManager);
   const platform = process.env.RUNNER_OS;
@@ -29,7 +30,8 @@ export const restoreCache = async (
     );
   }
 
-  const primaryKey = `setup-go-${platform}-go-${versionSpec}-${fileHash}`;
+  const primaryKey = `setup-go-${platform}-go-${versionSpec}-${fileHash}${cacheKeySuffix ||
+    ''}`;
   core.debug(`primary key is ${primaryKey}`);
 
   core.saveState(State.CachePrimaryKey, primaryKey);
