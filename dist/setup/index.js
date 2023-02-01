@@ -63024,7 +63024,7 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", ({ value: true }));
-exports.restoreCache = void 0;
+exports.findDependencyFile = exports.restoreCache = void 0;
 const cache = __importStar(__nccwpck_require__(7799));
 const core = __importStar(__nccwpck_require__(2186));
 const glob = __importStar(__nccwpck_require__(8090));
@@ -63038,7 +63038,7 @@ const restoreCache = (versionSpec, packageManager, cacheDependencyPath) => __awa
     const cachePaths = yield cache_utils_1.getCacheDirectoryPath(packageManagerInfo);
     const dependencyFilePath = cacheDependencyPath
         ? cacheDependencyPath
-        : findDependencyFile(packageManagerInfo);
+        : exports.findDependencyFile(packageManagerInfo);
     const fileHash = yield glob.hashFiles(dependencyFilePath);
     if (!fileHash) {
         throw new Error('Some specified paths were not resolved, unable to cache dependencies.');
@@ -63057,16 +63057,22 @@ const restoreCache = (versionSpec, packageManager, cacheDependencyPath) => __awa
     core.info(`Cache restored from key: ${cacheKey}`);
 });
 exports.restoreCache = restoreCache;
-const findDependencyFile = (packageManager) => {
+const findDependencyFile = (packageManager, throwException = true) => {
     let dependencyFile = packageManager.dependencyFilePattern;
     const workspace = process.env.GITHUB_WORKSPACE;
     const rootContent = fs_1.default.readdirSync(workspace);
     const goSumFileExists = rootContent.includes(dependencyFile);
     if (!goSumFileExists) {
-        throw new Error(`Dependencies file is not found in ${workspace}. Supported file pattern: ${dependencyFile}`);
+        if (throwException) {
+            throw new Error(`Dependencies file is not found in ${workspace}. Supported file pattern: ${dependencyFile}`);
+        }
+        else {
+            return '';
+        }
     }
     return path_1.default.join(workspace, dependencyFile);
 };
+exports.findDependencyFile = findDependencyFile;
 
 
 /***/ }),
@@ -63105,11 +63111,12 @@ var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, ge
     });
 };
 Object.defineProperty(exports, "__esModule", ({ value: true }));
-exports.isCacheFeatureAvailable = exports.isGhes = exports.getCacheDirectoryPath = exports.getPackageManagerInfo = exports.getCommandOutput = void 0;
+exports.isCacheEnabled = exports.isCacheFeatureAvailable = exports.isGhes = exports.getCacheDirectoryPath = exports.getPackageManagerInfo = exports.getCommandOutput = void 0;
 const cache = __importStar(__nccwpck_require__(7799));
 const core = __importStar(__nccwpck_require__(2186));
 const exec = __importStar(__nccwpck_require__(1514));
 const package_managers_1 = __nccwpck_require__(6663);
+const cache_restore_1 = __nccwpck_require__(9517);
 const getCommandOutput = (toolCommand) => __awaiter(void 0, void 0, void 0, function* () {
     let { stdout, stderr, exitCode } = yield exec.getExecOutput(toolCommand, undefined, { ignoreReturnCode: true });
     if (exitCode) {
@@ -63155,6 +63162,19 @@ function isCacheFeatureAvailable() {
     return false;
 }
 exports.isCacheFeatureAvailable = isCacheFeatureAvailable;
+function isCacheEnabled() {
+    return __awaiter(this, void 0, void 0, function* () {
+        const cacheInput = core.getInput('cache');
+        if (cacheInput) {
+            return core.getBooleanInput('cache');
+        }
+        const packageManager = package_managers_1.getCurrentPackageManager();
+        const packageManagerInfo = yield exports.getPackageManagerInfo(packageManager);
+        const cachePaths = cache_restore_1.findDependencyFile(packageManagerInfo, false);
+        return Boolean(cachePaths);
+    });
+}
+exports.isCacheEnabled = isCacheEnabled;
 
 
 /***/ }),
@@ -63570,6 +63590,7 @@ const cache_utils_1 = __nccwpck_require__(1678);
 const child_process_1 = __importDefault(__nccwpck_require__(2081));
 const fs_1 = __importDefault(__nccwpck_require__(7147));
 const os_1 = __importDefault(__nccwpck_require__(2037));
+const package_managers_1 = __nccwpck_require__(6663);
 function run() {
     return __awaiter(this, void 0, void 0, function* () {
         try {
@@ -63578,7 +63599,6 @@ function run() {
             // If not supplied then problem matchers will still be setup.  Useful for self-hosted.
             //
             const versionSpec = resolveVersionInput();
-            const cache = core.getBooleanInput('cache');
             core.info(`Setup go version spec ${versionSpec}`);
             let arch = core.getInput('architecture');
             if (!arch) {
@@ -63604,8 +63624,8 @@ function run() {
             }
             let goPath = yield io.which('go');
             let goVersion = (child_process_1.default.execSync(`${goPath} version`) || '').toString();
-            if (cache && cache_utils_1.isCacheFeatureAvailable()) {
-                const packageManager = 'default';
+            if ((yield cache_utils_1.isCacheEnabled()) && cache_utils_1.isCacheFeatureAvailable()) {
+                const packageManager = package_managers_1.getCurrentPackageManager();
                 const cacheDependencyPath = core.getInput('cache-dependency-path');
                 yield cache_restore_1.restoreCache(parseGoVersion(goVersion), packageManager, cacheDependencyPath);
             }
@@ -63691,13 +63711,15 @@ function resolveVersionInput() {
 "use strict";
 
 Object.defineProperty(exports, "__esModule", ({ value: true }));
-exports.supportedPackageManagers = void 0;
+exports.getCurrentPackageManager = exports.supportedPackageManagers = void 0;
 exports.supportedPackageManagers = {
     default: {
         dependencyFilePattern: 'go.sum',
         cacheFolderCommandList: ['go env GOMODCACHE', 'go env GOCACHE']
     }
 };
+const getCurrentPackageManager = () => 'default';
+exports.getCurrentPackageManager = getCurrentPackageManager;
 
 
 /***/ }),
