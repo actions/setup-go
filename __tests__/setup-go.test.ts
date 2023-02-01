@@ -957,4 +957,30 @@ use .
       }
     );
   });
+
+  it('should not throw exception if `cache` is not set', async () => {
+    process.env['GITHUB_WORKSPACE'] = '/tmp';
+
+    const arch = 'x64';
+    os.platform = 'darwin';
+    os.arch = arch;
+    inputs['go-version'] = '1.17.6';
+    inputs['architecture'] = os.arch;
+
+    const setFailedSpy = jest.spyOn(core, 'setFailed');
+    setFailedSpy.mockImplementation(line => {
+      process.stderr.write('log:' + line + '\n');
+    });
+
+    existsSpy.mockImplementation(() => true);
+    let toolPath = path.normalize('/cache/go/1.17.6/x64');
+    findSpy.mockImplementation(() => false);
+    dlSpy.mockImplementation(() => '/some/temp/path');
+    extractTarSpy.mockImplementation(() => '/some/other/temp/path');
+    cacheSpy.mockImplementation(() => toolPath);
+    execSpy.mockImplementation(() => 'go version go1.17.6');
+
+    await main.run();
+    expect(setFailedSpy).not.toHaveBeenCalled();
+  });
 });

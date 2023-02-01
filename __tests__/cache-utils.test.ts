@@ -2,7 +2,13 @@ import * as exec from '@actions/exec';
 import * as cache from '@actions/cache';
 import * as core from '@actions/core';
 import * as cacheUtils from '../src/cache-utils';
-import {PackageManagerInfo} from '../src/package-managers';
+import {
+  getCurrentPackageManager,
+  PackageManagerInfo
+} from '../src/package-managers';
+import fs, {Dirent, PathLike} from 'fs';
+import {getPackageManagerInfo} from '../src/cache-utils';
+import MockInstance = jest.MockInstance;
 
 describe('getCommandOutput', () => {
   //Arrange
@@ -211,5 +217,67 @@ describe('isCacheFeatureAvailable', () => {
     //Act + Assert
     expect(cacheUtils.isCacheFeatureAvailable()).toBeFalsy();
     expect(warningSpy).toHaveBeenCalledWith(warningMessage);
+  });
+});
+
+describe('isCacheEnabled', () => {
+  let inputs = {} as any;
+  const inSpy = jest.spyOn(core, 'getInput');
+  const getBooleanInputSpy = jest.spyOn(core, 'getBooleanInput');
+  const readdirSyncSpy = (jest.spyOn(
+    fs,
+    'readdirSync'
+  ) as unknown) as MockInstance<string[], any[]>;
+
+  beforeAll(async () => {
+    inSpy.mockImplementation(name => inputs[name] || '');
+
+    getBooleanInputSpy.mockImplementation((name, options) => {
+      const trueValue = ['true', 'True', 'TRUE'];
+      const falseValue = ['false', 'False', 'FALSE'];
+      const val = core.getInput(name, options);
+      if (trueValue.includes(val)) return true;
+      if (falseValue.includes(val)) return false;
+      throw new TypeError(
+        `Input does not meet YAML 1.2 "Core Schema" specification: ${name}\n` +
+          `Support boolean input list: \`true | True | TRUE | false | False | FALSE\``
+      );
+    });
+  });
+
+  afterEach(() => {
+    jest.clearAllMocks();
+    inputs = {};
+  });
+
+  afterAll(async () => {
+    jest.restoreAllMocks();
+  }, 100000);
+
+  it('should return false if `cache` input set to false', async () => {
+    inputs = {cache: 'false'};
+
+    const cacheEnabled = await cacheUtils.isCacheEnabled();
+    expect(cacheEnabled).toBeFalsy();
+  });
+
+  it('should return false if `cache` input set to true', async () => {
+    inputs = {cache: 'true'};
+
+    const cacheEnabled = await cacheUtils.isCacheEnabled();
+    expect(cacheEnabled).toBeTruthy();
+  });
+
+  it('should returns false if `cache` input unset and no dependencies file', async () => {
+    inputs = {};
+    process.env['GITHUB_WORKSPACE'] = '/tmp';
+
+    const packageManager = getCurrentPackageManager();
+    const packageManagerInfo = await getPackageManagerInfo(packageManager);
+    readdirSyncSpy.mockImplementation(() => [
+      packageManagerInfo.dependencyFilePattern
+    ]);
+
+    await expect(cacheUtils.isCacheEnabled()).resolves.toBeTruthy();
   });
 });
