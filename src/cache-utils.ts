@@ -87,7 +87,7 @@ export async function isCacheEnabled() {
 
   const packageManager = getCurrentPackageManager();
   const packageManagerInfo = await getPackageManagerInfo(packageManager);
-  const cachePaths = findDependencyFile(packageManagerInfo);
+  const cachePaths = findDependencyFile(packageManagerInfo, false);
 
-  return cachePaths.length > 0;
+  return Boolean(cachePaths);
 }

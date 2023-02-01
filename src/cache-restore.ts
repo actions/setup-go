@@ -47,16 +47,23 @@ export const restoreCache = async (
   core.info(`Cache restored from key: ${cacheKey}`);
 };
 
-export const findDependencyFile = (packageManager: PackageManagerInfo) => {
+export const findDependencyFile = (
+  packageManager: PackageManagerInfo,
+  throwException: boolean = true
+) => {
   let dependencyFile = packageManager.dependencyFilePattern;
   const workspace = process.env.GITHUB_WORKSPACE!;
   const rootContent = fs.readdirSync(workspace);
 
   const goSumFileExists = rootContent.includes(dependencyFile);
   if (!goSumFileExists) {
-    throw new Error(
-      `Dependencies file is not found in ${workspace}. Supported file pattern: ${dependencyFile}`
-    );
+    if (throwException) {
+      throw new Error(
+        `Dependencies file is not found in ${workspace}. Supported file pattern: ${dependencyFile}`
+      );
+    } else {
+      return '';
+    }
   }
 
   return path.join(workspace, dependencyFile);
