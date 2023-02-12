@@ -63038,7 +63038,6 @@ const restoreCache = (versionSpec, packageManager, cacheDependencyPath) => __awa
     const cachePaths = yield cache_utils_1.getCacheDirectoryPath(packageManagerInfo);
     let dependencyFilePath;
     try {
-        core.info('Trying to resolve lockfile path.');
         dependencyFilePath = cacheDependencyPath
             ? cacheDependencyPath
             : findDependencyFile(packageManagerInfo);

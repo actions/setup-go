@@ -20,7 +20,6 @@ export const restoreCache = async (
 
   let dependencyFilePath: string;
   try {
-    core.info('Trying to resolve lockfile path.');
     dependencyFilePath = cacheDependencyPath
       ? cacheDependencyPath
       : findDependencyFile(packageManagerInfo);
