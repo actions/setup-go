@@ -63036,9 +63036,18 @@ const restoreCache = (versionSpec, packageManager, cacheDependencyPath) => __awa
     const packageManagerInfo = yield cache_utils_1.getPackageManagerInfo(packageManager);
     const platform = process.env.RUNNER_OS;
     const cachePaths = yield cache_utils_1.getCacheDirectoryPath(packageManagerInfo);
-    const dependencyFilePath = cacheDependencyPath
-        ? cacheDependencyPath
-        : findDependencyFile(packageManagerInfo);
+    let dependencyFilePath;
+    try {
+        core.info('Trying to resolve lockfile path.');
+        dependencyFilePath = cacheDependencyPath
+            ? cacheDependencyPath
+            : findDependencyFile(packageManagerInfo);
+    }
+    catch (e) {
+        core.info(e.message);
+        core.setOutput(constants_1.Outputs.CacheHit, false);
+        return;
+    }
     const fileHash = yield glob.hashFiles(dependencyFilePath);
     if (!fileHash) {
         throw new Error('Some specified paths were not resolved, unable to cache dependencies.');
