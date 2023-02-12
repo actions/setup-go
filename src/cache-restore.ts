@@ -18,9 +18,16 @@ export const restoreCache = async (
 
   const cachePaths = await getCacheDirectoryPath(packageManagerInfo);
 
-  const dependencyFilePath = cacheDependencyPath
-    ? cacheDependencyPath
-    : findDependencyFile(packageManagerInfo);
+  let dependencyFilePath: string
+  try {
+    dependencyFilePath = cacheDependencyPath
+      ? cacheDependencyPath
+      : findDependencyFile(packageManagerInfo);
+  } catch (e) {
+    core.info(e);
+    core.setOutput(Outputs.CacheHit, false);
+    return;
+  }
   const fileHash = await glob.hashFiles(dependencyFilePath);
 
   if (!fileHash) {
