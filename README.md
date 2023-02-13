@@ -129,6 +129,8 @@ The action has a built-in functionality for caching and restoring go modules and
 
 The action defaults to search for the dependency file - go.sum in the repository root, and uses its hash as a part of the cache key. Use `cache-dependency-path` input for cases when multiple dependency files are used, or they are located in different subdirectories.
 
+Since 4.0.0 the cache is enabled by default.
+
 **Caching without specifying dependency file path**
 ```yaml
 steps:

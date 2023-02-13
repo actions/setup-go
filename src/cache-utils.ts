@@ -34,13 +34,29 @@ export const getPackageManagerInfo = async (packageManager: string) => {
 export const getCacheDirectoryPath = async (
   packageManagerInfo: PackageManagerInfo
 ) => {
-  const pathList = await Promise.all(
+  const pathOutputs = await Promise.allSettled(
     packageManagerInfo.cacheFolderCommandList.map(async command =>
       getCommandOutput(command)
     )
   );
 
-  const cachePaths = pathList.filter(item => item);
+  pathOutputs
+    .filter(output => output.status === 'rejected')
+    .forEach(output =>
+      core.warning(
+        `getting cache directory path failed: ${
+          (output as PromiseRejectedResult).reason
+        }`
+      )
+    );
+
+  const cachePaths = pathOutputs
+    .filter(
+      output =>
+        output.status === 'fulfilled' &&
+        (output as PromiseFulfilledResult<string>).value
+    )
+    .map(output => (output as PromiseFulfilledResult<string>).value);
 
   if (!cachePaths.length) {
     throw new Error(`Could not get cache folder paths.`);
