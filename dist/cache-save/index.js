@@ -60356,7 +60356,7 @@ function run() {
             if (typeof error === 'string') {
                 message = error;
             }
-            core.setFailed(message);
+            core.warning(message);
         }
     });
 }
