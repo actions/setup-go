@@ -63617,6 +63617,9 @@ function run() {
             core.setOutput('go-version', parseGoVersion(goVersion));
             core.startGroup('go env');
             let goEnv = (child_process_1.default.execSync(`${goPath} env`) || '').toString();
+            let goEnvJson = convertEnvStringToJson(goEnv);
+            core.info(`go env json: ${goEnvJson}`);
+            core.setOutput('go-version', parseGoVersion(goVersion));
             core.info(goEnv);
             core.endGroup();
         }
@@ -63664,6 +63667,15 @@ function parseGoVersion(versionString) {
     return versionString.split(' ')[2].slice('go'.length);
 }
 exports.parseGoVersion = parseGoVersion;
+function convertEnvStringToJson(envString) {
+    const envArray = envString.split('\n');
+    const envObject = {};
+    envArray.forEach(envVar => {
+        const [key, value] = envVar.split('=');
+        envObject[key] = value;
+    });
+    return envObject;
+}
 function resolveVersionInput() {
     let version = core.getInput('go-version');
     const versionFilePath = core.getInput('go-version-file');

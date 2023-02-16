@@ -3,8 +3,8 @@ import * as io from '@actions/io';
 import * as installer from './installer';
 import * as semver from 'semver';
 import path from 'path';
-import {restoreCache} from './cache-restore';
-import {isCacheFeatureAvailable} from './cache-utils';
+import { restoreCache } from './cache-restore';
+import { isCacheFeatureAvailable } from './cache-utils';
 import cp from 'child_process';
 import fs from 'fs';
 import os from 'os';
@@ -80,6 +80,12 @@ export async function run() {
 
     core.startGroup('go env');
     let goEnv = (cp.execSync(`${goPath} env`) || '').toString();
+
+    let goEnvJson = convertEnvStringToJson(goEnv)
+
+    core.info(`go env json: ${goEnvJson}`);
+
+    core.setOutput('go-version', parseGoVersion(goVersion));
     core.info(goEnv);
     core.endGroup();
   } catch (error) {
@@ -124,6 +130,18 @@ export function parseGoVersion(versionString: string): string {
   // fmt.Printf("go version %s %s/%s\n", runtime.Version(), runtime.GOOS, runtime.GOARCH)
   // expecting go<version> for runtime.Version()
   return versionString.split(' ')[2].slice('go'.length);
+}
+
+function convertEnvStringToJson(envString: string): { [key: string]: string } {
+  const envArray = envString.split('\n');
+  const envObject: { [key: string]: string } = {};
+
+  envArray.forEach(envVar => {
+    const [key, value] = envVar.split('=');
+    envObject[key] = value;
+  });
+
+  return envObject;
 }
 
 function resolveVersionInput(): string {
