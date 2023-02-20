@@ -40,23 +40,17 @@ export const getCacheDirectoryPath = async (
     )
   );
 
-  pathOutputs
-    .filter(output => output.status === 'rejected')
-    .forEach(output =>
-      core.warning(
-        `getting cache directory path failed: ${
-          (output as PromiseRejectedResult).reason
-        }`
-      )
-    );
+  const results = pathOutputs.map(item => {
+    if (item.status === 'fulfilled') {
+      return item.value;
+    } else {
+      core.info(`[warning]getting cache directory path failed: ${item.reason}`);
+    }
 
-  const cachePaths = pathOutputs
-    .filter(
-      output =>
-        output.status === 'fulfilled' &&
-        (output as PromiseFulfilledResult<string>).value
-    )
-    .map(output => (output as PromiseFulfilledResult<string>).value);
+    return '';
+  });
+
+  const cachePaths = results.filter(item => item);
 
   if (!cachePaths.length) {
     throw new Error(`Could not get cache folder paths.`);

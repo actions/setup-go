@@ -60458,13 +60458,16 @@ const getPackageManagerInfo = (packageManager) => __awaiter(void 0, void 0, void
 exports.getPackageManagerInfo = getPackageManagerInfo;
 const getCacheDirectoryPath = (packageManagerInfo) => __awaiter(void 0, void 0, void 0, function* () {
     const pathOutputs = yield Promise.allSettled(packageManagerInfo.cacheFolderCommandList.map((command) => __awaiter(void 0, void 0, void 0, function* () { return exports.getCommandOutput(command); })));
-    pathOutputs
-        .filter(output => output.status === 'rejected')
-        .forEach(output => core.warning(`getting cache directory path failed: ${output.reason}`));
-    const cachePaths = pathOutputs
-        .filter(output => output.status === 'fulfilled' &&
-        output.value)
-        .map(output => output.value);
+    const results = pathOutputs.map(item => {
+        if (item.status === 'fulfilled') {
+            return item.value;
+        }
+        else {
+            core.info(`[warning]getting cache directory path failed: ${item.reason}`);
+        }
+        return '';
+    });
+    const cachePaths = results.filter(item => item);
     if (!cachePaths.length) {
         throw new Error(`Could not get cache folder paths.`);
     }
