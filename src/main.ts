@@ -68,8 +68,8 @@ export async function run() {
           packageManager,
           cacheDependencyPath
         );
-      } catch (e) {
-        core.warning(`Restore cache failed: ${e.message}`);
+      } catch (error) {
+        core.warning(`Restore cache failed: ${error.message}`);
       }
     }
 

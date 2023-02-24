@@ -63617,8 +63617,8 @@ function run() {
                 try {
                     yield cache_restore_1.restoreCache(parseGoVersion(goVersion), packageManager, cacheDependencyPath);
                 }
-                catch (e) {
-                    core.warning(`Restore cache failed: ${e.message}`);
+                catch (error) {
+                    core.warning(`Restore cache failed: ${error.message}`);
                 }
             }
             // add problem matchers

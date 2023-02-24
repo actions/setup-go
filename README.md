@@ -8,6 +8,15 @@ This action sets up a go environment for use in actions by:
 - Optionally downloading and caching a version of Go by version and adding to `PATH`.
 - Registering problem matchers for error output.
 
+# V4
+
+The V4 edition of the action offers:
+
+ - Enables caching by default
+ - Does not fail if caching fails for any reason
+
+The action will try to enable caching unless the `cache` input explicitly set to false.
+
 # V3
 
 The V3 edition of the action offers:
