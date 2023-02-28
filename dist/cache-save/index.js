@@ -60457,7 +60457,7 @@ const getPackageManagerInfo = (packageManager) => __awaiter(void 0, void 0, void
 });
 exports.getPackageManagerInfo = getPackageManagerInfo;
 const getCacheDirectoryPath = (packageManagerInfo) => __awaiter(void 0, void 0, void 0, function* () {
-    const pathList = yield Promise.all(packageManagerInfo.cacheFolderCommandList.map(command => exports.getCommandOutput(command)));
+    const pathList = yield Promise.all(packageManagerInfo.cacheFolderCommandList.map((command) => __awaiter(void 0, void 0, void 0, function* () { return exports.getCommandOutput(command); })));
     const cachePaths = pathList.filter(item => item);
     if (!cachePaths.length) {
         throw new Error(`Could not get cache folder paths.`);

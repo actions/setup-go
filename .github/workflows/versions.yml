@@ -42,7 +42,7 @@ jobs:
           go-version: oldstable
       - name: Verify Go
         run: go version
-  
+
   aliases-arch:
     runs-on: ${{ matrix.os }}
     strategy:
@@ -52,8 +52,8 @@ jobs:
         version: [stable, oldstable]
         architecture: [x64, x32]
         exclude:
-        - os: macos-latest
-          architecture: x32
+          - os: macos-latest
+            architecture: x32
     steps:
       - uses: actions/checkout@v3
       - name: Setup Go ${{ matrix.version }} ${{ matrix.architecture }}

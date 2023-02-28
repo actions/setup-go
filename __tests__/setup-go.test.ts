@@ -8,13 +8,13 @@ import path from 'path';
 import * as main from '../src/main';
 import * as im from '../src/installer';
 
-let goJsonData = require('./data/golang-dl.json');
-let matchers = require('../matchers.json');
-let goTestManifest = require('./data/versions-manifest.json');
-let matcherPattern = matchers.problemMatcher[0].pattern[0];
-let matcherRegExp = new RegExp(matcherPattern.regexp);
-let win32Join = path.win32.join;
-let posixJoin = path.posix.join;
+import goJsonData from './data/golang-dl.json';
+import matchers from '../matchers.json';
+import goTestManifest from './data/versions-manifest.json';
+const matcherPattern = matchers.problemMatcher[0].pattern[0];
+const matcherRegExp = new RegExp(matcherPattern.regexp);
+const win32Join = path.win32.join;
+const posixJoin = path.posix.join;
 
 describe('setup-go', () => {
   let inputs = {} as any;
@@ -133,7 +133,7 @@ describe('setup-go', () => {
     os.platform = 'darwin';
     os.arch = 'x64';
 
-    let match = await im.getInfoFromManifest('1.9.7', true, 'mocktoken');
+    const match = await im.getInfoFromManifest('1.9.7', true, 'mocktoken');
     expect(match).toBeDefined();
     expect(match!.resolvedVersion).toBe('1.9.7');
     expect(match!.type).toBe('manifest');
@@ -146,7 +146,7 @@ describe('setup-go', () => {
     os.platform = 'linux';
     os.arch = 'x64';
 
-    let match = await im.getInfoFromManifest('1.9.7', true, 'mocktoken');
+    const match = await im.getInfoFromManifest('1.9.7', true, 'mocktoken');
     expect(match).toBeDefined();
     expect(match!.resolvedVersion).toBe('1.9.7');
     expect(match!.type).toBe('manifest');
@@ -159,7 +159,7 @@ describe('setup-go', () => {
     os.platform = 'win32';
     os.arch = 'x64';
 
-    let match = await im.getInfoFromManifest('1.9.7', true, 'mocktoken');
+    const match = await im.getInfoFromManifest('1.9.7', true, 'mocktoken');
     expect(match).toBeDefined();
     expect(match!.resolvedVersion).toBe('1.9.7');
     expect(match!.type).toBe('manifest');
@@ -173,11 +173,11 @@ describe('setup-go', () => {
     os.arch = 'x64';
 
     // spec: 1.13.0 => 1.13
-    let match: im.IGoVersion | undefined = await im.findMatch('1.13.0');
+    const match: im.IGoVersion | undefined = await im.findMatch('1.13.0');
     expect(match).toBeDefined();
-    let version: string = match ? match.version : '';
+    const version: string = match ? match.version : '';
     expect(version).toBe('go1.13');
-    let fileName = match ? match.files[0].filename : '';
+    const fileName = match ? match.files[0].filename : '';
     expect(fileName).toBe('go1.13.darwin-amd64.tar.gz');
   });
 
@@ -186,11 +186,11 @@ describe('setup-go', () => {
     os.arch = 'x64';
 
     // spec: 1.13 => 1.13.7 (latest)
-    let match: im.IGoVersion | undefined = await im.findMatch('1.13');
+    const match: im.IGoVersion | undefined = await im.findMatch('1.13');
     expect(match).toBeDefined();
-    let version: string = match ? match.version : '';
+    const version: string = match ? match.version : '';
     expect(version).toBe('go1.13.7');
-    let fileName = match ? match.files[0].filename : '';
+    const fileName = match ? match.files[0].filename : '';
     expect(fileName).toBe('go1.13.7.linux-amd64.tar.gz');
   });
 
@@ -199,11 +199,11 @@ describe('setup-go', () => {
     os.arch = 'x64';
 
     // spec: ^1.13.6 => 1.13.7
-    let match: im.IGoVersion | undefined = await im.findMatch('^1.13.6');
+    const match: im.IGoVersion | undefined = await im.findMatch('^1.13.6');
     expect(match).toBeDefined();
-    let version: string = match ? match.version : '';
+    const version: string = match ? match.version : '';
     expect(version).toBe('go1.13.7');
-    let fileName = match ? match.files[0].filename : '';
+    const fileName = match ? match.files[0].filename : '';
     expect(fileName).toBe('go1.13.7.linux-amd64.tar.gz');
   });
 
@@ -212,11 +212,11 @@ describe('setup-go', () => {
     os.arch = 'x32';
 
     // spec: 1 => 1.13.7 (latest)
-    let match: im.IGoVersion | undefined = await im.findMatch('1');
+    const match: im.IGoVersion | undefined = await im.findMatch('1');
     expect(match).toBeDefined();
-    let version: string = match ? match.version : '';
+    const version: string = match ? match.version : '';
     expect(version).toBe('go1.13.7');
-    let fileName = match ? match.files[0].filename : '';
+    const fileName = match ? match.files[0].filename : '';
     expect(fileName).toBe('go1.13.7.windows-386.zip');
   });
 
@@ -225,11 +225,11 @@ describe('setup-go', () => {
     os.arch = 'x64';
 
     // spec: 1.14, stable=false => go1.14rc1
-    let match: im.IGoVersion | undefined = await im.findMatch('1.14.0-rc.1');
+    const match: im.IGoVersion | undefined = await im.findMatch('1.14.0-rc.1');
     expect(match).toBeDefined();
-    let version: string = match ? match.version : '';
+    const version: string = match ? match.version : '';
     expect(version).toBe('go1.14rc1');
-    let fileName = match ? match.files[0].filename : '';
+    const fileName = match ? match.files[0].filename : '';
     expect(fileName).toBe('go1.14rc1.linux-amd64.tar.gz');
   });
 
@@ -237,7 +237,7 @@ describe('setup-go', () => {
     inputs['go-version'] = '1.13.0';
     inputs.stable = 'true';
 
-    let toolPath = path.normalize('/cache/go/1.13.0/x64');
+    const toolPath = path.normalize('/cache/go/1.13.0/x64');
     findSpy.mockImplementation(() => toolPath);
     await main.run();
 
@@ -249,7 +249,7 @@ describe('setup-go', () => {
 
     inSpy.mockImplementation(name => inputs[name]);
 
-    let toolPath = path.normalize('/cache/go/1.13.0/x64');
+    const toolPath = path.normalize('/cache/go/1.13.0/x64');
     findSpy.mockImplementation(() => toolPath);
     await main.run();
 
@@ -260,10 +260,10 @@ describe('setup-go', () => {
     inputs['go-version'] = '1.13.0';
     inSpy.mockImplementation(name => inputs[name]);
 
-    let toolPath = path.normalize('/cache/go/1.13.0/x64');
+    const toolPath = path.normalize('/cache/go/1.13.0/x64');
     findSpy.mockImplementation(() => toolPath);
 
-    let vars: {[key: string]: string} = {};
+    const vars: {[key: string]: string} = {};
     exportVarSpy.mockImplementation((name: string, val: string) => {
       vars[name] = val;
     });
@@ -276,10 +276,10 @@ describe('setup-go', () => {
     inputs['go-version'] = '1.8';
     inSpy.mockImplementation(name => inputs[name]);
 
-    let toolPath = path.normalize('/cache/go/1.8.0/x64');
+    const toolPath = path.normalize('/cache/go/1.8.0/x64');
     findSpy.mockImplementation(() => toolPath);
 
-    let vars: {[key: string]: string} = {};
+    const vars: {[key: string]: string} = {};
     exportVarSpy.mockImplementation((name: string, val: string) => {
       vars[name] = val;
     });
@@ -293,7 +293,7 @@ describe('setup-go', () => {
   it('finds a version of go already in the cache', async () => {
     inputs['go-version'] = '1.13.0';
 
-    let toolPath = path.normalize('/cache/go/1.13.0/x64');
+    const toolPath = path.normalize('/cache/go/1.13.0/x64');
     findSpy.mockImplementation(() => toolPath);
     await main.run();
 
@@ -302,16 +302,16 @@ describe('setup-go', () => {
 
   it('finds a version in the cache and adds it to the path', async () => {
     inputs['go-version'] = '1.13.0';
-    let toolPath = path.normalize('/cache/go/1.13.0/x64');
+    const toolPath = path.normalize('/cache/go/1.13.0/x64');
     findSpy.mockImplementation(() => toolPath);
     await main.run();
 
-    let expPath = path.join(toolPath, 'bin');
+    const expPath = path.join(toolPath, 'bin');
     expect(cnSpy).toHaveBeenCalledWith(`::add-path::${expPath}${osm.EOL}`);
   });
 
   it('handles unhandled error and reports error', async () => {
-    let errMsg = 'unhandled error message';
+    const errMsg = 'unhandled error message';
     inputs['go-version'] = '1.13.0';
 
     findSpy.mockImplementation(() => {
@@ -329,12 +329,12 @@ describe('setup-go', () => {
 
     findSpy.mockImplementation(() => '');
     dlSpy.mockImplementation(() => '/some/temp/path');
-    let toolPath = path.normalize('/cache/go/1.13.0/x64');
+    const toolPath = path.normalize('/cache/go/1.13.0/x64');
     extractTarSpy.mockImplementation(() => '/some/other/temp/path');
     cacheSpy.mockImplementation(() => toolPath);
     await main.run();
 
-    let expPath = path.join(toolPath, 'bin');
+    const expPath = path.join(toolPath, 'bin');
 
     expect(dlSpy).toHaveBeenCalled();
     expect(extractTarSpy).toHaveBeenCalled();
@@ -352,12 +352,12 @@ describe('setup-go', () => {
     dlSpy.mockImplementation(() => 'C:\\temp\\some\\path');
     extractZipSpy.mockImplementation(() => 'C:\\temp\\some\\other\\path');
 
-    let toolPath = path.normalize('C:\\cache\\go\\1.13.0\\x64');
+    const toolPath = path.normalize('C:\\cache\\go\\1.13.0\\x64');
     cacheSpy.mockImplementation(() => toolPath);
 
     await main.run();
 
-    let expPath = path.win32.join(toolPath, 'bin');
+    const expPath = path.win32.join(toolPath, 'bin');
     expect(dlSpy).toHaveBeenCalledWith(
       'https://storage.googleapis.com/golang/go1.13.1.windows-amd64.zip',
       'C:\\temp\\go1.13.1.windows-amd64.zip',
@@ -384,25 +384,25 @@ describe('setup-go', () => {
     os.platform = 'linux';
     os.arch = 'x64';
 
-    let versionSpec = '1.12.16';
+    const versionSpec = '1.12.16';
 
     inputs['go-version'] = versionSpec;
     inputs['token'] = 'faketoken';
 
-    let expectedUrl =
+    const expectedUrl =
       'https://github.com/actions/go-versions/releases/download/1.12.16-20200616.20/go-1.12.16-linux-x64.tar.gz';
 
     // ... but not in the local cache
     findSpy.mockImplementation(() => '');
 
     dlSpy.mockImplementation(async () => '/some/temp/path');
-    let toolPath = path.normalize('/cache/go/1.12.16/x64');
+    const toolPath = path.normalize('/cache/go/1.12.16/x64');
     extractTarSpy.mockImplementation(async () => '/some/other/temp/path');
     cacheSpy.mockImplementation(async () => toolPath);
 
     await main.run();
 
-    let expPath = path.join(toolPath, 'bin');
+    const expPath = path.join(toolPath, 'bin');
 
     expect(dlSpy).toHaveBeenCalled();
     expect(extractTarSpy).toHaveBeenCalled();
@@ -421,25 +421,25 @@ describe('setup-go', () => {
     os.platform = 'linux';
     os.arch = 'x64';
 
-    let versionSpec = '1.12';
+    const versionSpec = '1.12';
 
     inputs['go-version'] = versionSpec;
     inputs['token'] = 'faketoken';
 
-    let expectedUrl =
+    const expectedUrl =
       'https://github.com/actions/go-versions/releases/download/1.12.17-20200616.21/go-1.12.17-linux-x64.tar.gz';
 
     // ... but not in the local cache
     findSpy.mockImplementation(() => '');
 
     dlSpy.mockImplementation(async () => '/some/temp/path');
-    let toolPath = path.normalize('/cache/go/1.12.17/x64');
+    const toolPath = path.normalize('/cache/go/1.12.17/x64');
     extractTarSpy.mockImplementation(async () => '/some/other/temp/path');
     cacheSpy.mockImplementation(async () => toolPath);
 
     await main.run();
 
-    let expPath = path.join(toolPath, 'bin');
+    const expPath = path.join(toolPath, 'bin');
 
     expect(dlSpy).toHaveBeenCalled();
     expect(extractTarSpy).toHaveBeenCalled();
@@ -458,7 +458,7 @@ describe('setup-go', () => {
     os.platform = 'linux';
     os.arch = 'x64';
 
-    let versionSpec = '1.12.14';
+    const versionSpec = '1.12.14';
 
     inputs['go-version'] = versionSpec;
     inputs['token'] = 'faketoken';
@@ -467,13 +467,13 @@ describe('setup-go', () => {
     findSpy.mockImplementation(() => '');
 
     dlSpy.mockImplementation(async () => '/some/temp/path');
-    let toolPath = path.normalize('/cache/go/1.12.14/x64');
+    const toolPath = path.normalize('/cache/go/1.12.14/x64');
     extractTarSpy.mockImplementation(async () => '/some/other/temp/path');
     cacheSpy.mockImplementation(async () => toolPath);
 
     await main.run();
 
-    let expPath = path.join(toolPath, 'bin');
+    const expPath = path.join(toolPath, 'bin');
     expect(logSpy).toHaveBeenCalledWith('Setup go version spec 1.12.14');
     expect(findSpy).toHaveBeenCalled();
     expect(logSpy).toHaveBeenCalledWith('Attempting to download 1.12.14...');
@@ -489,7 +489,7 @@ describe('setup-go', () => {
   });
 
   it('reports a failed download', async () => {
-    let errMsg = 'unhandled download message';
+    const errMsg = 'unhandled download message';
     os.platform = 'linux';
     os.arch = 'x64';
 
@@ -510,7 +510,7 @@ describe('setup-go', () => {
     whichSpy.mockImplementation(async () => {
       return '';
     });
-    let added = await main.addBinToPath();
+    const added = await main.addBinToPath();
     expect(added).toBeFalsy();
   });
 
@@ -528,8 +528,8 @@ describe('setup-go', () => {
       return false;
     });
 
-    let added = await main.addBinToPath();
-    expect(added).toBeTruthy;
+    const added = await main.addBinToPath();
+    expect(added).toBeTruthy();
   });
 
   interface Annotation {
@@ -543,9 +543,9 @@ describe('setup-go', () => {
   // problem matcher regex pattern tests
 
   function testMatch(line: string): Annotation {
-    let annotation = <Annotation>{};
+    const annotation = <Annotation>{};
 
-    let match = matcherRegExp.exec(line);
+    const match = matcherRegExp.exec(line);
     if (match) {
       annotation.line = parseInt(match[matcherPattern.line], 10);
       annotation.column = parseInt(match[matcherPattern.column], 10);
@@ -557,8 +557,8 @@ describe('setup-go', () => {
   }
 
   it('matches on relative unix path', async () => {
-    let line = './main.go:13:2: undefined: fmt.Printl';
-    let annotation = testMatch(line);
+    const line = './main.go:13:2: undefined: fmt.Printl';
+    const annotation = testMatch(line);
     expect(annotation).toBeDefined();
     expect(annotation.line).toBe(13);
     expect(annotation.column).toBe(2);
@@ -567,8 +567,8 @@ describe('setup-go', () => {
   });
 
   it('matches on unix path up the tree', async () => {
-    let line = '../main.go:13:2: undefined: fmt.Printl';
-    let annotation = testMatch(line);
+    const line = '../main.go:13:2: undefined: fmt.Printl';
+    const annotation = testMatch(line);
     expect(annotation).toBeDefined();
     expect(annotation.line).toBe(13);
     expect(annotation.column).toBe(2);
@@ -577,8 +577,8 @@ describe('setup-go', () => {
   });
 
   it('matches on unix path down the tree', async () => {
-    let line = 'foo/main.go:13:2: undefined: fmt.Printl';
-    let annotation = testMatch(line);
+    const line = 'foo/main.go:13:2: undefined: fmt.Printl';
+    const annotation = testMatch(line);
     expect(annotation).toBeDefined();
     expect(annotation.line).toBe(13);
     expect(annotation.column).toBe(2);
@@ -587,8 +587,8 @@ describe('setup-go', () => {
   });
 
   it('matches on rooted unix path', async () => {
-    let line = '/assert.go:4:1: missing return at end of function';
-    let annotation = testMatch(line);
+    const line = '/assert.go:4:1: missing return at end of function';
+    const annotation = testMatch(line);
     expect(annotation).toBeDefined();
     expect(annotation.line).toBe(4);
     expect(annotation.column).toBe(1);
@@ -597,8 +597,8 @@ describe('setup-go', () => {
   });
 
   it('matches on unix path with spaces', async () => {
-    let line = '   ./assert.go:5:2: missing return at end of function   ';
-    let annotation = testMatch(line);
+    const line = '   ./assert.go:5:2: missing return at end of function   ';
+    const annotation = testMatch(line);
     expect(annotation).toBeDefined();
     expect(annotation.line).toBe(5);
     expect(annotation.column).toBe(2);
@@ -607,8 +607,8 @@ describe('setup-go', () => {
   });
 
   it('matches on unix path with tabs', async () => {
-    let line = '\t./assert.go:5:2: missing return at end of function   ';
-    let annotation = testMatch(line);
+    const line = '\t./assert.go:5:2: missing return at end of function   ';
+    const annotation = testMatch(line);
     expect(annotation).toBeDefined();
     expect(annotation.line).toBe(5);
     expect(annotation.column).toBe(2);
@@ -617,8 +617,8 @@ describe('setup-go', () => {
   });
 
   it('matches on relative windows path', async () => {
-    let line = '.\\main.go:13:2: undefined: fmt.Printl';
-    let annotation = testMatch(line);
+    const line = '.\\main.go:13:2: undefined: fmt.Printl';
+    const annotation = testMatch(line);
     expect(annotation).toBeDefined();
     expect(annotation.line).toBe(13);
     expect(annotation.column).toBe(2);
@@ -627,8 +627,8 @@ describe('setup-go', () => {
   });
 
   it('matches on windows path up the tree', async () => {
-    let line = '..\\main.go:13:2: undefined: fmt.Printl';
-    let annotation = testMatch(line);
+    const line = '..\\main.go:13:2: undefined: fmt.Printl';
+    const annotation = testMatch(line);
     expect(annotation).toBeDefined();
     expect(annotation.line).toBe(13);
     expect(annotation.column).toBe(2);
@@ -730,7 +730,7 @@ describe('setup-go', () => {
       os.platform = 'linux';
       os.arch = 'x64';
 
-      let versionSpec = '1.13';
+      const versionSpec = '1.13';
 
       inputs['go-version'] = versionSpec;
       inputs['check-latest'] = true;
@@ -741,13 +741,13 @@ describe('setup-go', () => {
       findSpy.mockImplementation(() => '');
 
       dlSpy.mockImplementation(async () => '/some/temp/path');
-      let toolPath = path.normalize('/cache/go/1.13.7/x64');
+      const toolPath = path.normalize('/cache/go/1.13.7/x64');
       extractTarSpy.mockImplementation(async () => '/some/other/temp/path');
       cacheSpy.mockImplementation(async () => toolPath);
 
       await main.run();
 
-      let expPath = path.join(toolPath, 'bin');
+      const expPath = path.join(toolPath, 'bin');
 
       expect(dlSpy).toHaveBeenCalled();
       expect(extractTarSpy).toHaveBeenCalled();
@@ -767,7 +767,7 @@ describe('setup-go', () => {
       os.platform = 'linux';
       os.arch = 'x64';
 
-      let versionSpec = '1.13';
+      const versionSpec = '1.13';
 
       process.env['GITHUB_PATH'] = '';
 
@@ -784,13 +784,13 @@ describe('setup-go', () => {
       getAllVersionsSpy.mockImplementationOnce(() => undefined);
 
       dlSpy.mockImplementation(async () => '/some/temp/path');
-      let toolPath = path.normalize('/cache/go/1.13.7/x64');
+      const toolPath = path.normalize('/cache/go/1.13.7/x64');
       extractTarSpy.mockImplementation(async () => '/some/other/temp/path');
       cacheSpy.mockImplementation(async () => toolPath);
 
       await main.run();
 
-      let expPath = path.join(toolPath, 'bin');
+      const expPath = path.join(toolPath, 'bin');
 
       expect(logSpy).toHaveBeenCalledWith(
         `Failed to resolve version ${versionSpec} from manifest`
@@ -910,7 +910,7 @@ use .
         inputs['go-version'] = version;
         inputs['architecture'] = arch;
 
-        let expectedUrl =
+        const expectedUrl =
           platform === 'win32'
             ? `https://github.com/actions/go-versions/releases/download/${version}/go-${version}-${platform}-${arch}.${fileExtension}`
             : `https://storage.googleapis.com/golang/go${version}.${osSpec}-${arch}.${fileExtension}`;
@@ -919,7 +919,7 @@ use .
         findSpy.mockImplementation(() => '');
 
         dlSpy.mockImplementation(async () => '/some/temp/path');
-        let toolPath = path.normalize(`/cache/go/${version}/${arch}`);
+        const toolPath = path.normalize(`/cache/go/${version}/${arch}`);
         cacheSpy.mockImplementation(async () => toolPath);
 
         await main.run();
@@ -944,7 +944,7 @@ use .
         findSpy.mockImplementation(() => '');
 
         dlSpy.mockImplementation(async () => '/some/temp/path');
-        let toolPath = path.normalize(`/cache/go/${alias}/${arch}`);
+        const toolPath = path.normalize(`/cache/go/${alias}/${arch}`);
         cacheSpy.mockImplementation(async () => toolPath);
 
         await main.run();

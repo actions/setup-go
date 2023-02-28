@@ -35,7 +35,7 @@ export const getCacheDirectoryPath = async (
   packageManagerInfo: PackageManagerInfo
 ) => {
   const pathList = await Promise.all(
-    packageManagerInfo.cacheFolderCommandList.map(command =>
+    packageManagerInfo.cacheFolderCommandList.map(async command =>
       getCommandOutput(command)
     )
   );

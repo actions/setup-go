@@ -1,4 +1,4 @@
-const os = require('os');
+import os from 'os';
 
 export function getPlatform(): string {
   // darwin and linux match already
