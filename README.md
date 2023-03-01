@@ -12,10 +12,11 @@ This action sets up a go environment for use in actions by:
 
 The V4 edition of the action offers:
 
- - Enables caching by default
- - Does not fail if caching fails for any reason
+ - Enabled caching by default
 
-The action will try to enable caching unless the `cache` input explicitly set to false.
+The action will try to enable caching unless the `cache` input is explicitly set to false.
+
+Please see "[Caching dependency files and build outputs](https://github.com/actions/setup-go#caching-dependency-files-and-build-outputs)" for more information.
 
 # V3
 
@@ -146,25 +147,14 @@ steps:
 ## Caching dependency files and build outputs:
 
 The action has a built-in functionality for caching and restoring go modules and build outputs. It
-uses [actions/cache](https://github.com/actions/cache) under the hood but requires less configuration settings.
+uses [toolkit/cache](https://github.com/actions/toolkit/tree/main/packages/cache) under the hood but requires less configuration settings.
 The `cache` input is optional, and caching is turned on by default.
 
 The action defaults to search for the dependency file - go.sum in the repository root, and uses its hash as a part of
 the cache key. Use `cache-dependency-path` input for cases when multiple dependency files are used, or they are located
 in different subdirectories.
 
-**Caching without specifying dependency file path**
-
-```yaml
-steps:
-  - uses: actions/checkout@v3
-  - uses: actions/setup-go@v3
-    with:
-      go-version: '1.17'
-      check-latest: true
-      cache: true
-  - run: go run hello.go
-```
+If some problem that prevents success caching happens then the action issues the warning in the log and continues the execution of the pipeline. 
 
 **Caching in monorepos**
 
@@ -175,7 +165,6 @@ steps:
     with:
       go-version: '1.17'
       check-latest: true
-      cache: true
       cache-dependency-path: subdir/go.sum
   - run: go run hello.go
   ```
