@@ -11,7 +11,7 @@
     "lint": "eslint --config ./.eslintrc.js **/*.ts",
     "lint:fix": "eslint --config ./.eslintrc.js **/*.ts --fix",
     "test": "jest --coverage",
-    "pre-checkin": "npm run format && npm run build && npm test"
+    "pre-checkin": "npm run format && npm run lint:fix && npm run build && npm test"
   },
   "repository": {
     "type": "git",
