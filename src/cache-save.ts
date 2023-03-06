@@ -59,6 +59,13 @@ const cachePackages = async () => {
     );
   }
 
+  if (!primaryKey) {
+    core.info(
+      'Primary key was not generated. Please check the log messages above for more errors or information'
+    );
+    return;
+  }
+
   if (primaryKey === state) {
     core.info(
       `Cache hit occurred on the primary key ${primaryKey}, not saving cache.`
