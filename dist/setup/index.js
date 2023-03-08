@@ -63596,10 +63596,10 @@ function run() {
                     core.info('Setting GOROOT for Go version < 1.9');
                     core.exportVariable('GOROOT', installDir);
                 }
-                const added = yield addBinToPath();
-                core.debug(`add bin ${added}`);
-                core.info(`Successfully set up Go version ${versionSpec}`);
             }
+            const added = yield addBinToPath();
+            core.debug(`add bin ${added}`);
+            core.info(`Successfully set up Go version ${versionSpec}`);
             const goPath = yield io.which('go');
             const goVersion = (child_process_1.default.execSync(`${goPath} version`) || '').toString();
             if (cache && cache_utils_1.isCacheFeatureAvailable()) {
