@@ -37,7 +37,7 @@ export async function getGo(
   arch = os.arch()
 ) {
   let manifest: tc.IToolRelease[] | undefined;
-  let osPlat: string = os.platform();
+  const osPlat: string = os.platform();
 
   if (
     versionSpec === StableReleaseAlias.Stable ||
@@ -83,8 +83,7 @@ export async function getGo(
   }
 
   // check cache
-  let toolPath: string;
-  toolPath = tc.find('go', versionSpec, arch);
+  const toolPath = tc.find('go', versionSpec, arch);
   // If not found in cache, download
   if (toolPath) {
     core.info(`Found in cache @ ${toolPath}`);
@@ -246,13 +245,12 @@ async function getInfoFromDist(
   versionSpec: string,
   arch: string
 ): Promise<IGoVersionInfo | null> {
-  let version: IGoVersion | undefined;
-  version = await findMatch(versionSpec, arch);
+  const version: IGoVersion | undefined = await findMatch(versionSpec, arch);
   if (!version) {
     return null;
   }
 
-  let downloadUrl: string = `https://storage.googleapis.com/golang/${version.files[0].filename}`;
+  const downloadUrl = `https://storage.googleapis.com/golang/${version.files[0].filename}`;
 
   return <IGoVersionInfo>{
     type: 'dist',
@@ -282,8 +280,8 @@ export async function findMatch(
 
   let goFile: IGoVersionFile | undefined;
   for (let i = 0; i < candidates.length; i++) {
-    let candidate: IGoVersion = candidates[i];
-    let version = makeSemver(candidate.version);
+    const candidate: IGoVersion = candidates[i];
+    const version = makeSemver(candidate.version);
 
     core.debug(`check ${version} satisfies ${versionSpec}`);
     if (semver.satisfies(version, versionSpec)) {
@@ -331,9 +329,9 @@ export async function getVersionsDist(
 export function makeSemver(version: string): string {
   version = version.replace('go', '');
   version = version.replace('beta', '-beta.').replace('rc', '-rc.');
-  let parts = version.split('-');
+  const parts = version.split('-');
 
-  let semVersion = semver.coerce(parts[0])?.version;
+  const semVersion = semver.coerce(parts[0])?.version;
   if (!semVersion) {
     throw new Error(
       `The version: ${version} can't be changed to SemVer notation`
@@ -369,9 +367,9 @@ export function parseGoVersionFile(versionFilePath: string): string {
 }
 
 async function resolveStableVersionDist(versionSpec: string, arch: string) {
-  let archFilter = sys.getArch(arch);
-  let platFilter = sys.getPlatform();
-  const dlUrl: string = 'https://golang.org/dl/?mode=json&include=all';
+  const archFilter = sys.getArch(arch);
+  const platFilter = sys.getPlatform();
+  const dlUrl = 'https://golang.org/dl/?mode=json&include=all';
   const candidates: IGoVersion[] | null = await module.exports.getVersionsDist(
     dlUrl
   );
