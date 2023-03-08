@@ -6,7 +6,7 @@ import {PackageManagerInfo} from '../src/package-managers';
 
 describe('getCommandOutput', () => {
   //Arrange
-  let getExecOutputSpy = jest.spyOn(exec, 'getExecOutput');
+  const getExecOutputSpy = jest.spyOn(exec, 'getExecOutput');
 
   it('should return trimmed stdout in case of successful exit code', async () => {
     //Arrange
@@ -36,7 +36,7 @@ describe('getCommandOutput', () => {
     });
 
     //Act + Assert
-    expect(async () => {
+    await expect(async () => {
       await cacheUtils.getCommandOutput('command');
     }).rejects.toThrow();
   });
@@ -62,7 +62,7 @@ describe('getPackageManagerInfo', () => {
     const packageManagerName = 'invalidName';
 
     //Act + Assert
-    expect(async () => {
+    await expect(async () => {
       await cacheUtils.getPackageManagerInfo(packageManagerName);
     }).rejects.toThrow();
   });
@@ -70,7 +70,7 @@ describe('getPackageManagerInfo', () => {
 
 describe('getCacheDirectoryPath', () => {
   //Arrange
-  let getExecOutputSpy = jest.spyOn(exec, 'getExecOutput');
+  const getExecOutputSpy = jest.spyOn(exec, 'getExecOutput');
 
   const validPackageManager: PackageManagerInfo = {
     dependencyFilePattern: 'go.sum',
@@ -123,7 +123,7 @@ describe('getCacheDirectoryPath', () => {
     });
 
     //Act + Assert
-    expect(async () => {
+    await expect(async () => {
       await cacheUtils.getCacheDirectoryPath(validPackageManager);
     }).rejects.toThrow();
   });
@@ -136,7 +136,7 @@ describe('getCacheDirectoryPath', () => {
     });
 
     //Act + Assert
-    expect(async () => {
+    await expect(async () => {
       await cacheUtils.getCacheDirectoryPath(validPackageManager);
     }).rejects.toThrow();
   });
@@ -144,8 +144,8 @@ describe('getCacheDirectoryPath', () => {
 
 describe('isCacheFeatureAvailable', () => {
   //Arrange
-  let isFeatureAvailableSpy = jest.spyOn(cache, 'isFeatureAvailable');
-  let warningSpy = jest.spyOn(core, 'warning');
+  const isFeatureAvailableSpy = jest.spyOn(cache, 'isFeatureAvailable');
+  const warningSpy = jest.spyOn(core, 'warning');
 
   it('should return true when cache feature is available', () => {
     //Arrange
@@ -153,16 +153,14 @@ describe('isCacheFeatureAvailable', () => {
       return true;
     });
 
-    let functionResult;
-
     //Act
-    functionResult = cacheUtils.isCacheFeatureAvailable();
+    const functionResult = cacheUtils.isCacheFeatureAvailable();
 
     //Assert
     expect(functionResult).toBeTruthy();
   });
 
-  it('should warn when cache feature is unavailable and GHES is not used ', () => {
+  it('should warn when cache feature is unavailable and GHES is not used', () => {
     //Arrange
     isFeatureAvailableSpy.mockImplementation(() => {
       return false;
@@ -170,7 +168,7 @@ describe('isCacheFeatureAvailable', () => {
 
     process.env['GITHUB_SERVER_URL'] = 'https://github.com';
 
-    let warningMessage =
+    const warningMessage =
       'The runner was not able to contact the cache service. Caching will be skipped';
 
     //Act
@@ -188,10 +186,8 @@ describe('isCacheFeatureAvailable', () => {
 
     process.env['GITHUB_SERVER_URL'] = 'https://github.com';
 
-    let functionResult;
-
     //Act
-    functionResult = cacheUtils.isCacheFeatureAvailable();
+    const functionResult = cacheUtils.isCacheFeatureAvailable();
 
     //Assert
     expect(functionResult).toBeFalsy();
@@ -205,7 +201,7 @@ describe('isCacheFeatureAvailable', () => {
 
     process.env['GITHUB_SERVER_URL'] = 'https://nongithub.com';
 
-    let warningMessage =
+    const warningMessage =
       'Cache action is only supported on GHES version >= 3.5. If you are on version >=3.5 Please check with GHES admin if Actions cache service is enabled or not.';
 
     //Act + Assert
