@@ -62,11 +62,15 @@ export async function run() {
     if (cache && isCacheFeatureAvailable()) {
       const packageManager = 'default';
       const cacheDependencyPath = core.getInput('cache-dependency-path');
-      await restoreCache(
-        parseGoVersion(goVersion),
-        packageManager,
-        cacheDependencyPath
-      );
+      try {
+        await restoreCache(
+          parseGoVersion(goVersion),
+          packageManager,
+          cacheDependencyPath
+        );
+      } catch (error) {
+        core.warning(`Restore cache failed: ${error.message}`);
+      }
     }
 
     // add problem matchers

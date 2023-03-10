@@ -23,7 +23,7 @@ export async function run() {
     if (typeof error === 'string') {
       message = error;
     }
-    core.setFailed(message);
+    core.warning(message);
   }
 }
 
@@ -57,6 +57,13 @@ const cachePackages = async () => {
         ', '
       )}`
     );
+  }
+
+  if (!primaryKey) {
+    core.info(
+      'Primary key was not generated. Please check the log messages above for more errors or information'
+    );
+    return;
   }
 
   if (primaryKey === state) {

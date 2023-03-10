@@ -63130,8 +63130,17 @@ const getPackageManagerInfo = (packageManager) => __awaiter(void 0, void 0, void
 });
 exports.getPackageManagerInfo = getPackageManagerInfo;
 const getCacheDirectoryPath = (packageManagerInfo) => __awaiter(void 0, void 0, void 0, function* () {
-    const pathList = yield Promise.all(packageManagerInfo.cacheFolderCommandList.map((command) => __awaiter(void 0, void 0, void 0, function* () { return exports.getCommandOutput(command); })));
-    const cachePaths = pathList.filter(item => item);
+    const pathOutputs = yield Promise.allSettled(packageManagerInfo.cacheFolderCommandList.map((command) => __awaiter(void 0, void 0, void 0, function* () { return exports.getCommandOutput(command); })));
+    const results = pathOutputs.map(item => {
+        if (item.status === 'fulfilled') {
+            return item.value;
+        }
+        else {
+            core.info(`[warning]getting cache directory path failed: ${item.reason}`);
+        }
+        return '';
+    });
+    const cachePaths = results.filter(item => item);
     if (!cachePaths.length) {
         throw new Error(`Could not get cache folder paths.`);
     }
@@ -63605,7 +63614,12 @@ function run() {
             if (cache && cache_utils_1.isCacheFeatureAvailable()) {
                 const packageManager = 'default';
                 const cacheDependencyPath = core.getInput('cache-dependency-path');
-                yield cache_restore_1.restoreCache(parseGoVersion(goVersion), packageManager, cacheDependencyPath);
+                try {
+                    yield cache_restore_1.restoreCache(parseGoVersion(goVersion), packageManager, cacheDependencyPath);
+                }
+                catch (error) {
+                    core.warning(`Restore cache failed: ${error.message}`);
+                }
             }
             // add problem matchers
             const matchersPath = path_1.default.join(__dirname, '../..', 'matchers.json');
