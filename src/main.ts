@@ -54,6 +54,10 @@ export async function run() {
       const added = await addBinToPath();
       core.debug(`add bin ${added}`);
       core.info(`Successfully set up Go version ${versionSpec}`);
+    } else {
+      core.info(
+        '[warning]go-version input was not specified. The action will try to use pre-installed version.'
+      );
     }
 
     const goPath = await io.which('go');

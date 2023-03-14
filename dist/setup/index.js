@@ -63609,6 +63609,9 @@ function run() {
                 core.debug(`add bin ${added}`);
                 core.info(`Successfully set up Go version ${versionSpec}`);
             }
+            else {
+                core.info('[warning]go-version input was not specified. The action will try to use pre-installed version.');
+            }
             const goPath = yield io.which('go');
             const goVersion = (child_process_1.default.execSync(`${goPath} version`) || '').toString();
             if (cache && cache_utils_1.isCacheFeatureAvailable()) {
