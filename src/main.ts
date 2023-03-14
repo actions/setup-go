@@ -50,6 +50,8 @@ export async function run() {
         core.info('Setting GOROOT for Go version < 1.9');
         core.exportVariable('GOROOT', installDir);
       }
+      
+      core.info(`Successfully set up Go version ${versionSpec}`);
     } else {
       core.info(
         '[warning]go-version input was not specified. The action will try to use pre-installed version.'
@@ -58,7 +60,6 @@ export async function run() {
 
     const added = await addBinToPath();
     core.debug(`add bin ${added}`);
-    core.info(`Successfully set up Go version ${versionSpec}`);
 
     const goPath = await io.which('go');
     const goVersion = (cp.execSync(`${goPath} version`) || '').toString();
