@@ -50,7 +50,7 @@ export async function run() {
         core.info('Setting GOROOT for Go version < 1.9');
         core.exportVariable('GOROOT', installDir);
       }
-      
+
       core.info(`Successfully set up Go version ${versionSpec}`);
     } else {
       core.info(
