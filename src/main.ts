@@ -51,14 +51,15 @@ export async function run() {
         core.exportVariable('GOROOT', installDir);
       }
 
-      const added = await addBinToPath();
-      core.debug(`add bin ${added}`);
       core.info(`Successfully set up Go version ${versionSpec}`);
     } else {
       core.info(
         '[warning]go-version input was not specified. The action will try to use pre-installed version.'
       );
     }
+
+    const added = await addBinToPath();
+    core.debug(`add bin ${added}`);
 
     const goPath = await io.which('go');
     const goVersion = (cp.execSync(`${goPath} version`) || '').toString();
