@@ -50,6 +50,10 @@ export async function run() {
         core.info('Setting GOROOT for Go version < 1.9');
         core.exportVariable('GOROOT', installDir);
       }
+    } else {
+      core.info(
+        '[warning]go-version input was not specified. The action will try to use pre-installed version.'
+      );
     }
 
     const added = await addBinToPath();
@@ -62,11 +66,15 @@ export async function run() {
     if (cache && isCacheFeatureAvailable()) {
       const packageManager = 'default';
       const cacheDependencyPath = core.getInput('cache-dependency-path');
-      await restoreCache(
-        parseGoVersion(goVersion),
-        packageManager,
-        cacheDependencyPath
-      );
+      try {
+        await restoreCache(
+          parseGoVersion(goVersion),
+          packageManager,
+          cacheDependencyPath
+        );
+      } catch (error) {
+        core.warning(`Restore cache failed: ${error.message}`);
+      }
     }
 
     // add problem matchers

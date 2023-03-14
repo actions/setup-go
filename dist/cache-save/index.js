@@ -60356,7 +60356,7 @@ function run() {
             if (typeof error === 'string') {
                 message = error;
             }
-            core.setFailed(message);
+            core.warning(message);
         }
     });
 }
@@ -60378,6 +60378,10 @@ const cachePackages = () => __awaiter(void 0, void 0, void 0, function* () {
     }
     if (nonExistingPaths.length) {
         logWarning(`Cache folder path is retrieved but doesn't exist on disk: ${nonExistingPaths.join(', ')}`);
+    }
+    if (!primaryKey) {
+        core.info('Primary key was not generated. Please check the log messages above for more errors or information');
+        return;
     }
     if (primaryKey === state) {
         core.info(`Cache hit occurred on the primary key ${primaryKey}, not saving cache.`);
@@ -60457,8 +60461,17 @@ const getPackageManagerInfo = (packageManager) => __awaiter(void 0, void 0, void
 });
 exports.getPackageManagerInfo = getPackageManagerInfo;
 const getCacheDirectoryPath = (packageManagerInfo) => __awaiter(void 0, void 0, void 0, function* () {
-    const pathList = yield Promise.all(packageManagerInfo.cacheFolderCommandList.map((command) => __awaiter(void 0, void 0, void 0, function* () { return exports.getCommandOutput(command); })));
-    const cachePaths = pathList.filter(item => item);
+    const pathOutputs = yield Promise.allSettled(packageManagerInfo.cacheFolderCommandList.map((command) => __awaiter(void 0, void 0, void 0, function* () { return exports.getCommandOutput(command); })));
+    const results = pathOutputs.map(item => {
+        if (item.status === 'fulfilled') {
+            return item.value;
+        }
+        else {
+            core.info(`[warning]getting cache directory path failed: ${item.reason}`);
+        }
+        return '';
+    });
+    const cachePaths = results.filter(item => item);
     if (!cachePaths.length) {
         throw new Error(`Could not get cache folder paths.`);
     }
