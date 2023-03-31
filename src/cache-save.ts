@@ -29,7 +29,8 @@ export async function run() {
 
 const cachePackages = async () => {
   const cacheInput = core.getBooleanInput('cache');
-  if (!cacheInput) {
+  const cacheRestoreOnly = core.getBooleanInput('cache-restore-only');
+  if (!cacheInput || cacheRestoreOnly) {
     return;
   }
 

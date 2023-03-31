@@ -17,6 +17,9 @@ inputs:
     default: true
   cache-dependency-path:
     description: 'Used to specify the path to a dependency file - go.sum'
+  cache-restore-only:
+    description: 'Set this option to true if you do not want to modify the cache from the previous build'
+    default: false
   architecture:
     description: 'Target architecture for Go to use. Examples: x86, x64. Will use system architecture by default.'
 outputs:

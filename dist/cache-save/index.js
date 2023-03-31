@@ -60363,7 +60363,8 @@ function run() {
 exports.run = run;
 const cachePackages = () => __awaiter(void 0, void 0, void 0, function* () {
     const cacheInput = core.getBooleanInput('cache');
-    if (!cacheInput) {
+    const cacheRestoreOnly = core.getBooleanInput('cache-restore-only');
+    if (!cacheInput || cacheRestoreOnly) {
         return;
     }
     const packageManager = 'default';
