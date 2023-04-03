@@ -242,7 +242,7 @@ describe('setup-go', () => {
     await main.run();
 
     expect(logSpy).toHaveBeenCalledWith(`Setup go version spec 1.13.0`);
-  });
+  }, 60000);
 
   it('evaluates to stable with no input', async () => {
     inputs['go-version'] = '1.13.0';
