@@ -153,6 +153,7 @@ The `cache` input is optional, and caching is turned on by default.
 The action defaults to search for the dependency file - go.sum in the repository root, and uses its hash as a part of
 the cache key. Use `cache-dependency-path` input for cases when multiple dependency files are used, or they are located
 in different subdirectories.
+If you use `setup-go` with caching from multiple concurrent jobs, you might want to specify the `cache-key-prefix` input to ensure that the cache is not shared between jobs.
 
 If some problem that prevents success caching happens then the action issues the warning in the log and continues the execution of the pipeline. 
 
@@ -168,6 +169,30 @@ steps:
       cache-dependency-path: subdir/go.sum
   - run: go run hello.go
   ```
+
+**Caching wwith multiple concurrent jobs**
+
+```yaml
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      - uses: actions/setup-go@v4
+        with:
+          go-version: "1.20"
+          cache-key-prefix: build-cache-
+      - run: go build
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      - uses: actions/setup-go@v4
+        with:
+          go-version: "1.20"
+          cache-key-prefix: test-cache-
+      - run: go test ./...
+```
 
 ## Getting go version from the go.mod file
 
