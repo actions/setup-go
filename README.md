@@ -170,7 +170,7 @@ steps:
   - run: go run hello.go
   ```
 
-**Caching wwith multiple concurrent jobs**
+**Caching with multiple concurrent jobs**
 
 ```yaml
 jobs:
