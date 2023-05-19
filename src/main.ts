@@ -160,19 +160,19 @@ function resolveVersionInput(): string {
     if(toolVersionsPath && !fs.existsSync(toolVersionsPath)) {
       throw new Error(
           `The specified .tool-versions file at ${toolVersionsPath} does not exist`
-      )
+      );
     }
 
     if (!toolVersionsPath) {
-      toolVersionsPath = '.tool-versions'
+      toolVersionsPath = '.tool-versions';
       if(!fs.existsSync(toolVersionsPath)) {
         throw new Error(
             `No .tool-versions file was found in the project path. Please specify using tool-versions-file`
-        )
+        );
       }
     }
 
-    version = installer.parseToolVersionsFile(toolVersionsPath)
+    version = installer.parseToolVersionsFile(toolVersionsPath);
   }
 
   return version;
