@@ -366,6 +366,13 @@ export function parseGoVersionFile(versionFilePath: string): string {
   return contents.trim();
 }
 
+export function parseToolVersionsFile(toolVersionsPath: string): string {
+  const contents = fs.readFileSync(toolVersionsPath).toString();
+
+  const match = contents.match(/^golang (\d+(\.\d+)*)/m);
+  return match ? match[1] : '';
+}
+
 async function resolveStableVersionDist(versionSpec: string, arch: string) {
   const archFilter = sys.getArch(arch);
   const platFilter = sys.getPlatform();

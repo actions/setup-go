@@ -138,24 +138,41 @@ export function parseGoVersion(versionString: string): string {
 function resolveVersionInput(): string {
   let version = core.getInput('go-version');
   const versionFilePath = core.getInput('go-version-file');
+  let toolVersionsPath = core.getInput('tool-versions-file');
 
-  if (version && versionFilePath) {
+  if (version && (versionFilePath || toolVersionsPath)) {
     core.warning(
-      'Both go-version and go-version-file inputs are specified, only go-version will be used'
+      'Multiple version inputs are specified, only go-version will be used'
     );
   }
 
   if (version) {
     return version;
-  }
-
-  if (versionFilePath) {
+  } else if (versionFilePath) {
     if (!fs.existsSync(versionFilePath)) {
       throw new Error(
         `The specified go version file at: ${versionFilePath} does not exist`
       );
     }
     version = installer.parseGoVersionFile(versionFilePath);
+  } else {
+    // in the case of no version specification, reach for .tool-versions
+    if(toolVersionsPath && !fs.existsSync(toolVersionsPath)) {
+      throw new Error(
+          `The specified .tool-versions file at ${toolVersionsPath} does not exist`
+      )
+    }
+
+    if (!toolVersionsPath) {
+      toolVersionsPath = '.tool-versions'
+      if(!fs.existsSync(toolVersionsPath)) {
+        throw new Error(
+            `No .tool-versions file was found in the project path. Please specify using tool-versions-file`
+        )
+      }
+    }
+
+    version = installer.parseToolVersionsFile(toolVersionsPath)
   }
 
   return version;
