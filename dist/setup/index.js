@@ -61337,7 +61337,7 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", ({ value: true }));
-exports.resolveStableVersionInput = exports.parseGoVersionFile = exports.makeSemver = exports.getVersionsDist = exports.findMatch = exports.getInfoFromManifest = exports.getManifest = exports.extractGoArchive = exports.getGo = void 0;
+exports.resolveStableVersionInput = exports.parseToolVersionsFile = exports.parseGoVersionFile = exports.makeSemver = exports.getVersionsDist = exports.findMatch = exports.getInfoFromManifest = exports.getManifest = exports.extractGoArchive = exports.getGo = void 0;
 const tc = __importStar(__nccwpck_require__(7784));
 const core = __importStar(__nccwpck_require__(2186));
 const path = __importStar(__nccwpck_require__(1017));
@@ -61598,6 +61598,12 @@ function parseGoVersionFile(versionFilePath) {
     return contents.trim();
 }
 exports.parseGoVersionFile = parseGoVersionFile;
+function parseToolVersionsFile(toolVersionsPath) {
+    const contents = fs_1.default.readFileSync(toolVersionsPath).toString();
+    const match = contents.match(/^golang (\d+(\.\d+)*)/m);
+    return match ? match[1] : '';
+}
+exports.parseToolVersionsFile = parseToolVersionsFile;
 function resolveStableVersionDist(versionSpec, arch) {
     return __awaiter(this, void 0, void 0, function* () {
         const archFilter = sys.getArch(arch);
@@ -61794,17 +61800,31 @@ exports.parseGoVersion = parseGoVersion;
 function resolveVersionInput() {
     let version = core.getInput('go-version');
     const versionFilePath = core.getInput('go-version-file');
-    if (version && versionFilePath) {
-        core.warning('Both go-version and go-version-file inputs are specified, only go-version will be used');
+    let toolVersionsPath = core.getInput('tool-versions-file');
+    if (version && (versionFilePath || toolVersionsPath)) {
+        core.warning('Multiple version inputs are specified, only go-version will be used');
     }
     if (version) {
         return version;
     }
-    if (versionFilePath) {
+    else if (versionFilePath) {
         if (!fs_1.default.existsSync(versionFilePath)) {
             throw new Error(`The specified go version file at: ${versionFilePath} does not exist`);
         }
         version = installer.parseGoVersionFile(versionFilePath);
+    }
+    else {
+        // in the case of no version specification, reach for .tool-versions
+        if (toolVersionsPath && !fs_1.default.existsSync(toolVersionsPath)) {
+            throw new Error(`The specified .tool-versions file at ${toolVersionsPath} does not exist`);
+        }
+        if (!toolVersionsPath) {
+            toolVersionsPath = '.tool-versions';
+            if (!fs_1.default.existsSync(toolVersionsPath)) {
+                throw new Error(`No .tool-versions file was found in the project path. Please specify using tool-versions-file`);
+            }
+        }
+        version = installer.parseToolVersionsFile(toolVersionsPath);
     }
     return version;
 }

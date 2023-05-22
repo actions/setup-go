@@ -157,17 +157,17 @@ function resolveVersionInput(): string {
     version = installer.parseGoVersionFile(versionFilePath);
   } else {
     // in the case of no version specification, reach for .tool-versions
-    if(toolVersionsPath && !fs.existsSync(toolVersionsPath)) {
+    if (toolVersionsPath && !fs.existsSync(toolVersionsPath)) {
       throw new Error(
-          `The specified .tool-versions file at ${toolVersionsPath} does not exist`
+        `The specified .tool-versions file at ${toolVersionsPath} does not exist`
       );
     }
 
     if (!toolVersionsPath) {
       toolVersionsPath = '.tool-versions';
-      if(!fs.existsSync(toolVersionsPath)) {
+      if (!fs.existsSync(toolVersionsPath)) {
         throw new Error(
-            `No .tool-versions file was found in the project path. Please specify using tool-versions-file`
+          `No .tool-versions file was found in the project path. Please specify using tool-versions-file`
         );
       }
     }
