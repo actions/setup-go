@@ -218,6 +218,10 @@ The `go-version` input supports the following syntax:
 For more information about semantic versioning, please refer to [semver](https://github.com/npm/node-semver)
 documentation.
 
+The action can also utilize a [`.tool-versions` file](https://asdf-vm.com/manage/configuration.html#tool-versions) 
+if `go-version` is not specified (`go-version` will take precedence over any `.tool-versions` specified). If the `.
+tool-versions` is not in the project root, you can specify its location via the `tool-version-file` input.
+
 ## Using `setup-go` on GHES
 
 `setup-go` comes pre-installed on the appliance with GHES if Actions is enabled. When dynamically downloading Go
