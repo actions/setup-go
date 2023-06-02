@@ -19,6 +19,7 @@ inputs:
     description: 'Used to specify the path to a dependency file - go.sum'
   cache-key-prefix:
     description: 'A prefix to add to the cache key. Useful if you have multiple concurrent jobs that need different caches.'
+    default: 'setup-go'
   architecture:
     description: 'Target architecture for Go to use. Examples: x86, x64. Will use system architecture by default.'
 outputs:

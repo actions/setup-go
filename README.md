@@ -181,7 +181,7 @@ jobs:
       - uses: actions/setup-go@v4
         with:
           go-version: "1.20"
-          cache-key-prefix: build-cache-
+          cache-key-prefix: build-cache
       - run: go build
   test:
     runs-on: ubuntu-latest
@@ -190,7 +190,7 @@ jobs:
       - uses: actions/setup-go@v4
         with:
           go-version: "1.20"
-          cache-key-prefix: test-cache-
+          cache-key-prefix: test-cache
       - run: go test ./...
 ```
 
