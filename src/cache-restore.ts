@@ -29,8 +29,8 @@ export const restoreCache = async (
     );
   }
 
-  const cacheKeyPrefix = core.getInput('cache-key-prefix') || '';
-  const primaryKey = `${cacheKeyPrefix}setup-go-${platform}-go-${versionSpec}-${fileHash}`;
+  const cacheKeyPrefix = core.getInput('cache-key-prefix') || 'setup-go'
+  const primaryKey = `${cacheKeyPrefix}-${platform}-go-${versionSpec}-${fileHash}`;
   core.debug(`primary key is ${primaryKey}`);
 
   core.saveState(State.CachePrimaryKey, primaryKey);
