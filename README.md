@@ -237,7 +237,7 @@ input for the action:
 uses: actions/setup-go@v4
 with:
   token: ${{ secrets.GH_DOTCOM_TOKEN }}
-  go-version: 1.18
+  go-version: '1.18'
 ```
 
 If the runner is not able to access github.com, any Go versions requested during a workflow run must come from the
