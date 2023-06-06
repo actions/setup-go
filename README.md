@@ -58,13 +58,13 @@ steps:
   - run: go version
 ```
 
-> **_NOTE:_** It is better to enclose the version in single quotation mark, due to YAML parsing. When the input is specified like this  
-> ```
->  1.20 or >=1.17.0
+> **Note**: Due to the peculiarities of YAML parsing, it is recommended to wrap the version in single quotation marks:
+> 
+> ```yaml
+>   go-version: '1.20'
 >  ```
-> 1.20 is parsed as a number and it is trimmed to 1.2 that is an expected behavior for numbers. You should specify input with quotes to treat 
-> it as a string.
-
+>  
+> The recommendation is based on the YAML parser's behavior, which interprets non-wrapped values as numbers and, in the case of version 1.20, trims it down to 1.2, which may not be very obvious.
 Matching an unstable pre-release:
 
 ```yaml
