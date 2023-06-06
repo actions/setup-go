@@ -29,7 +29,8 @@ export const restoreCache = async (
     );
   }
 
-  const primaryKey = `setup-go-${platform}-go-${versionSpec}-${fileHash}`;
+  const imageOS = process.env.ImageOS || 'self-hosted';
+  const primaryKey = `setup-go-${platform}-${imageOS}-go-${versionSpec}-${fileHash}`;
   core.debug(`primary key is ${primaryKey}`);
 
   core.saveState(State.CachePrimaryKey, primaryKey);
