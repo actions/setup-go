@@ -61445,7 +61445,7 @@ function installGoVersion(info, auth, arch) {
         core.info(`Acquiring ${info.resolvedVersion} from ${info.downloadUrl}`);
         // Windows requires that we keep the extension (.zip) for extraction
         const isWindows = os_1.default.platform() === 'win32';
-        const tempDir = process.env.RUNNER_TEMP || '.';
+        const tempDir = os_1.default.tmpdir(); // process.env.RUNNER_TEMP || '.';
         const fileName = isWindows ? path.join(tempDir, info.fileName) : undefined;
         const downloadPath = yield tc.downloadTool(info.downloadUrl, fileName, auth);
         core.info('Extracting Go...');
