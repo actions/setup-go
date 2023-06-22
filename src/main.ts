@@ -36,7 +36,8 @@ export async function run() {
         versionSpec,
         checkLatest,
         auth,
-        arch
+        arch, 
+        cache
       );
 
       const installDirVersion = path.basename(path.dirname(installDir));

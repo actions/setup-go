@@ -34,7 +34,8 @@ export async function getGo(
   versionSpec: string,
   checkLatest: boolean,
   auth: string | undefined,
-  arch = os.arch()
+  arch = os.arch(),
+  cache: boolean
 ) {
   let manifest: tc.IToolRelease[] | undefined;
   const osPlat: string = os.platform();
@@ -83,11 +84,13 @@ export async function getGo(
   }
 
   // check cache
-  const toolPath = tc.find('go', versionSpec, arch);
-  // If not found in cache, download
-  if (toolPath) {
-    core.info(`Found in cache @ ${toolPath}`);
-    return toolPath;
+  if (cache) {
+    const toolPath = tc.find('go', versionSpec, arch);
+    // If not found in cache, download
+    if (toolPath) {
+      core.info(`Found in cache @ ${toolPath}`);
+      return toolPath;
+    }
   }
   core.info(`Attempting to download ${versionSpec}...`);
   let downloadPath = '';
