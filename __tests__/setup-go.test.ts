@@ -962,7 +962,7 @@ use .
   describe('Windows performance workaround', () => {
     it('addExecutablesToCache should depends on env[RUNNER_TOOL_CACHE]', async () => {
       const statSpy = jest.spyOn(fs, 'statSync');
-      // @ts-ignore
+      // @ts-ignore - not implement unused methods
       statSpy.mockImplementation(() => ({
         isDirectory: () => true
       }));
