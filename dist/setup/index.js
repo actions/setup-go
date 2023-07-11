@@ -61441,6 +61441,14 @@ function resolveVersionFromManifest(versionSpec, stable, auth, arch, manifest) {
         }
     });
 }
+function addExecutablesToCache(extPath, info, arch) {
+    return __awaiter(this, void 0, void 0, function* () {
+        core.info('Adding to the cache ...');
+        const cachedDir = yield tc.cacheDir(extPath, 'go', makeSemver(info.resolvedVersion), arch);
+        core.info(`Successfully cached go to ${cachedDir}`);
+        return cachedDir;
+    });
+}
 function installGoVersion(info, auth, arch) {
     return __awaiter(this, void 0, void 0, function* () {
         core.info(`Acquiring ${info.resolvedVersion} from ${info.downloadUrl}`);
@@ -61455,10 +61463,21 @@ function installGoVersion(info, auth, arch) {
         if (info.type === 'dist') {
             extPath = path.join(extPath, 'go');
         }
-        core.info('Adding to the cache ...');
-        const cachedDir = yield tc.cacheDir(extPath, 'go', makeSemver(info.resolvedVersion), arch);
-        core.info(`Successfully cached go to ${cachedDir}`);
-        return cachedDir;
+        if (isWindows) {
+            const oldCacheDir = process.env['RUNNER_TOOL_CACHE'] || '';
+            const tempCacheDir = oldCacheDir.replace('C:', 'D:').replace('c:', 'd:');
+            process.env['RUNNER_TOOL_CACHE'] = tempCacheDir;
+            const cachedDir = yield addExecutablesToCache(extPath, info, arch);
+            const lnkDest = cachedDir;
+            const lnkSrc = lnkDest.replace(tempCacheDir, oldCacheDir);
+            const lnkSrcDir = path.dirname(lnkSrc);
+            fs_1.default.mkdirSync(lnkSrcDir, { recursive: true });
+            fs_1.default.symlinkSync(lnkDest, lnkSrc, 'junction');
+            core.info(`Created link ${lnkSrc} => ${lnkDest}`);
+            process.env['RUNNER_TOOL_CACHE'] = oldCacheDir;
+            return cachedDir.replace(tempCacheDir, oldCacheDir);
+        }
+        return yield addExecutablesToCache(extPath, info, arch);
     });
 }
 function extractGoArchive(archivePath) {

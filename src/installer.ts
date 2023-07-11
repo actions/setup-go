@@ -164,6 +164,22 @@ async function resolveVersionFromManifest(
   }
 }
 
+async function addExecutablesToCache(
+  extPath: string,
+  info: IGoVersionInfo,
+  arch: string
+): Promise<string> {
+  core.info('Adding to the cache ...');
+  const cachedDir = await tc.cacheDir(
+    extPath,
+    'go',
+    makeSemver(info.resolvedVersion),
+    arch
+  );
+  core.info(`Successfully cached go to ${cachedDir}`);
+  return cachedDir;
+}
+
 async function installGoVersion(
   info: IGoVersionInfo,
   auth: string | undefined,
@@ -185,15 +201,24 @@ async function installGoVersion(
     extPath = path.join(extPath, 'go');
   }
 
-  core.info('Adding to the cache ...');
-  const cachedDir = await tc.cacheDir(
-    extPath,
-    'go',
-    makeSemver(info.resolvedVersion),
-    arch
-  );
-  core.info(`Successfully cached go to ${cachedDir}`);
-  return cachedDir;
+  if (isWindows) {
+    const oldCacheDir = process.env['RUNNER_TOOL_CACHE'] || '';
+    const tempCacheDir = oldCacheDir.replace('C:', 'D:').replace('c:', 'd:');
+    process.env['RUNNER_TOOL_CACHE'] = tempCacheDir;
+
+    const cachedDir = await addExecutablesToCache(extPath, info, arch);
+
+    const lnkDest = cachedDir;
+    const lnkSrc = lnkDest.replace(tempCacheDir, oldCacheDir);
+    const lnkSrcDir = path.dirname(lnkSrc);
+    fs.mkdirSync(lnkSrcDir, {recursive: true});
+    fs.symlinkSync(lnkDest, lnkSrc, 'junction');
+    core.info(`Created link ${lnkSrc} => ${lnkDest}`);
+    process.env['RUNNER_TOOL_CACHE'] = oldCacheDir;
+    return cachedDir.replace(tempCacheDir, oldCacheDir);
+  }
+
+  return await addExecutablesToCache(extPath, info, arch);
 }
 
 export async function extractGoArchive(archivePath: string): Promise<string> {
