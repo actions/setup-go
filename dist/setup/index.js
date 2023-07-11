@@ -61338,7 +61338,7 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", ({ value: true }));
-exports.resolveStableVersionInput = exports.parseGoVersionFile = exports.makeSemver = exports.getVersionsDist = exports.findMatch = exports.getInfoFromManifest = exports.getManifest = exports.extractGoArchive = exports.getGo = void 0;
+exports.resolveStableVersionInput = exports.parseGoVersionFile = exports.makeSemver = exports.getVersionsDist = exports.findMatch = exports.getInfoFromManifest = exports.getManifest = exports.extractGoArchive = exports.addExecutablesToCache = exports.getGo = void 0;
 const tc = __importStar(__nccwpck_require__(7784));
 const core = __importStar(__nccwpck_require__(2186));
 const path = __importStar(__nccwpck_require__(1017));
@@ -61449,6 +61449,7 @@ function addExecutablesToCache(extPath, info, arch) {
         return cachedDir;
     });
 }
+exports.addExecutablesToCache = addExecutablesToCache;
 function installGoVersion(info, auth, arch) {
     return __awaiter(this, void 0, void 0, function* () {
         core.info(`Acquiring ${info.resolvedVersion} from ${info.downloadUrl}`);
@@ -61464,18 +61465,22 @@ function installGoVersion(info, auth, arch) {
             extPath = path.join(extPath, 'go');
         }
         if (isWindows) {
-            const oldCacheDir = process.env['RUNNER_TOOL_CACHE'] || '';
-            const tempCacheDir = oldCacheDir.replace('C:', 'D:').replace('c:', 'd:');
-            process.env['RUNNER_TOOL_CACHE'] = tempCacheDir;
-            const cachedDir = yield addExecutablesToCache(extPath, info, arch);
-            const lnkDest = cachedDir;
-            const lnkSrc = lnkDest.replace(tempCacheDir, oldCacheDir);
-            const lnkSrcDir = path.dirname(lnkSrc);
-            fs_1.default.mkdirSync(lnkSrcDir, { recursive: true });
-            fs_1.default.symlinkSync(lnkDest, lnkSrc, 'junction');
-            core.info(`Created link ${lnkSrc} => ${lnkDest}`);
-            process.env['RUNNER_TOOL_CACHE'] = oldCacheDir;
-            return cachedDir.replace(tempCacheDir, oldCacheDir);
+            const defaultToolCacheRoot = process.env['RUNNER_TOOL_CACHE'] || '';
+            const substitutedToolCacheRoot = defaultToolCacheRoot
+                .replace('C:', 'D:')
+                .replace('c:', 'd:');
+            // make toolcache root to be on drive d:
+            process.env['RUNNER_TOOL_CACHE'] = substitutedToolCacheRoot;
+            const actualToolCacheDir = yield addExecutablesToCache(extPath, info, arch);
+            // create a link from c: to d:
+            const lnkSrc = actualToolCacheDir.replace(substitutedToolCacheRoot, defaultToolCacheRoot);
+            fs_1.default.mkdirSync(path.dirname(lnkSrc), { recursive: true });
+            fs_1.default.symlinkSync(actualToolCacheDir, lnkSrc, 'junction');
+            core.info(`Created link ${lnkSrc} => ${actualToolCacheDir}`);
+            // restore toolcache root to default drive c:
+            process.env['RUNNER_TOOL_CACHE'] = defaultToolCacheRoot;
+            // make outer code to continue using toolcache as if it were installed on c:
+            return lnkSrc;
         }
         return yield addExecutablesToCache(extPath, info, arch);
     });

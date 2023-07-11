@@ -202,20 +202,29 @@ async function installGoVersion(
   }
 
   if (isWindows) {
-    const oldCacheDir = process.env['RUNNER_TOOL_CACHE'] || '';
-    const tempCacheDir = oldCacheDir.replace('C:', 'D:').replace('c:', 'd:');
-    process.env['RUNNER_TOOL_CACHE'] = tempCacheDir;
+    const defaultToolCacheRoot = process.env['RUNNER_TOOL_CACHE'] || '';
+    const substitutedToolCacheRoot = defaultToolCacheRoot
+      .replace('C:', 'D:')
+      .replace('c:', 'd:');
+    // make toolcache root to be on drive d:
+    process.env['RUNNER_TOOL_CACHE'] = substitutedToolCacheRoot;
 
-    const cachedDir = await addExecutablesToCache(extPath, info, arch);
+    const actualToolCacheDir = await addExecutablesToCache(extPath, info, arch);
 
-    const lnkDest = cachedDir;
-    const lnkSrc = lnkDest.replace(tempCacheDir, oldCacheDir);
-    const lnkSrcDir = path.dirname(lnkSrc);
-    fs.mkdirSync(lnkSrcDir, {recursive: true});
-    fs.symlinkSync(lnkDest, lnkSrc, 'junction');
-    core.info(`Created link ${lnkSrc} => ${lnkDest}`);
-    process.env['RUNNER_TOOL_CACHE'] = oldCacheDir;
-    return cachedDir.replace(tempCacheDir, oldCacheDir);
+    // create a link from c: to d:
+    const lnkSrc = actualToolCacheDir.replace(
+      substitutedToolCacheRoot,
+      defaultToolCacheRoot
+    );
+    fs.mkdirSync(path.dirname(lnkSrc), {recursive: true});
+    fs.symlinkSync(actualToolCacheDir, lnkSrc, 'junction');
+    core.info(`Created link ${lnkSrc} => ${actualToolCacheDir}`);
+
+    // restore toolcache root to default drive c:
+    process.env['RUNNER_TOOL_CACHE'] = defaultToolCacheRoot;
+
+    // make outer code to continue using toolcache as if it were installed on c:
+    return lnkSrc;
   }
 
   return await addExecutablesToCache(extPath, info, arch);
