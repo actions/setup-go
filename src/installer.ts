@@ -164,7 +164,7 @@ async function resolveVersionFromManifest(
   }
 }
 
-async function addExecutablesToCache(
+export async function addExecutablesToCache(
   extPath: string,
   info: IGoVersionInfo,
   arch: string
