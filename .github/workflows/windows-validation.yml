@@ -1,0 +1,62 @@
+name: Basic validation
+
+on:
+  push:
+    branches:
+      - main
+    paths-ignore:
+      - '**.md'
+  pull_request:
+    paths-ignore:
+      - '**.md'
+
+jobs:
+  create-link-on-windows:
+    runs-on: windows-latest
+    strategy:
+      matrix:
+        cache: [false, true]
+        go: [1.20.1]
+    steps:
+      - uses: actions/checkout@v3
+
+      - uses: ./
+        with:
+          go-version: ${{ matrix.go }}
+          cache: ${{ matrix.cache }}
+        name: v4-cache-${{ matrix.cache }}
+
+      - run: |
+          du -m -s 'D:\hostedtoolcache\windows\go\${{ matrix.go }}\x64'
+          size=$(du -m -s 'D:\hostedtoolcache\windows\go\${{ matrix.go }}\x64'|cut -f1 -d$'\t')
+          # make sure archive does not take lost of the space
+          if [ $size -gt 999 ];then
+            echo 'Size of installed on drive d: go is too big';
+            exit 1
+          fi
+
+          du -m -s 'C:\hostedtoolcache\windows\go\${{ matrix.go }}\x64'
+          # make sure drive c: contains only a link
+          size=$(du -m -s 'C:\hostedtoolcache\windows\go\${{ matrix.go }}\x64'|cut -f1 -d$'\t')
+          if [ $size -ne 0 ];then
+            echo 'Size of the link created on drive c: must be 0'
+            exit 1
+          fi
+        shell: bash
+        name: Disk usage
+
+      - run: |
+          echo $PATH
+          which go
+          go version
+          go env
+          if [ $(which go) != '/c/hostedtoolcache/windows/go/${{ matrix.go }}/x64/bin/go' ];then
+            echo 'which go should return "/c/hostedtoolcache/windows/go/${{ matrix.go }}/x64/bin/go"'
+            exit 1
+          fi
+          if [ $(go env GOROOT) != 'C:\hostedtoolcache\windows\go\1.20.1\x64' ];then 
+            echo 'go env GOROOT should return "C:\hostedtoolcache\windows\go\1.20.1\x64"'
+            exit 1
+          fi
+        shell: bash
+        name: test paths and environments
