@@ -40,6 +40,8 @@ describe('setup-go', () => {
   let existsSpy: jest.SpyInstance;
   let readFileSpy: jest.SpyInstance;
   let mkdirpSpy: jest.SpyInstance;
+  let mkdirSpy: jest.SpyInstance;
+  let symlinkSpy: jest.SpyInstance;
   let execSpy: jest.SpyInstance;
   let getManifestSpy: jest.SpyInstance;
   let getAllVersionsSpy: jest.SpyInstance;
@@ -92,6 +94,11 @@ describe('setup-go', () => {
     existsSpy = jest.spyOn(fs, 'existsSync');
     readFileSpy = jest.spyOn(fs, 'readFileSync');
     mkdirpSpy = jest.spyOn(io, 'mkdirP');
+
+    // fs
+    mkdirSpy = jest.spyOn(fs, 'mkdir');
+    symlinkSpy = jest.spyOn(fs, 'symlinkSync');
+    symlinkSpy.mockImplementation(() => {});
 
     // gets
     getManifestSpy.mockImplementation(() => <tc.IToolRelease[]>goTestManifest);
@@ -957,40 +964,5 @@ use .
         );
       }
     );
-  });
-
-  describe('Windows performance workaround', () => {
-    it('addExecutablesToCache should depends on env[RUNNER_TOOL_CACHE]', async () => {
-      const statSpy = jest.spyOn(fs, 'statSync');
-      // @ts-ignore - not implement unused methods
-      statSpy.mockImplementation(() => ({
-        isDirectory: () => true
-      }));
-      const readdirSpy = jest.spyOn(fs, 'readdirSync');
-      readdirSpy.mockImplementation(() => []);
-      const writeFileSpy = jest.spyOn(fs, 'writeFileSync');
-      writeFileSpy.mockImplementation(() => {});
-      const rmRFSpy = jest.spyOn(io, 'rmRF');
-      rmRFSpy.mockImplementation(() => Promise.resolve());
-      const mkdirPSpy = jest.spyOn(io, 'mkdirP');
-      mkdirPSpy.mockImplementation(() => Promise.resolve());
-      const cpSpy = jest.spyOn(io, 'cp');
-      cpSpy.mockImplementation(() => Promise.resolve());
-
-      const info: IGoVersionInfo = {
-        type: 'dist',
-        downloadUrl: 'http://nowhere.com',
-        resolvedVersion: '1.2.3',
-        fileName: 'ignore'
-      };
-
-      process.env['RUNNER_TOOL_CACHE'] = '/faked-hostedtoolcache1';
-      const cacheDir1 = await addExecutablesToCache('/qzx', info, 'arch');
-      expect(cacheDir1).toBe('/faked-hostedtoolcache1/go/1.2.3/arch');
-
-      process.env['RUNNER_TOOL_CACHE'] = '/faked-hostedtoolcache2';
-      const cacheDir2 = await addExecutablesToCache('/qzx', info, 'arch');
-      expect(cacheDir2).toBe('/faked-hostedtoolcache2/go/1.2.3/arch');
-    });
   });
 });
