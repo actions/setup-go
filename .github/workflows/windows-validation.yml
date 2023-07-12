@@ -29,7 +29,7 @@ jobs:
       - run: |
           du -m -s 'D:\hostedtoolcache\windows\go\${{ matrix.go }}\x64'
           size=$(du -m -s 'D:\hostedtoolcache\windows\go\${{ matrix.go }}\x64'|cut -f1 -d$'\t')
-          # make sure archive does not take lost of the space
+          # make sure archive does not take lot of space
           if [ $size -gt 999 ];then
             echo 'Size of installed on drive d: go is too big';
             exit 1

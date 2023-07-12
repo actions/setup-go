@@ -1,6 +1,7 @@
 import fs from 'fs';
 import * as io from '@actions/io';
 import {addExecutablesToCache, IGoVersionInfo} from '../src/installer';
+import path from 'path';
 
 describe('Windows performance workaround', () => {
   let mkdirSpy: jest.SpyInstance;
@@ -52,10 +53,14 @@ describe('Windows performance workaround', () => {
 
     process.env['RUNNER_TOOL_CACHE'] = '/faked-hostedtoolcache1';
     const cacheDir1 = await addExecutablesToCache('/qzx', info, 'arch');
-    expect(cacheDir1).toBe('/faked-hostedtoolcache1/go/1.2.3/arch');
+    expect(cacheDir1).toBe(
+      path.join('/', 'faked-hostedtoolcache1', 'go', '1.2.3', 'arch')
+    );
 
     process.env['RUNNER_TOOL_CACHE'] = '/faked-hostedtoolcache2';
     const cacheDir2 = await addExecutablesToCache('/qzx', info, 'arch');
-    expect(cacheDir2).toBe('/faked-hostedtoolcache2/go/1.2.3/arch');
+    expect(cacheDir2).toBe(
+      path.join('/', 'faked-hostedtoolcache2', 'go', '1.2.3', 'arch')
+    );
   });
 });
