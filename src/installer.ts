@@ -189,6 +189,7 @@ async function installGoVersion(
 
   // Windows requires that we keep the extension (.zip) for extraction
   const isWindows = os.platform() === 'win32';
+
   const tempDir = process.env.RUNNER_TEMP || '.';
   const fileName = isWindows ? path.join(tempDir, info.fileName) : undefined;
 
@@ -201,7 +202,10 @@ async function installGoVersion(
     extPath = path.join(extPath, 'go');
   }
 
-  if (isWindows) {
+  // for github hosted windows runner handle latency of OS drive
+  // by avoiding write operations to C:
+  const isHosted = (process.env['RUNNER_ENVIRONMENT'] = 'github-hosted');
+  if (isWindows && isHosted) {
     const defaultToolCacheRoot = process.env['RUNNER_TOOL_CACHE'] || '';
     const substitutedToolCacheRoot = defaultToolCacheRoot
       .replace('C:', 'D:')

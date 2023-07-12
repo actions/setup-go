@@ -61464,7 +61464,10 @@ function installGoVersion(info, auth, arch) {
         if (info.type === 'dist') {
             extPath = path.join(extPath, 'go');
         }
-        if (isWindows) {
+        // for github hosted windows runner handle latency of OS drive
+        // by avoiding write operations to C:
+        const isHosted = (process.env['RUNNER_ENVIRONMENT'] = 'github-hosted');
+        if (isWindows && isHosted) {
             const defaultToolCacheRoot = process.env['RUNNER_TOOL_CACHE'] || '';
             const substitutedToolCacheRoot = defaultToolCacheRoot
                 .replace('C:', 'D:')
