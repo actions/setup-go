@@ -1,4 +1,4 @@
-name: Basic validation
+name: validate Windows installation
 
 on:
   push:
@@ -16,7 +16,8 @@ jobs:
     strategy:
       matrix:
         cache: [false, true]
-        go: [1.20.1]
+        go: [1.20.1, 1.20.5]
+    name: 'Setup ${{ matrix.go }} cache: ${{ matrix.cache }}'
     steps:
       - uses: actions/checkout@v3
 
@@ -25,6 +26,23 @@ jobs:
           go-version: ${{ matrix.go }}
           cache: ${{ matrix.cache }}
         name: v4-cache-${{ matrix.cache }}
+
+      - run: |
+          if [ -e 'D:\hostedtoolcache\windows\go\${{ matrix.go }}\x64' ];then
+            echo 'D:\hostedtoolcache\windows\go\${{ matrix.go }}\x64 should not exist for hosted version of go';
+            exit 1
+          fi
+
+          du -m -s 'C:\hostedtoolcache\windows\go\${{ matrix.go }}\x64'
+          # make sure drive c: contains the folder
+          size=$(du -m -s 'C:\hostedtoolcache\windows\go\${{ matrix.go }}\x64'|cut -f1 -d$'\t')
+          if [ $size -eq 0 ];then
+            echo 'Size of the hosted go installed on drive c: must be above zero'
+            exit 1
+          fi
+        shell: bash
+        name: Hosted go should not have link
+        if: ${{ matrix.go == '1.20.5' }}
 
       - run: |
           du -m -s 'D:\hostedtoolcache\windows\go\${{ matrix.go }}\x64'
@@ -44,6 +62,7 @@ jobs:
           fi
         shell: bash
         name: Disk usage
+        if: ${{ matrix.go != '1.20.5' }}
 
       - run: |
           echo $PATH
@@ -54,8 +73,8 @@ jobs:
             echo 'which go should return "/c/hostedtoolcache/windows/go/${{ matrix.go }}/x64/bin/go"'
             exit 1
           fi
-          if [ $(go env GOROOT) != 'C:\hostedtoolcache\windows\go\1.20.1\x64' ];then 
-            echo 'go env GOROOT should return "C:\hostedtoolcache\windows\go\1.20.1\x64"'
+          if [ $(go env GOROOT) != 'C:\hostedtoolcache\windows\go\${{ matrix.go }}\x64' ];then 
+            echo 'go env GOROOT should return "C:\hostedtoolcache\windows\go\${{ matrix.go }}\x64"'
             exit 1
           fi
         shell: bash
