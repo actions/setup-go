@@ -61466,7 +61466,8 @@ function installGoVersion(info, auth, arch) {
         }
         // for github hosted windows runner handle latency of OS drive
         // by avoiding write operations to C:
-        const isHosted = process.env['RUNNER_ENVIRONMENT'] === 'github-hosted';
+        const isHosted = process.env['RUNNER_ENVIRONMENT'] === 'github-hosted' ||
+            process.env['AGENT_ISSELFHOSTED'] === '0';
         if (isWindows && isHosted && fs_1.default.existsSync('d:\\') && fs_1.default.existsSync('c:\\')) {
             const defaultToolCacheRoot = process.env['RUNNER_TOOL_CACHE'] || '';
             const substitutedToolCacheRoot = defaultToolCacheRoot
