@@ -61468,8 +61468,12 @@ function installGoVersion(info, auth, arch) {
         // by avoiding write operations to C:
         const isHosted = process.env['RUNNER_ENVIRONMENT'] === 'github-hosted' ||
             process.env['AGENT_ISSELFHOSTED'] === '0';
-        if (isWindows && isHosted && fs_1.default.existsSync('d:\\') && fs_1.default.existsSync('c:\\')) {
-            const defaultToolCacheRoot = process.env['RUNNER_TOOL_CACHE'] || '';
+        const defaultToolCacheRoot = process.env['RUNNER_TOOL_CACHE'];
+        if (isWindows &&
+            defaultToolCacheRoot &&
+            isHosted &&
+            fs_1.default.existsSync('d:\\') &&
+            fs_1.default.existsSync('c:\\')) {
             const substitutedToolCacheRoot = defaultToolCacheRoot
                 .replace('C:', 'D:')
                 .replace('c:', 'd:');
@@ -61477,14 +61481,14 @@ function installGoVersion(info, auth, arch) {
             process.env['RUNNER_TOOL_CACHE'] = substitutedToolCacheRoot;
             const actualToolCacheDir = yield addExecutablesToCache(extPath, info, arch);
             // create a link from c: to d:
-            const lnkSrc = actualToolCacheDir.replace(substitutedToolCacheRoot, defaultToolCacheRoot);
-            fs_1.default.mkdirSync(path.dirname(lnkSrc), { recursive: true });
-            fs_1.default.symlinkSync(actualToolCacheDir, lnkSrc, 'junction');
-            core.info(`Created link ${lnkSrc} => ${actualToolCacheDir}`);
+            const defaultToolCacheDir = actualToolCacheDir.replace(substitutedToolCacheRoot, defaultToolCacheRoot);
+            fs_1.default.mkdirSync(path.dirname(defaultToolCacheDir), { recursive: true });
+            fs_1.default.symlinkSync(actualToolCacheDir, defaultToolCacheDir, 'junction');
+            core.info(`Created link ${defaultToolCacheDir} => ${actualToolCacheDir}`);
             // restore toolcache root to default drive c:
             process.env['RUNNER_TOOL_CACHE'] = defaultToolCacheRoot;
             // make outer code to continue using toolcache as if it were installed on c:
-            return lnkSrc;
+            return defaultToolCacheDir;
         }
         return yield addExecutablesToCache(extPath, info, arch);
     });

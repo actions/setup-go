@@ -206,8 +206,14 @@ async function installGoVersion(
   const isHosted =
     process.env['RUNNER_ENVIRONMENT'] === 'github-hosted' ||
     process.env['AGENT_ISSELFHOSTED'] === '0';
-  if (isWindows && isHosted && fs.existsSync('d:\\') && fs.existsSync('c:\\')) {
-    const defaultToolCacheRoot = process.env['RUNNER_TOOL_CACHE'] || '';
+  const defaultToolCacheRoot = process.env['RUNNER_TOOL_CACHE'];
+  if (
+    isWindows &&
+    defaultToolCacheRoot &&
+    isHosted &&
+    fs.existsSync('d:\\') &&
+    fs.existsSync('c:\\')
+  ) {
     const substitutedToolCacheRoot = defaultToolCacheRoot
       .replace('C:', 'D:')
       .replace('c:', 'd:');
@@ -217,19 +223,19 @@ async function installGoVersion(
     const actualToolCacheDir = await addExecutablesToCache(extPath, info, arch);
 
     // create a link from c: to d:
-    const lnkSrc = actualToolCacheDir.replace(
+    const defaultToolCacheDir = actualToolCacheDir.replace(
       substitutedToolCacheRoot,
       defaultToolCacheRoot
     );
-    fs.mkdirSync(path.dirname(lnkSrc), {recursive: true});
-    fs.symlinkSync(actualToolCacheDir, lnkSrc, 'junction');
-    core.info(`Created link ${lnkSrc} => ${actualToolCacheDir}`);
+    fs.mkdirSync(path.dirname(defaultToolCacheDir), {recursive: true});
+    fs.symlinkSync(actualToolCacheDir, defaultToolCacheDir, 'junction');
+    core.info(`Created link ${defaultToolCacheDir} => ${actualToolCacheDir}`);
 
     // restore toolcache root to default drive c:
     process.env['RUNNER_TOOL_CACHE'] = defaultToolCacheRoot;
 
     // make outer code to continue using toolcache as if it were installed on c:
-    return lnkSrc;
+    return defaultToolCacheDir;
   }
 
   return await addExecutablesToCache(extPath, info, arch);
