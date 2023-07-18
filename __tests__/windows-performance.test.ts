@@ -43,6 +43,9 @@ describe('Windows performance workaround', () => {
     jest.clearAllMocks();
     process.env['RUNNER_TOOL_CACHE'] = runnerToolCache;
   });
+  // addExecutablesToCache uses 3rd party dependency toolkit.cache under the hood
+  // that currently is implemented with RUNNER_TOOL_CACHE environment variable
+  // Make sure the implementation has not been changed
   it('addExecutablesToCache should depend on env[RUNNER_TOOL_CACHE]', async () => {
     const info: IGoVersionInfo = {
       type: 'dist',

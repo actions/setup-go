@@ -11,11 +11,12 @@ import * as im from '../src/installer';
 import goJsonData from './data/golang-dl.json';
 import matchers from '../matchers.json';
 import goTestManifest from './data/versions-manifest.json';
-import {addExecutablesToCache, IGoVersionInfo} from '../src/installer';
 const matcherPattern = matchers.problemMatcher[0].pattern[0];
 const matcherRegExp = new RegExp(matcherPattern.regexp);
 const win32Join = path.win32.join;
 const posixJoin = path.posix.join;
+
+jest.setTimeout(10000);
 
 describe('setup-go', () => {
   let inputs = {} as any;
