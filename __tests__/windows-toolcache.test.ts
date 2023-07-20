@@ -1,6 +1,6 @@
 import fs from 'fs';
 import * as io from '@actions/io';
-import {addExecutablesToCache, IGoVersionInfo} from '../src/installer';
+import * as tc from '@actions/tool-cache';
 import path from 'path';
 
 describe('Windows performance workaround', () => {
@@ -43,25 +43,18 @@ describe('Windows performance workaround', () => {
     jest.clearAllMocks();
     process.env['RUNNER_TOOL_CACHE'] = runnerToolCache;
   });
-  // addExecutablesToCache uses 3rd party dependency toolkit.cache under the hood
-  // that currently is implemented with RUNNER_TOOL_CACHE environment variable
+  // cacheWindowsToolkitDir depends on implementation of tc.cacheDir
+  // with the assumption that target dir is passed by RUNNER_TOOL_CACHE environment variable
   // Make sure the implementation has not been changed
   it('addExecutablesToCache should depend on env[RUNNER_TOOL_CACHE]', async () => {
-    const info: IGoVersionInfo = {
-      type: 'dist',
-      downloadUrl: 'http://nowhere.com',
-      resolvedVersion: '1.2.3',
-      fileName: 'ignore'
-    };
-
     process.env['RUNNER_TOOL_CACHE'] = '/faked-hostedtoolcache1';
-    const cacheDir1 = await addExecutablesToCache('/qzx', info, 'arch');
+    const cacheDir1 = await tc.cacheDir('/qzx', 'go', '1.2.3', 'arch');
     expect(cacheDir1).toBe(
       path.join('/', 'faked-hostedtoolcache1', 'go', '1.2.3', 'arch')
     );
 
     process.env['RUNNER_TOOL_CACHE'] = '/faked-hostedtoolcache2';
-    const cacheDir2 = await addExecutablesToCache('/qzx', info, 'arch');
+    const cacheDir2 = await tc.cacheDir('/qzx', 'go', '1.2.3', 'arch');
     expect(cacheDir2).toBe(
       path.join('/', 'faked-hostedtoolcache2', 'go', '1.2.3', 'arch')
     );

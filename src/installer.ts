@@ -164,20 +164,60 @@ async function resolveVersionFromManifest(
   }
 }
 
-export async function addExecutablesToCache(
+// for github hosted windows runner handle latency of OS drive
+// by avoiding write operations to C:
+async function cacheWindowsDir(
+  extPath: string,
+  tool: string,
+  version: string,
+  arch: string
+): Promise<string | false> {
+  if (os.platform() !== 'win32') return false;
+
+  const isHosted =
+    process.env['RUNNER_ENVIRONMENT'] === 'github-hosted' ||
+    process.env['AGENT_ISSELFHOSTED'] === '0';
+  if (!isHosted) return false;
+
+  const defaultToolCacheRoot = process.env['RUNNER_TOOL_CACHE'];
+  if (!defaultToolCacheRoot) return false;
+
+  if (!fs.existsSync('d:\\') || !fs.existsSync('c:\\')) return false;
+
+  const actualToolCacheRoot = defaultToolCacheRoot
+    .replace('C:', 'D:')
+    .replace('c:', 'd:');
+  // make toolcache root to be on drive d:
+  process.env['RUNNER_TOOL_CACHE'] = actualToolCacheRoot;
+
+  const actualToolCacheDir = await tc.cacheDir(extPath, tool, version, arch);
+
+  // create a link from c: to d:
+  const defaultToolCacheDir = actualToolCacheDir.replace(
+    actualToolCacheRoot,
+    defaultToolCacheRoot
+  );
+  fs.mkdirSync(path.dirname(defaultToolCacheDir), {recursive: true});
+  fs.symlinkSync(actualToolCacheDir, defaultToolCacheDir, 'junction');
+  core.info(`Created link ${defaultToolCacheDir} => ${actualToolCacheDir}`);
+
+  // make outer code to continue using toolcache as if it were installed on c:
+  // restore toolcache root to default drive c:
+  process.env['RUNNER_TOOL_CACHE'] = defaultToolCacheRoot;
+  return defaultToolCacheDir;
+}
+
+async function addExecutablesToToolCache(
   extPath: string,
   info: IGoVersionInfo,
   arch: string
 ): Promise<string> {
-  core.info('Adding to the cache ...');
-  const cachedDir = await tc.cacheDir(
-    extPath,
-    'go',
-    makeSemver(info.resolvedVersion),
-    arch
+  const tool = 'go';
+  const version = makeSemver(info.resolvedVersion);
+  return (
+    (await cacheWindowsDir(extPath, tool, version, arch)) ||
+    (await tc.cacheDir(extPath, tool, version, arch))
   );
-  core.info(`Successfully cached go to ${cachedDir}`);
-  return cachedDir;
 }
 
 async function installGoVersion(
@@ -201,44 +241,11 @@ async function installGoVersion(
     extPath = path.join(extPath, 'go');
   }
 
-  // for github hosted windows runner handle latency of OS drive
-  // by avoiding write operations to C:
+  core.info('Adding to the cache ...');
+  const toolCacheDir = await addExecutablesToToolCache(extPath, info, arch);
+  core.info(`Successfully cached go to ${toolCacheDir}`);
 
-  if (!isWindows) return addExecutablesToCache(extPath, info, arch);
-
-  const isHosted =
-    process.env['RUNNER_ENVIRONMENT'] === 'github-hosted' ||
-    process.env['AGENT_ISSELFHOSTED'] === '0';
-  if (!isHosted) return addExecutablesToCache(extPath, info, arch);
-
-  const defaultToolCacheRoot = process.env['RUNNER_TOOL_CACHE'];
-  if (!defaultToolCacheRoot) return addExecutablesToCache(extPath, info, arch);
-
-  if (!fs.existsSync('d:\\') || !fs.existsSync('c:\\'))
-    return addExecutablesToCache(extPath, info, arch);
-
-  const substitutedToolCacheRoot = defaultToolCacheRoot
-    .replace('C:', 'D:')
-    .replace('c:', 'd:');
-  // make toolcache root to be on drive d:
-  process.env['RUNNER_TOOL_CACHE'] = substitutedToolCacheRoot;
-
-  const actualToolCacheDir = await addExecutablesToCache(extPath, info, arch);
-
-  // create a link from c: to d:
-  const defaultToolCacheDir = actualToolCacheDir.replace(
-    substitutedToolCacheRoot,
-    defaultToolCacheRoot
-  );
-  fs.mkdirSync(path.dirname(defaultToolCacheDir), {recursive: true});
-  fs.symlinkSync(actualToolCacheDir, defaultToolCacheDir, 'junction');
-  core.info(`Created link ${defaultToolCacheDir} => ${actualToolCacheDir}`);
-
-  // restore toolcache root to default drive c:
-  process.env['RUNNER_TOOL_CACHE'] = defaultToolCacheRoot;
-
-  // make outer code to continue using toolcache as if it were installed on c:
-  return defaultToolCacheDir;
+  return toolCacheDir;
 }
 
 export async function extractGoArchive(archivePath: string): Promise<string> {
