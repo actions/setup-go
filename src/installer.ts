@@ -174,10 +174,12 @@ async function cacheWindowsDir(
 ): Promise<string | false> {
   if (os.platform() !== 'win32') return false;
 
-  const isHosted =
-    process.env['RUNNER_ENVIRONMENT'] === 'github-hosted' ||
-    process.env['AGENT_ISSELFHOSTED'] === '0';
-  if (!isHosted) return false;
+  // make sure the action runs in the hosted environment
+  if (
+    process.env['RUNNER_ENVIRONMENT'] !== 'github-hosted' &&
+    process.env['AGENT_ISSELFHOSTED'] === '1'
+  )
+    return false;
 
   const defaultToolCacheRoot = process.env['RUNNER_TOOL_CACHE'];
   if (!defaultToolCacheRoot) return false;
