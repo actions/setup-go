@@ -1,4 +1,4 @@
-name: validate Windows installation
+name: Validate Windows installation
 
 on:
   push:
@@ -13,7 +13,7 @@ on:
 jobs:
   create-link-if-not-default:
     runs-on: windows-latest
-    name: 'Setup ${{ matrix.go }}, cache: ${{ matrix.cache }}'
+    name: 'Validate if symlink is created'
     strategy:
       matrix:
         cache: [false, true]
@@ -21,7 +21,7 @@ jobs:
     steps:
       - uses: actions/checkout@v3
 
-      - name: non-default-cache-${{ matrix.cache }}-${{ matrix.go }}
+      - name: 'Setup ${{ matrix.cache }}, cache: ${{ matrix.go }}'
         uses: ./
         with:
           go-version: ${{ matrix.go }}
@@ -81,7 +81,7 @@ jobs:
         shell: bash
 
   dont-create-link-if-default:
-    name: 'Use default go, cache: ${{ matrix.cache }}'
+    name: 'Validate if symlink is not created for default go'
     runs-on: windows-latest
     needs: find-default-go
     strategy:
@@ -90,12 +90,13 @@ jobs:
     steps:
       - uses: actions/checkout@v3
 
-      - uses: ./
+      - name: 'Setup default go, cache: ${{ matrix.cache }}'
+        uses: ./
         with:
           go-version: ${{ needs.find-default-go.outputs.version }}
           cache: ${{ matrix.cache }}
 
-      - name: 'Drive C: should have Go installation'
+      - name: 'Drive C: should have Go installation, cache: ${{ matrix.cache}}'
         run: |
           size=$(du -m -s 'C:\hostedtoolcache\windows\go\${{ needs.find-default-go.outputs.version }}\x64'|cut -f1 -d$'\t')
           if [ $size -eq 0 ];then
@@ -104,7 +105,7 @@ jobs:
           fi
         shell: bash
 
-      - name: 'Drive D: should not have Go installation'
+      - name: 'Drive D: should not have Go installation, cache: ${{ matrix.cache}}'
         run: |
           if [ -e 'D:\hostedtoolcache\windows\go\${{ needs.find-default-go.outputs.version }}\x64' ];then
             echo 'D:\hostedtoolcache\windows\go\${{ needs.find-default-go.outputs.version }}\x64 should not exist for hosted version of go';
