@@ -8,6 +8,7 @@ import {isCacheFeatureAvailable} from './cache-utils';
 import cp from 'child_process';
 import fs from 'fs';
 import os from 'os';
+import {State} from './constants';
 
 export async function run() {
   try {
@@ -64,6 +65,11 @@ export async function run() {
     const goPath = await io.which('go');
     const goVersion = (cp.execSync(`${goPath} version`) || '').toString();
 
+    const cacheRestoreOnly = core.getBooleanInput('cache-restore-only');
+    core.saveState(
+      State.CacheRestoreOnly,
+      cacheRestoreOnly ? State.True : State.False
+    );
     if (cache && isCacheFeatureAvailable()) {
       const packageManager = 'default';
       const cacheDependencyPath = core.getInput('cache-dependency-path');
