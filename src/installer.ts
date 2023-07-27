@@ -361,6 +361,9 @@ export function parseGoVersionFile(versionFilePath: string): string {
   ) {
     const match = contents.match(/^go (\d+(\.\d+)*)/m);
     return match ? match[1] : '';
+  } else if (path.basename(versionFilePath) === '.tool-versions') {
+    const match = contents.match(/^golang\s+(\d+(\.\d+)*)/m);
+    return match ? match[1] : '';
   }
 
   return contents.trim();
