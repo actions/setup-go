@@ -58,6 +58,13 @@ steps:
   - run: go version
 ```
 
+> **Note**: Due to the peculiarities of YAML parsing, it is recommended to wrap the version in single quotation marks:
+> 
+> ```yaml
+>   go-version: '1.20'
+>  ```
+>  
+> The recommendation is based on the YAML parser's behavior, which interprets non-wrapped values as numbers and, in the case of version 1.20, trims it down to 1.2, which may not be very obvious.
 Matching an unstable pre-release:
 
 ```yaml
@@ -237,7 +244,7 @@ input for the action:
 uses: actions/setup-go@v4
 with:
   token: ${{ secrets.GH_DOTCOM_TOKEN }}
-  go-version: 1.18
+  go-version: '1.18'
 ```
 
 If the runner is not able to access github.com, any Go versions requested during a workflow run must come from the
