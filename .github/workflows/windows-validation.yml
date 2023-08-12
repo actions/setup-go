@@ -114,7 +114,7 @@ jobs:
         shell: bash
 
   hostedtoolcache:
-    name: 'Validate if hostedtoolcache works as expected' 
+    name: 'Validate if hostedtoolcache works as expected'
     runs-on: windows-latest
     strategy:
       matrix:
@@ -128,12 +128,9 @@ jobs:
         with:
           go-version: ${{ matrix.go }}
           cache: ${{ matrix.cache }}
-          
+
       - name: 'Setup ${{ matrix.go }}, cache: ${{ matrix.cache }} (from hostedtoolcache)'
         uses: ./
         with:
           go-version: ${{ matrix.go }}
           cache: ${{ matrix.cache }}
-    
-    
-    

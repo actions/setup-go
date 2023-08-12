@@ -205,8 +205,14 @@ async function cacheWindowsDir(
 
   const actualToolCacheCompleteFile = `${actualToolCacheDir}.complete`;
   const defaultToolCacheCompleteFile = `${defaultToolCacheDir}.complete`;
-  fs.symlinkSync(actualToolCacheCompleteFile, defaultToolCacheCompleteFile, 'file');
-  core.info(`Created link ${defaultToolCacheCompleteFile} => ${actualToolCacheCompleteFile}`);
+  fs.symlinkSync(
+    actualToolCacheCompleteFile,
+    defaultToolCacheCompleteFile,
+    'file'
+  );
+  core.info(
+    `Created link ${defaultToolCacheCompleteFile} => ${actualToolCacheCompleteFile}`
+  );
 
   // make outer code to continue using toolcache as if it were installed on c:
   // restore toolcache root to default drive c:
