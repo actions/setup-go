@@ -1,4 +1,5 @@
 name: Validate 'setup-go'
+
 on:
   push:
     branches:
@@ -12,6 +13,57 @@ on:
     - cron: 0 0 * * *
 
 jobs:
+  stable:
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+    steps:
+      - uses: actions/checkout@v3
+      - name: Setup Go Stable
+        uses: ./
+        with:
+          go-version: stable
+      - name: Verify Go
+        run: go version
+
+  oldstable:
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+    steps:
+      - uses: actions/checkout@v3
+      - name: Setup Go oldStable
+        uses: ./
+        with:
+          go-version: oldstable
+      - name: Verify Go
+        run: go version
+
+  aliases-arch:
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+        version: [stable, oldstable]
+        architecture: [x64, x32]
+        exclude:
+          - os: macos-latest
+            architecture: x32
+    steps:
+      - uses: actions/checkout@v3
+      - name: Setup Go ${{ matrix.version }} ${{ matrix.architecture }}
+        uses: ./
+        with:
+          go-version: ${{ matrix.version }}
+          architecture: ${{ matrix.architecture }}
+      - name: Verify Go
+        run: go version
+
   local-cache:
     name: Setup local-cache version
     runs-on: ${{ matrix.os }}
