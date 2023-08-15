@@ -185,7 +185,7 @@ file or at the go servers.
 
 ### If the go.mod or .tool-versions files
 
-The `go-version-file` input accepts a path to a `go.mod` file, `.tool-versions` file or a `go.work` file that contains the version of Go to be used by a project.
+The `go-version-file` input accepts a path to a `go.mod` file, [.tool-versions](https://asdf-vm.com/manage/configuration.html#tool-versions) file or a `go.work` file that contains the version of Go to be used by a project.
 As the `go.mod` file contains only major and minor (e.g. 1.18) tags, the action will follow the above-mentioned approach.
 
 > The action will search for the `go.mod` file relative to the repository root
