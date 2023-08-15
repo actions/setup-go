@@ -179,11 +179,14 @@ steps:
 
 If both the `go-version` and the `go-version-file` inputs are provided then the `go-version` input is used.
 
-If the file contains only major and minor (e.g. 1.18) tags, the action will search for the latest available patch version sequentially in the runner's directory with the cached tools, in the [version-manifest.json](https://github.com/actions/go-versions/blob/main/versions-manifest.json) file or at the go servers.
+If the file contains only major and minor (e.g. 1.18) tags, the action will search for the latest available patch version
+sequentially in the runner's directory with the cached tools, in the [version-manifest.json](https://github.com/actions/go-versions/blob/main/versions-manifest.json)
+file or at the go servers.
 
 ### If the go.mod or .tool-versions files
 
-The `go-version-file` input accepts a path to a `go.mod` file, `.tool-versions` file or a `go.work` file that contains the version of Go to be used by a project. As the `go.mod` file contains only major and minor (e.g. 1.18) tags, the action will follow the above-mentioned approach.
+The `go-version-file` input accepts a path to a `go.mod` file, `.tool-versions` file or a `go.work` file that contains the version of Go to be used by a project.
+As the `go.mod` file contains only major and minor (e.g. 1.18) tags, the action will follow the above-mentioned approach.
 
 > The action will search for the `go.mod` file relative to the repository root
 
@@ -196,7 +199,18 @@ steps:
   - run: go version
 ```
 
-Finally, the `go-version` output contains the resolved Golang version from the `go.mod` file.
+The `go-version` output contains the resolved Golang version from the `go.mod` file.
+
+> The action will search for the `.tool-versions` file relative to the repository root
+
+```yaml
+steps:
+  - uses: actions/checkout@v3
+  - uses: actions/setup-go@v4
+    with:
+      go-version-file: '.tool-versions'
+  - run: go version
+```
 
 ### If a different file
 
