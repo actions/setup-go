@@ -6,7 +6,7 @@ import * as httpm from '@actions/http-client';
 import * as sys from './system';
 import fs from 'fs';
 import os from 'os';
-import {StableReleaseAlias} from './utils';
+import {isSelfHosted, StableReleaseAlias} from './utils';
 
 type InstallationType = 'dist' | 'manifest';
 
@@ -175,11 +175,7 @@ async function cacheWindowsDir(
   if (os.platform() !== 'win32') return false;
 
   // make sure the action runs in the hosted environment
-  if (
-    process.env['RUNNER_ENVIRONMENT'] !== 'github-hosted' &&
-    process.env['AGENT_ISSELFHOSTED'] === '1'
-  )
-    return false;
+  if (isSelfHosted()) return false;
 
   const defaultToolCacheRoot = process.env['RUNNER_TOOL_CACHE'];
   if (!defaultToolCacheRoot) return false;

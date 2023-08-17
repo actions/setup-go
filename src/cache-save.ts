@@ -3,6 +3,7 @@ import * as cache from '@actions/cache';
 import fs from 'fs';
 import {State} from './constants';
 import {getCacheDirectoryPath, getPackageManagerInfo} from './cache-utils';
+import {getCacheInput} from './utils';
 
 // Catch and log any unhandled exceptions.  These exceptions can leak out of the uploadChunk method in
 // @actions/toolkit when a failed upload closes the file descriptor causing any in-process reads to
@@ -28,10 +29,7 @@ export async function run() {
 }
 
 const cachePackages = async () => {
-  const cacheInput = core.getBooleanInput('cache');
-  if (!cacheInput) {
-    return;
-  }
+  if (!getCacheInput()) return;
 
   const packageManager = 'default';
 
