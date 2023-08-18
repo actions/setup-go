@@ -1,5 +1,3 @@
-import * as core from '@actions/core';
-
 export enum StableReleaseAlias {
   Stable = 'stable',
   OldStable = 'oldstable'
