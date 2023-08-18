@@ -58495,7 +58495,6 @@ const cache = __importStar(__nccwpck_require__(7799));
 const fs_1 = __importDefault(__nccwpck_require__(7147));
 const constants_1 = __nccwpck_require__(9042);
 const cache_utils_1 = __nccwpck_require__(1678);
-const utils_1 = __nccwpck_require__(1314);
 // Catch and log any unhandled exceptions.  These exceptions can leak out of the uploadChunk method in
 // @actions/toolkit when a failed upload closes the file descriptor causing any in-process reads to
 // throw an uncaught exception.  Instead of failing this action, just warn.
@@ -58522,7 +58521,7 @@ function run() {
 }
 exports.run = run;
 const cachePackages = () => __awaiter(void 0, void 0, void 0, function* () {
-    if (!utils_1.getCacheInput())
+    if (!cache_utils_1.getCacheInput())
         return;
     const packageManager = 'default';
     const state = core.getState(constants_1.State.CacheMatchedKey);
@@ -58594,11 +58593,12 @@ var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, ge
     });
 };
 Object.defineProperty(exports, "__esModule", ({ value: true }));
-exports.isCacheFeatureAvailable = exports.isGhes = exports.getCacheDirectoryPath = exports.getPackageManagerInfo = exports.getCommandOutput = void 0;
+exports.getCacheInput = exports.isCacheFeatureAvailable = exports.isGhes = exports.getCacheDirectoryPath = exports.getPackageManagerInfo = exports.getCommandOutput = void 0;
 const cache = __importStar(__nccwpck_require__(7799));
 const core = __importStar(__nccwpck_require__(2186));
 const exec = __importStar(__nccwpck_require__(1514));
 const package_managers_1 = __nccwpck_require__(6663);
+const utils_1 = __nccwpck_require__(1314);
 const getCommandOutput = (toolCommand) => __awaiter(void 0, void 0, void 0, function* () {
     let { stdout, stderr, exitCode } = yield exec.getExecOutput(toolCommand, undefined, { ignoreReturnCode: true });
     if (exitCode) {
@@ -58653,6 +58653,13 @@ function isCacheFeatureAvailable() {
     return false;
 }
 exports.isCacheFeatureAvailable = isCacheFeatureAvailable;
+const getCacheInput = () => {
+    // for self-hosted environment turn off cache by default
+    if (utils_1.isSelfHosted() && core.getInput('cache') === '')
+        return false;
+    return core.getBooleanInput('cache');
+};
+exports.getCacheInput = getCacheInput;
 
 
 /***/ }),
@@ -58695,47 +58702,20 @@ exports.supportedPackageManagers = {
 /***/ }),
 
 /***/ 1314:
-/***/ (function(__unused_webpack_module, exports, __nccwpck_require__) {
+/***/ ((__unused_webpack_module, exports) => {
 
 "use strict";
 
-var __createBinding = (this && this.__createBinding) || (Object.create ? (function(o, m, k, k2) {
-    if (k2 === undefined) k2 = k;
-    Object.defineProperty(o, k2, { enumerable: true, get: function() { return m[k]; } });
-}) : (function(o, m, k, k2) {
-    if (k2 === undefined) k2 = k;
-    o[k2] = m[k];
-}));
-var __setModuleDefault = (this && this.__setModuleDefault) || (Object.create ? (function(o, v) {
-    Object.defineProperty(o, "default", { enumerable: true, value: v });
-}) : function(o, v) {
-    o["default"] = v;
-});
-var __importStar = (this && this.__importStar) || function (mod) {
-    if (mod && mod.__esModule) return mod;
-    var result = {};
-    if (mod != null) for (var k in mod) if (k !== "default" && Object.prototype.hasOwnProperty.call(mod, k)) __createBinding(result, mod, k);
-    __setModuleDefault(result, mod);
-    return result;
-};
 Object.defineProperty(exports, "__esModule", ({ value: true }));
-exports.getCacheInput = exports.isSelfHosted = exports.StableReleaseAlias = void 0;
-const core = __importStar(__nccwpck_require__(2186));
+exports.isSelfHosted = exports.StableReleaseAlias = void 0;
 var StableReleaseAlias;
 (function (StableReleaseAlias) {
     StableReleaseAlias["Stable"] = "stable";
     StableReleaseAlias["OldStable"] = "oldstable";
 })(StableReleaseAlias = exports.StableReleaseAlias || (exports.StableReleaseAlias = {}));
 const isSelfHosted = () => process.env['RUNNER_ENVIRONMENT'] !== 'github-hosted' &&
-    process.env['AGENT_ISSELFHOSTED'] === '1';
+    process.env['AGENT_ISSELFHOSTED'] !== '0';
 exports.isSelfHosted = isSelfHosted;
-const getCacheInput = () => {
-    // for self-hosted environment turn off cache by default
-    if (exports.isSelfHosted() && core.getInput('cache') === '')
-        return false;
-    return core.getBooleanInput('cache');
-};
-exports.getCacheInput = getCacheInput;
 
 
 /***/ }),

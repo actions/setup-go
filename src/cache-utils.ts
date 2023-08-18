@@ -2,6 +2,7 @@ import * as cache from '@actions/cache';
 import * as core from '@actions/core';
 import * as exec from '@actions/exec';
 import {supportedPackageManagers, PackageManagerInfo} from './package-managers';
+import {isSelfHosted} from './utils';
 
 export const getCommandOutput = async (toolCommand: string) => {
   let {stdout, stderr, exitCode} = await exec.getExecOutput(
@@ -83,3 +84,9 @@ export function isCacheFeatureAvailable(): boolean {
   );
   return false;
 }
+export const getCacheInput = (): boolean => {
+  // for self-hosted environment turn off cache by default
+  if (isSelfHosted() && core.getInput('cache') === '') return false;
+
+  return core.getBooleanInput('cache');
+};

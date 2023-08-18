@@ -4,11 +4,10 @@ import * as installer from './installer';
 import * as semver from 'semver';
 import path from 'path';
 import {restoreCache} from './cache-restore';
-import {isCacheFeatureAvailable} from './cache-utils';
+import {isCacheFeatureAvailable, getCacheInput} from './cache-utils';
 import cp from 'child_process';
 import fs from 'fs';
 import os from 'os';
-import {getCacheInput} from './utils';
 
 export async function run() {
   try {

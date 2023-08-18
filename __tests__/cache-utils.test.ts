@@ -3,6 +3,7 @@ import * as cache from '@actions/cache';
 import * as core from '@actions/core';
 import * as cacheUtils from '../src/cache-utils';
 import {PackageManagerInfo} from '../src/package-managers';
+import * as utils from '../src/utils';
 
 describe('getCommandOutput', () => {
   //Arrange
@@ -207,5 +208,78 @@ describe('isCacheFeatureAvailable', () => {
     //Act + Assert
     expect(cacheUtils.isCacheFeatureAvailable()).toBeFalsy();
     expect(warningSpy).toHaveBeenCalledWith(warningMessage);
+  });
+});
+
+describe('Detect environment', () => {
+  it('"RUNNER_ENVIRONMENT" = "github-hosted" should be hosted environment', () => {
+    delete process.env['AGENT_ISSELFHOSTED'];
+    process.env['RUNNER_ENVIRONMENT'] = 'github-hosted';
+    expect(utils.isSelfHosted()).toBeFalsy();
+  });
+
+  it('"RUNNER_ENVIRONMENT" = "hosted" should be self-hosted environment', () => {
+    delete process.env['AGENT_ISSELFHOSTED'];
+    process.env['RUNNER_ENVIRONMENT'] = 'hosted';
+    expect(utils.isSelfHosted()).toBeTruthy();
+  });
+
+  it('"AGENT_ISSELFHOSTED" = "0" should be hosted environment', () => {
+    process.env['AGENT_ISSELFHOSTED'] = '0';
+    delete process.env['RUNNER_ENVIRONMENT'];
+    expect(utils.isSelfHosted()).toBeFalsy();
+  });
+
+  it('"AGENT_ISSELFHOSTED" = "0" should be self-hosted environment', () => {
+    process.env['AGENT_ISSELFHOSTED'] = '1';
+    delete process.env['RUNNER_ENVIRONMENT'];
+    expect(utils.isSelfHosted()).toBeTruthy();
+  });
+
+  it('unset "RUNNER_ENVIRONMENT" and "AGENT_ISSELFHOSTED" should be self-hosted environment', () => {
+    delete process.env['AGENT_ISSELFHOSTED'];
+    delete process.env['RUNNER_ENVIRONMENT'];
+    expect(utils.isSelfHosted()).toBeTruthy();
+  });
+});
+describe('Default cache values', () => {
+  const inputSpy = jest.spyOn(utils, 'isSelfHosted');
+
+  beforeEach(() => {
+    delete process.env['INPUT_CACHE'];
+  });
+
+  it('default cache should be false in self-hosted environment', () => {
+    inputSpy.mockReturnValueOnce(true);
+    expect(cacheUtils.getCacheInput()).toBeFalsy();
+  });
+
+  it('cache should be false if set to false in self-hosted environment', () => {
+    inputSpy.mockReturnValueOnce(true);
+    process.env['INPUT_CACHE'] = 'false';
+    expect(cacheUtils.getCacheInput()).toBeFalsy();
+  });
+
+  it('cache should be tue if set to true in self-hosted environment', () => {
+    inputSpy.mockReturnValueOnce(true);
+    process.env['INPUT_CACHE'] = 'true';
+    expect(cacheUtils.getCacheInput()).toBeTruthy();
+  });
+
+  it('default cache should be handled by action.yml default in hosted environment', () => {
+    inputSpy.mockReturnValueOnce(false);
+    expect(() => cacheUtils.getCacheInput()).toThrow();
+  });
+
+  it('cache should be false if set to false in hosted environment', () => {
+    inputSpy.mockReturnValueOnce(false);
+    process.env['INPUT_CACHE'] = 'true';
+    expect(cacheUtils.getCacheInput()).toBeTruthy();
+  });
+
+  it('cache should be tue if set to true in hosted environment', () => {
+    inputSpy.mockReturnValueOnce(false);
+    process.env['INPUT_CACHE'] = 'false';
+    expect(cacheUtils.getCacheInput()).toBeFalsy();
   });
 });
