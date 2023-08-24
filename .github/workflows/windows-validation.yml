@@ -105,10 +105,32 @@ jobs:
           fi
         shell: bash
 
-      - name: 'Drive D: should not have Go installation, cache: ${{ matrix.cache}}'
+      - name: 'Drive D: should not have Go installation, cache: ${{ matrix.cache }}'
         run: |
           if [ -e 'D:\hostedtoolcache\windows\go\${{ needs.find-default-go.outputs.version }}\x64' ];then
             echo 'D:\hostedtoolcache\windows\go\${{ needs.find-default-go.outputs.version }}\x64 should not exist for hosted version of go';
             exit 1
           fi
         shell: bash
+
+  hostedtoolcache:
+    name: 'Validate if hostedtoolcache works as expected'
+    runs-on: windows-latest
+    strategy:
+      matrix:
+        cache: [false]
+        go: [1.20.1]
+    steps:
+      - uses: actions/checkout@v3
+
+      - name: 'Setup ${{ matrix.go }}, cache: ${{ matrix.cache }}'
+        uses: ./
+        with:
+          go-version: ${{ matrix.go }}
+          cache: ${{ matrix.cache }}
+
+      - name: 'Setup ${{ matrix.go }}, cache: ${{ matrix.cache }} (from hostedtoolcache)'
+        uses: ./
+        with:
+          go-version: ${{ matrix.go }}
+          cache: ${{ matrix.cache }}
