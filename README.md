@@ -159,7 +159,7 @@ The `cache` input is optional, and caching is turned on by default.
 
 The action defaults to search for the dependency file - go.sum in the repository root, and uses its hash as a part of
 the cache key. Use `cache-dependency-path` input for cases when multiple dependency files are used, or they are located
-in different subdirectories. Wildcards also supported.
+in different subdirectories. Globs also supported.
 
 If some problem that prevents success caching happens then the action issues the warning in the log and continues the execution of the pipeline. 
 
