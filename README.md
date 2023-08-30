@@ -234,17 +234,6 @@ including the source code files into `cache-dependency-path` input.
 - run: go run hello.go
 ```
 
-But more practically to manage the cache with the text file manually updated according to the amount
-of changes made in the repo.
-
-```yaml
-- uses: actions/setup-go@v4
-  with:
-    go-version: '1.17'
-    cache-dependency-path: go.sum cache-version.txt
-- run: go run hello.go
-```
-
 ### Caching with actions/cache
 The caching capabilities of the action are limited for the simplest builds and can be ineffective in the real world
 use cases. If the build requires fine-grained turning the built-in caching should be disabled and
