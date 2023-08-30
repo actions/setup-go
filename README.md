@@ -201,9 +201,7 @@ steps:
   ```
 
 ### Multi-target builds
-`cache-dependency-path` input used to generate unuque cache key and it is not limited to only
-dependencies files. The common case is to add a file containing the extr info about the specific
-build, for example build target.
+The 'cache-dependency-path' input doesn't limit itself to dependency lock files only. It can also be used with additional files that contain details about the build settings. By using this method, caches for builds created for various operating systems, architectures, etc. can be separated.
 
 ```yaml
 env:
@@ -216,7 +214,9 @@ steps:
   - uses: actions/setup-go@v4
     with:
       go-version: '1.17'
-      cache-dependency-path: go.sum /tmp/env
+      cache-dependency-path: |
+        go.sum
+	/tmp/env
   - run: go run hello.go    
 ```
 
