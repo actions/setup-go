@@ -163,7 +163,7 @@ in different subdirectories. The input supports glob patterns.
 
 If some problem that prevents success caching happens then the action issues the warning in the log and continues the execution of the pipeline. 
 
-**Caching in monorepos**
+### Caching in monorepos
 
 ```yaml
 steps:
@@ -175,7 +175,7 @@ steps:
   - run: go run hello.go
   ```
 
-**Caching in multirepos**
+### Caching in multirepos
 `cache-dependency-path` input assepts glob patterns and multi-line values:
 
 ```yaml
@@ -200,7 +200,7 @@ steps:
   - run: go run hello.go
   ```
 
-## Multi-target builds
+### Multi-target builds
 `cache-dependency-path` input used to generate unuque cache key and it is not limited to only
 dependencies files. The common case is to add a file containing the extr info about the specific
 build, for example build target.
@@ -220,7 +220,7 @@ steps:
   - run: go run hello.go    
 ```
 
-## Invalidate cache when source code changes
+### Invalidate cache when source code changes
 Besides the dependencise the action caches the build outputs 
 ([GOCACHE](https://pkg.go.dev/cmd/go#hdr-Build_and_test_caching) directory) but by default this
 cache is not update in order to avoid unpredictable and frequent cache invaldation. Nevertheless
@@ -245,7 +245,7 @@ of changes made in the repo.
 - run: go run hello.go
 ```
 
-## Caching with actions/cache
+### Caching with actions/cache
 The caching capabilities of the action are limited for the simplest builds and can be ineffective in the real world
 use cases. If the build requires fine-grained turning the built-in caching should be disabled and
 [actions/cache](https://github.com/actions/cache) should be used.
@@ -297,16 +297,16 @@ build:
 
 ```
 
-## Restore-only caches
+### Restore-only caches
 If there are several builds on the same repo it might make sense to create a cache in one build and use it in the
 others. The action [actions/cache/restore](https://github.com/marketplace/actions/cache-restore)
 should be used in this case.
 
-## Generate different caches
+### Generate different caches
 This advanced use case assumes manual definition of cache key and requires the use of
 [actions/cache](https://github.com/actions/cache/blob/main/examples.md#go---modules)
 
-## Parallel builds
+### Parallel builds
 To avoid race conditions during the parallel builds they should either
 [generate their own caches](#generate-different-caches), or create the cache
 for only one build and [restore](#restore-only-caches) that cache in the other builds.
