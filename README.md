@@ -209,7 +209,7 @@ env:
   GOARCH: ...
 
 steps:
-  - run: echo "$GOOS $GOARCH"> /tmp/env
+  - run: echo "$GOOS $GOARCH" > /tmp/env
 
   - uses: actions/setup-go@v4
     with:
@@ -235,16 +235,14 @@ including the source code files into `cache-dependency-path` input.
 ```
 
 ### Caching with actions/cache
-The caching capabilities of the action are limited for the simplest builds and can be ineffective in the real world
-use cases. If the build requires fine-grained turning the built-in caching should be disabled and
-[actions/cache](https://github.com/actions/cache) should be used.
+The caching capabilities of setup-go are limited to the simplest and most popular use cases. If fine-grained tuning of caching is required, it's recommended to disable the built-in caching and use [actions/cache](https://github.com/actions/cache).
 
-Here the sample `actions/cache` configuration with the extending options allowing 
- - configuring paths to cache
- - have different caches for rare changes dependencies and more often changed intermediate build files
- - use `restore-key` input to restore the previous cache even if the current key cache has changed
- - have different caches intermediate build files of different architectures
- - have custom cache key for parallel builds
+The example workflow below utilizes the `actions/cache` action and adds flexibility, for instance, it:
+ - allows to configure cache path
+ - allows to have different caches for rare changed dependencies and more often changed intermediate build files
+ - uses the `restore-key` input to restore the previous cache even if the current key cache has changed
+ - has different caches for the compiler's build outputs for different architectures
+ - has custom cache keys for parallel builds
 
 ```yaml
 build:
@@ -269,8 +267,6 @@ build:
       path: |
         ${{ env.cache }}
       key: setup-go-deps-${{ runner.os }}-go-${{ hashFiles('go.sum go.mod') }}
-      restore-keys: |
-        setup-go-deps-${{ runner.os }}-go-
 
   - name:
     run: echo "$GOOS $GOARCH"> /tmp/env
