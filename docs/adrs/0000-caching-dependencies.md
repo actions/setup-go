@@ -17,8 +17,8 @@ We don't pursue the goal to provide wide customization of caching in scope of `a
 
 # Decision
 - Add `cache` input parameter to `actions/setup-go`. For now, input will accept the following values: 
-  - `true` - enable caching for go dependencies
-  - `false`- disable caching for go dependencies. This value will be set as default value
+  - `true` - enable caching for go dependencies. This value will be set as default value for hosted runners.
+  - `false`- disable caching for go dependencies. This value will be set as default value for self-hosted runners.
 - Cache feature will be disabled by default to make sure that we don't break existing customers. We will consider enabling cache by default in next major releases
 - Action will try to search a go.sum files in the repository and throw error in the scenario that it was not found
 - The hash of found file will be used as cache key (the same approach like [actions/cache](https://github.com/actions/cache/blob/main/examples.md#go---modules) recommends)

@@ -58521,10 +58521,8 @@ function run() {
 }
 exports.run = run;
 const cachePackages = () => __awaiter(void 0, void 0, void 0, function* () {
-    const cacheInput = core.getBooleanInput('cache');
-    if (!cacheInput) {
+    if (!cache_utils_1.getCacheInput())
         return;
-    }
     const packageManager = 'default';
     const state = core.getState(constants_1.State.CacheMatchedKey);
     const primaryKey = core.getState(constants_1.State.CachePrimaryKey);
@@ -58595,11 +58593,12 @@ var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, ge
     });
 };
 Object.defineProperty(exports, "__esModule", ({ value: true }));
-exports.isCacheFeatureAvailable = exports.isGhes = exports.getCacheDirectoryPath = exports.getPackageManagerInfo = exports.getCommandOutput = void 0;
+exports.getCacheInput = exports.isCacheFeatureAvailable = exports.isGhes = exports.getCacheDirectoryPath = exports.getPackageManagerInfo = exports.getCommandOutput = void 0;
 const cache = __importStar(__nccwpck_require__(7799));
 const core = __importStar(__nccwpck_require__(2186));
 const exec = __importStar(__nccwpck_require__(1514));
 const package_managers_1 = __nccwpck_require__(6663);
+const utils_1 = __nccwpck_require__(1314);
 const getCommandOutput = (toolCommand) => __awaiter(void 0, void 0, void 0, function* () {
     let { stdout, stderr, exitCode } = yield exec.getExecOutput(toolCommand, undefined, { ignoreReturnCode: true });
     if (exitCode) {
@@ -58654,6 +58653,13 @@ function isCacheFeatureAvailable() {
     return false;
 }
 exports.isCacheFeatureAvailable = isCacheFeatureAvailable;
+const getCacheInput = () => {
+    // for self-hosted environment turn off cache by default
+    if (utils_1.isSelfHosted() && core.getInput('cache') === '')
+        return false;
+    return core.getBooleanInput('cache');
+};
+exports.getCacheInput = getCacheInput;
 
 
 /***/ }),
@@ -58691,6 +58697,25 @@ exports.supportedPackageManagers = {
         cacheFolderCommandList: ['go env GOMODCACHE', 'go env GOCACHE']
     }
 };
+
+
+/***/ }),
+
+/***/ 1314:
+/***/ ((__unused_webpack_module, exports) => {
+
+"use strict";
+
+Object.defineProperty(exports, "__esModule", ({ value: true }));
+exports.isSelfHosted = exports.StableReleaseAlias = void 0;
+var StableReleaseAlias;
+(function (StableReleaseAlias) {
+    StableReleaseAlias["Stable"] = "stable";
+    StableReleaseAlias["OldStable"] = "oldstable";
+})(StableReleaseAlias = exports.StableReleaseAlias || (exports.StableReleaseAlias = {}));
+const isSelfHosted = () => process.env['RUNNER_ENVIRONMENT'] !== 'github-hosted' &&
+    process.env['AGENT_ISSELFHOSTED'] !== '0';
+exports.isSelfHosted = isSelfHosted;
 
 
 /***/ }),
