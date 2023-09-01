@@ -216,7 +216,7 @@ steps:
       go-version: '1.17'
       cache-dependency-path: |
         go.sum
-	/tmp/env
+        /tmp/env
   - run: go run hello.go    
 ```
 
