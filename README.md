@@ -163,7 +163,7 @@ in different subdirectories. The input supports glob patterns.
 
 If some problem that prevents success caching happens then the action issues the warning in the log and continues the execution of the pipeline. 
 
-**Caching in monorepos**
+### Caching in monorepos
 
 ```yaml
 steps:
@@ -171,14 +171,130 @@ steps:
   - uses: actions/setup-go@v4
     with:
       go-version: '1.17'
-      check-latest: true
-      cache-dependency-path: |
-             subdir/go.sum 
-             tools/go.sum   
-    # cache-dependency-path: "**/*.sum"
-
+      cache-dependency-path: subdir/go.sum
   - run: go run hello.go
   ```
+
+### Caching in multirepos
+`cache-dependency-path` input assepts glob patterns and multi-line values:
+
+```yaml
+steps:
+  - uses: actions/checkout@v3
+  - uses: actions/setup-go@v4
+    with:
+      go-version: '1.17'
+      cache-dependency-path: **/go.sum
+  - run: go run hello.go
+  ```
+
+```yaml
+steps:
+  - uses: actions/checkout@v3
+  - uses: actions/setup-go@v4
+    with:
+      go-version: '1.17'
+      cache-dependency-path: |
+        subdir1/go.sum
+        subdir2/go.mod
+  - run: go run hello.go
+  ```
+
+### Multi-target builds
+The 'cache-dependency-path' input doesn't limit itself to dependency lock files only. It can also be used with additional files that contain details about the build settings. By using this method, caches for builds created for various operating systems, architectures, etc. can be separated.
+
+```yaml
+env:
+  GOOS: ...
+  GOARCH: ...
+
+steps:
+  - run: echo "$GOOS $GOARCH" > /tmp/env
+
+  - uses: actions/setup-go@v4
+    with:
+      go-version: '1.17'
+      cache-dependency-path: |
+        go.sum
+        /tmp/env
+  - run: go run hello.go    
+```
+
+### Invalidate cache when source code changes
+Besides the dependencise the action caches the build outputs 
+([GOCACHE](https://pkg.go.dev/cmd/go#hdr-Build_and_test_caching) directory) but by default this
+cache is not update in order to avoid unpredictable and frequent cache invaldation. Nevertheless
+including the source code files into `cache-dependency-path` input.
+
+```yaml
+- uses: actions/setup-go@v4
+  with:
+    go-version: '1.17'
+    cache-dependency-path: go.sum **/*.go
+- run: go run hello.go
+```
+
+### Caching with actions/cache
+The caching capabilities of setup-go are limited to the simplest and most popular use cases. If fine-grained tuning of caching is required, it's recommended to disable the built-in caching and use [actions/cache](https://github.com/actions/cache).
+
+The example workflow below utilizes the `actions/cache` action and adds flexibility, for instance, it:
+ - allows to configure cache path
+ - allows to have different caches for rare changed dependencies and more often changed intermediate build files
+ - uses the `restore-key` input to restore the previous cache even if the current key cache has changed
+ - has different caches for the compiler's build outputs for different architectures
+ - has custom cache keys for parallel builds
+
+```yaml
+build:
+  env:
+   GOOS: ...
+   GOARCH: ...
+
+  steps:
+  - uses: actions/setup-go@v4
+    with:
+      go-version: "1.17"
+      cache: false
+
+  - name: Get Go cached paths
+    run: |
+      echo "cache=$(go env GOCACHE)" >> $GITHUB_ENV
+      echo "modcache=$(go env GOMODCACHE)" >> $GITHUB_ENV
+
+  - name: Set up dependencies cache
+    uses: actions/cache@v3
+    with:
+      path: |
+        ${{ env.cache }}
+      key: setup-go-deps-${{ runner.os }}-go-${{ hashFiles('go.sum go.mod') }}
+
+  - name:
+    run: echo "$GOOS $GOARCH"> /tmp/env
+
+  - name: Set up intermediate built files cache
+    uses: actions/cache@v3
+    with:
+      path: |
+        ${{ env.modcache }}
+      key: setup-go-build-${{ env.GOOS }}-${{ env.GOARCH }}-${{ runner.os }}-go-${{ hashFiles('**/*.go /tmp/env') }}
+      restore-keys: |
+        setup-go-build-${{ env.GOOS }}-${{ env.GOARCH }}
+
+```
+
+### Restore-only caches
+If there are several builds on the same repo it might make sense to create a cache in one build and use it in the
+others. The action [actions/cache/restore](https://github.com/marketplace/actions/cache-restore)
+should be used in this case.
+
+### Generate different caches
+This advanced use case assumes manual definition of cache key and requires the use of
+[actions/cache](https://github.com/actions/cache/blob/main/examples.md#go---modules)
+
+### Parallel builds
+To avoid race conditions during the parallel builds they should either
+[generate their own caches](#generate-different-caches), or create the cache
+for only one build and [restore](#restore-only-caches) that cache in the other builds.
 
 ## Getting go version from the go.mod file
 
