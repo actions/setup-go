@@ -32,10 +32,12 @@
     "@actions/http-client": "^2.0.1",
     "@actions/io": "^1.0.2",
     "@actions/tool-cache": "^1.5.5",
+    "lodash.memoize": "^4.1.2",
     "semver": "^6.3.1"
   },
   "devDependencies": {
     "@types/jest": "^27.0.2",
+    "@types/lodash": "^4.14.198",
     "@types/node": "^16.11.25",
     "@types/semver": "^6.0.0",
     "@typescript-eslint/eslint-plugin": "^5.54.0",

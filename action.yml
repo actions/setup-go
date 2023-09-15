@@ -13,17 +13,32 @@ inputs:
     description: Used to pull Go distributions from go-versions. Since there's a default, this is typically not supplied by the user. When running this action on github.com, the default value is sufficient. When running on GHES, you can pass a personal access token for github.com if you are experiencing rate limiting.
     default: ${{ github.server_url == 'https://github.com' && github.token || '' }}
   cache:
-    description: Used to specify whether caching is needed. Set to true, if you'd like to enable caching.
+    description: Used to specify whether caching is needed. Set to true, if you'd like to enable caching for both modules and intermediate build results.
+    default: true
+  cache-mod:
+    description: Used to specify whether modules caching is needed. Set to false, if you've found it increase the overall build time.
+    default: true
+  cache-build:
+    description: Used to specify whether caching of intermediate build files is needed. Set to false, if you've found it increase the overall build time.
     default: true
   cache-dependency-path:
-    description: 'Used to specify the path to a dependency file - go.sum'
+    description: 'Used to specify the path or glob pattern to a file(s) the caching of modules depends on, default: go.sum'
+  cache-build-path:
+    description: 'Used to specify the path or glob pattern to a file(s) that affect the caching of intermediate build results, default: **/*.go'
+  cache-id:
+    description: 'Used to modify cache ID if the parallel workflows must not share the same cache, default: none'
+  cache-lookup-only:
+    description: 'Use the cache created by another workflow, but do not update it'
+    default: false
   architecture:
     description: 'Target architecture for Go to use. Examples: x86, x64. Will use system architecture by default.'
 outputs:
   go-version:
     description: 'The installed Go version. Useful when given a version range as input.'
   cache-hit:
-    description: 'A boolean value to indicate if a cache was hit'
+    description: 'A boolean value to indicate if a modules cache was hit'
+  cache-build-hit:
+    description: 'A boolean value to indicate if a intermediate build results cache was hit'
 runs:
   using: 'node20'
   main: 'dist/setup/index.js'
