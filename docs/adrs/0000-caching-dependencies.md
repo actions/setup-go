@@ -4,7 +4,7 @@ Date: 2022-04-13
 Status: Accepted
 
 # Context
-`actions/setup-go` is the one of the most popular action related to Golang in GitHub Actions. Many customers use it in conjunction with [actions/cache](https://github.com/actions/cache) to speed up dependency installation process.  
+`actions/setup-go` is the one of the most popular action related to Golang in GitHub Actions. Many customers use it in conjunction with [actions/cache](https://github.com/actions/cache) to speed up dependency installation process.
 See more examples on proper usage in [actions/cache documentation](https://github.com/actions/cache/blob/main/examples.md#go---modules).
 
 # Goals & Anti-Goals
@@ -16,7 +16,7 @@ Integration of caching functionality into `actions/setup-go` action will bring t
 We don't pursue the goal to provide wide customization of caching in scope of `actions/setup-go` action. The purpose of this integration is covering ~90% of basic use-cases. If user needs flexible customization, we should advice them to use `actions/cache` directly.
 
 # Decision
-- Add `cache` input parameter to `actions/setup-go`. For now, input will accept the following values: 
+- Add `cache` input parameter to `actions/setup-go`. For now, input will accept the following values:
   - `true` - enable caching for go dependencies
   - `false`- disable caching for go dependencies. This value will be set as default value
 - Cache feature will be disabled by default to make sure that we don't break existing customers. We will consider enabling cache by default in next major releases
@@ -32,7 +32,7 @@ We don't pursue the goal to provide wide customization of caching in scope of `a
 
 ```yml
 steps:
-- uses: actions/checkout@v3
+- uses: actions/checkout@v4
 - uses: actions/setup-go@v3
   with:
     go-version: '18'
@@ -43,7 +43,7 @@ steps:
 
  ```yml
 steps:
-- uses: actions/checkout@v3
+- uses: actions/checkout@v4
 - uses: actions/setup-go@v3
   with:
     go-version: '18'
@@ -53,7 +53,7 @@ steps:
 
  ```yml
 steps:
-- uses: actions/checkout@v3
+- uses: actions/checkout@v4
 - uses: actions/setup-go@v3
   with:
     go-version: '18'
