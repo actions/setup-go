@@ -1,8 +1,11 @@
 export enum State {
-  CachePrimaryKey = 'CACHE_KEY',
-  CacheMatchedKey = 'CACHE_RESULT'
+    CacheModPrimaryKey = 'CACHE_KEY',
+    CacheModMatchedKey = 'CACHE_RESULT',
+    CacheBuildPrimaryKey = 'CACHE_BUILD_KEY',
+    CacheBuildMatchedKey = 'CACHE_BUILD_RESULT'
 }
 
 export enum Outputs {
-  CacheHit = 'cache-hit'
+    CacheModHit = 'cache-hit',
+    CacheBuildHit = 'cache-build-hit'
 }

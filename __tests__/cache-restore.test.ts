@@ -41,7 +41,7 @@ describe('restoreCache', () => {
 
     //Act + Assert
     await expect(async () => {
-      await cacheRestore.restoreCache(
+      await cacheRestore.restoreModCache(
         versionSpec,
         packageManager,
         cacheDependencyPath
@@ -66,7 +66,7 @@ describe('restoreCache', () => {
     });
 
     //Act + Assert
-    await cacheRestore.restoreCache(
+    await cacheRestore.restoreModCache(
       versionSpec,
       packageManager,
       cacheDependencyPath
@@ -89,7 +89,7 @@ describe('restoreCache', () => {
     });
 
     //Act + Assert
-    await cacheRestore.restoreCache(
+    await cacheRestore.restoreModCache(
       versionSpec,
       packageManager,
       cacheDependencyPath

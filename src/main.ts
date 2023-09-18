@@ -3,8 +3,14 @@ import * as io from '@actions/io';
 import * as installer from './installer';
 import * as semver from 'semver';
 import path from 'path';
-import {restoreCache} from './cache-restore';
-import {isCacheFeatureAvailable} from './cache-utils';
+import {restoreBuildCache, restoreModCache} from './cache-restore';
+import {
+  getBuildDependenciesPath,
+  getModDependenciesPath,
+  isCacheFeatureAvailable,
+  needBuildCache,
+  needModCache
+} from './cache-utils';
 import cp from 'child_process';
 import fs from 'fs';
 import os from 'os';
@@ -17,7 +23,6 @@ export async function run() {
     //
     const versionSpec = resolveVersionInput();
 
-    const cache = core.getBooleanInput('cache');
     core.info(`Setup go version spec ${versionSpec}`);
 
     let arch = core.getInput('architecture');
@@ -64,17 +69,30 @@ export async function run() {
     const goPath = await io.which('go');
     const goVersion = (cp.execSync(`${goPath} version`) || '').toString();
 
-    if (cache && isCacheFeatureAvailable()) {
+    const cacheFeatureAvailable = isCacheFeatureAvailable()
+    if (needModCache() && cacheFeatureAvailable) {
       const packageManager = 'default';
-      const cacheDependencyPath = core.getInput('cache-dependency-path');
+      const cacheDependencyPath = getModDependenciesPath()
       try {
-        await restoreCache(
+        await restoreModCache(
           parseGoVersion(goVersion),
           packageManager,
           cacheDependencyPath
         );
       } catch (error) {
-        core.warning(`Restore cache failed: ${error.message}`);
+        core.warning(`Restore modules cache failed: ${error.message}`);
+      }
+    }
+
+    if (needBuildCache() && cacheFeatureAvailable) {
+      const cacheBuildPath = getBuildDependenciesPath()
+      try {
+        await restoreBuildCache(
+            parseGoVersion(goVersion),
+            cacheBuildPath
+        );
+      } catch (error) {
+        core.warning(`Restore modules cache failed: ${error.message}`);
       }
     }
 
@@ -110,7 +128,7 @@ export async function addBinToPath(): Promise<boolean> {
     const gp = buf.toString().trim();
     core.debug(`go env GOPATH :${gp}:`);
     if (!fs.existsSync(gp)) {
-      // some of the hosted images have go install but not profile dir
+      // some of hosted images have go install but not profile dir
       core.debug(`creating ${gp}`);
       await io.mkdirP(gp);
     }
