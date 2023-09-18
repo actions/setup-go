@@ -13,6 +13,10 @@ process.on('uncaughtException', e => {
 });
 
 export async function run() {
+  if (core.getState(State.CacheRestoreOnly) === State.True) {
+    core.info('"cache-restore-only" set to true, skip caching');
+    return;
+  }
   try {
     await cachePackages();
   } catch (error) {

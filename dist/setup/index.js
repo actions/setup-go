@@ -61339,6 +61339,9 @@ var State;
 (function (State) {
     State["CachePrimaryKey"] = "CACHE_KEY";
     State["CacheMatchedKey"] = "CACHE_RESULT";
+    State["CacheRestoreOnly"] = "CACHE_RESTORE_ONLY";
+    State["True"] = "true";
+    State["False"] = "false";
 })(State = exports.State || (exports.State = {}));
 var Outputs;
 (function (Outputs) {
@@ -61781,6 +61784,7 @@ const cache_utils_1 = __nccwpck_require__(1678);
 const child_process_1 = __importDefault(__nccwpck_require__(2081));
 const fs_1 = __importDefault(__nccwpck_require__(7147));
 const os_1 = __importDefault(__nccwpck_require__(2037));
+const constants_1 = __nccwpck_require__(9042);
 function run() {
     return __awaiter(this, void 0, void 0, function* () {
         try {
@@ -61818,6 +61822,8 @@ function run() {
             core.debug(`add bin ${added}`);
             const goPath = yield io.which('go');
             const goVersion = (child_process_1.default.execSync(`${goPath} version`) || '').toString();
+            const cacheRestoreOnly = core.getBooleanInput('cache-restore-only');
+            core.saveState(constants_1.State.CacheRestoreOnly, cacheRestoreOnly ? constants_1.State.True : constants_1.State.False);
             if (cache && cache_utils_1.isCacheFeatureAvailable()) {
                 const packageManager = 'default';
                 const cacheDependencyPath = core.getInput('cache-dependency-path');

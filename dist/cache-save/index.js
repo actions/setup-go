@@ -58504,6 +58504,10 @@ process.on('uncaughtException', e => {
 });
 function run() {
     return __awaiter(this, void 0, void 0, function* () {
+        if (core.getState(constants_1.State.CacheRestoreOnly) === constants_1.State.True) {
+            core.info('"cache-restore-only" set to true, skip caching');
+            return;
+        }
         try {
             yield cachePackages();
         }
@@ -58669,6 +58673,9 @@ var State;
 (function (State) {
     State["CachePrimaryKey"] = "CACHE_KEY";
     State["CacheMatchedKey"] = "CACHE_RESULT";
+    State["CacheRestoreOnly"] = "CACHE_RESTORE_ONLY";
+    State["True"] = "true";
+    State["False"] = "false";
 })(State = exports.State || (exports.State = {}));
 var Outputs;
 (function (Outputs) {
