@@ -42,7 +42,7 @@ Matching by [semver spec](https://github.com/npm/node-semver):
 
 ```yaml
 steps:
-  - uses: actions/checkout@v3
+  - uses: actions/checkout@v4
   - uses: actions/setup-go@v4
     with:
       go-version: '^1.13.1' # The Go version to download (if necessary) and use.
@@ -51,7 +51,7 @@ steps:
 
 ```yaml
 steps:
-  - uses: actions/checkout@v3
+  - uses: actions/checkout@v4
   - uses: actions/setup-go@v4
     with:
       go-version: '>=1.17.0'
@@ -59,17 +59,17 @@ steps:
 ```
 
 > **Note**: Due to the peculiarities of YAML parsing, it is recommended to wrap the version in single quotation marks:
-> 
+>
 > ```yaml
 >   go-version: '1.20'
 >  ```
->  
+>
 > The recommendation is based on the YAML parser's behavior, which interprets non-wrapped values as numbers and, in the case of version 1.20, trims it down to 1.2, which may not be very obvious.
 Matching an unstable pre-release:
 
 ```yaml
 steps:
-  - uses: actions/checkout@v3
+  - uses: actions/checkout@v4
   - uses: actions/setup-go@v4
     with:
       go-version: '1.18.0-rc.1' # The Go version to download (if necessary) and use.
@@ -78,7 +78,7 @@ steps:
 
 ```yaml
 steps:
-  - uses: actions/checkout@v3
+  - uses: actions/checkout@v4
   - uses: actions/setup-go@v4
     with:
       go-version: '1.16.0-beta.1' # The Go version to download (if necessary) and use.
@@ -93,7 +93,7 @@ See [action.yml](action.yml)
 
 ```yaml
 steps:
-  - uses: actions/checkout@v3
+  - uses: actions/checkout@v4
   - uses: actions/setup-go@v4
     with:
       go-version: '1.16.1' # The Go version to download (if necessary) and use.
@@ -114,7 +114,7 @@ want the most up-to-date Go version to always be used.
 
 ```yaml
 steps:
-  - uses: actions/checkout@v3
+  - uses: actions/checkout@v4
   - uses: actions/setup-go@v4
     with:
       go-version: '1.14'
@@ -135,7 +135,7 @@ set to `true`
 
 ```yaml
 steps:
-  - uses: actions/checkout@v3
+  - uses: actions/checkout@v4
   - uses: actions/setup-go@v4
     with:
       go-version: 'stable'
@@ -144,7 +144,7 @@ steps:
 
 ```yaml
 steps:
-  - uses: actions/checkout@v3
+  - uses: actions/checkout@v4
   - uses: actions/setup-go@v4
     with:
       go-version: 'oldstable'
@@ -159,20 +159,24 @@ The `cache` input is optional, and caching is turned on by default.
 
 The action defaults to search for the dependency file - go.sum in the repository root, and uses its hash as a part of
 the cache key. Use `cache-dependency-path` input for cases when multiple dependency files are used, or they are located
-in different subdirectories.
+in different subdirectories. The input supports glob patterns.
 
-If some problem that prevents success caching happens then the action issues the warning in the log and continues the execution of the pipeline. 
+If some problem that prevents success caching happens then the action issues the warning in the log and continues the execution of the pipeline.
 
 **Caching in monorepos**
 
 ```yaml
 steps:
-  - uses: actions/checkout@v3
+  - uses: actions/checkout@v4
   - uses: actions/setup-go@v4
     with:
       go-version: '1.17'
       check-latest: true
-      cache-dependency-path: subdir/go.sum
+      cache-dependency-path: |
+             subdir/go.sum
+             tools/go.sum
+    # cache-dependency-path: "**/*.sum"
+
   - run: go run hello.go
   ```
 
@@ -189,7 +193,7 @@ If both the `go-version` and the `go-version-file` inputs are provided then the 
 
 ```yaml
 steps:
-  - uses: actions/checkout@v3
+  - uses: actions/checkout@v4
   - uses: actions/setup-go@v4
     with:
       go-version-file: 'path/to/go.mod'
@@ -207,7 +211,7 @@ jobs:
         go: [ '1.14', '1.13' ]
     name: Go ${{ matrix.go }} sample
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
       - name: Setup go
         uses: actions/setup-go@v4
         with:

@@ -61514,6 +61514,10 @@ function cacheWindowsDir(extPath, tool, version, arch) {
         fs_1.default.mkdirSync(path.dirname(defaultToolCacheDir), { recursive: true });
         fs_1.default.symlinkSync(actualToolCacheDir, defaultToolCacheDir, 'junction');
         core.info(`Created link ${defaultToolCacheDir} => ${actualToolCacheDir}`);
+        const actualToolCacheCompleteFile = `${actualToolCacheDir}.complete`;
+        const defaultToolCacheCompleteFile = `${defaultToolCacheDir}.complete`;
+        fs_1.default.symlinkSync(actualToolCacheCompleteFile, defaultToolCacheCompleteFile, 'file');
+        core.info(`Created link ${defaultToolCacheCompleteFile} => ${actualToolCacheCompleteFile}`);
         // make outer code to continue using toolcache as if it were installed on c:
         // restore toolcache root to default drive c:
         process.env['RUNNER_TOOL_CACHE'] = defaultToolCacheRoot;
