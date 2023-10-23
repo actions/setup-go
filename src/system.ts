@@ -26,11 +26,10 @@ export function getArch(arch: string): string {
       arch = 'amd64';
       break;
     case 'ppc64':
-      if(endianness=='LE') {
-       arch = 'ppc64le';
-      }
-      else {
-       arch = 'ppc64';
+      if (endianness == 'LE') {
+        arch = 'ppc64le';
+      } else {
+        arch = 'ppc64';
       }
       break;
     case 'x32':

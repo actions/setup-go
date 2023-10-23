@@ -61954,10 +61954,9 @@ function getArch(arch) {
             arch = 'amd64';
             break;
         case 'ppc64':
-            if(endianness=='LE') {
+            if (endianness == 'LE') {
               arch = 'ppc64le';
-            }
-            else {
+            } else {
               arch = 'ppc64';
             }
             break;
