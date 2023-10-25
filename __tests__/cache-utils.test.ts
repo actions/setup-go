@@ -3,6 +3,8 @@ import * as cache from '@actions/cache';
 import * as core from '@actions/core';
 import * as cacheUtils from '../src/cache-utils';
 import {PackageManagerInfo} from '../src/package-managers';
+import fs, {ObjectEncodingOptions, PathLike} from 'fs';
+import {getToolchainDirectoriesFromCachedDirectories} from '../src/cache-utils';
 
 describe('getCommandOutput', () => {
   //Arrange
@@ -207,5 +209,180 @@ describe('isCacheFeatureAvailable', () => {
     //Act + Assert
     expect(cacheUtils.isCacheFeatureAvailable()).toBeFalsy();
     expect(warningSpy).toHaveBeenCalledWith(warningMessage);
+  });
+});
+
+describe('parseGoModForToolchainVersion', () => {
+  const readFileSyncSpy = jest.spyOn(fs, 'readFileSync');
+
+  afterEach(() => {
+    jest.clearAllMocks();
+  });
+
+  it('should return null when go.mod file not exist', async () => {
+    //Arrange
+    //Act
+    const toolchainVersion = cacheUtils.parseGoModForToolchainVersion(
+      '/tmp/non/exist/foo.bar'
+    );
+    //Assert
+    expect(toolchainVersion).toBeNull();
+  });
+
+  it('should return null when go.mod file is empty', async () => {
+    //Arrange
+    readFileSyncSpy.mockImplementation(() => '');
+    //Act
+    const toolchainVersion = cacheUtils.parseGoModForToolchainVersion('go.mod');
+    //Assert
+    expect(toolchainVersion).toBeNull();
+  });
+
+  it('should return null when go.mod file does not contain toolchain version', async () => {
+    //Arrange
+    readFileSyncSpy.mockImplementation(() =>
+      `
+            module example-mod
+
+            go 1.21.0
+
+            require golang.org/x/tools v0.13.0
+
+            require (
+              golang.org/x/mod v0.12.0 // indirect
+              golang.org/x/sys v0.12.0 // indirect
+            )
+        `.replace(/^\s+/gm, '')
+    );
+    //Act
+    const toolchainVersion = cacheUtils.parseGoModForToolchainVersion('go.mod');
+    //Assert
+    expect(toolchainVersion).toBeNull();
+  });
+
+  it('should return go version when go.mod file contains go version', () => {
+    //Arrange
+    readFileSyncSpy.mockImplementation(() =>
+      `
+            module example-mod
+
+            go 1.21.0
+
+            toolchain go1.21.1
+
+            require golang.org/x/tools v0.13.0
+
+            require (
+              golang.org/x/mod v0.12.0 // indirect
+              golang.org/x/sys v0.12.0 // indirect
+            )
+        `.replace(/^\s+/gm, '')
+    );
+
+    //Act
+    const toolchainVersion = cacheUtils.parseGoModForToolchainVersion('go.mod');
+    //Assert
+    expect(toolchainVersion).toBe('1.21.1');
+  });
+
+  it('should return go version when go.mod file contains more than one go version', () => {
+    //Arrange
+    readFileSyncSpy.mockImplementation(() =>
+      `
+            module example-mod
+
+            go 1.21.0
+
+            toolchain go1.21.0
+            toolchain go1.21.1
+
+            require golang.org/x/tools v0.13.0
+
+            require (
+              golang.org/x/mod v0.12.0 // indirect
+              golang.org/x/sys v0.12.0 // indirect
+            )
+        `.replace(/^\s+/gm, '')
+    );
+
+    //Act
+    const toolchainVersion = cacheUtils.parseGoModForToolchainVersion('go.mod');
+    //Assert
+    expect(toolchainVersion).toBe('1.21.1');
+  });
+});
+
+describe('getToolchainDirectoriesFromCachedDirectories', () => {
+  const readdirSyncSpy = jest.spyOn(fs, 'readdirSync');
+  const existsSyncSpy = jest.spyOn(fs, 'existsSync');
+  const lstatSync = jest.spyOn(fs, 'lstatSync');
+
+  afterEach(() => {
+    jest.clearAllMocks();
+  });
+
+  it('should return empty array when cacheDirectories is empty', async () => {
+    const toolcacheDirectories = getToolchainDirectoriesFromCachedDirectories(
+      'foo',
+      []
+    );
+    expect(toolcacheDirectories).toEqual([]);
+  });
+
+  it('should return empty array when cacheDirectories does not contain /go/pkg', async () => {
+    readdirSyncSpy.mockImplementation(dir =>
+      [`${dir}1`, `${dir}2`, `${dir}3`].map(s => {
+        const de = new fs.Dirent();
+        de.name = s;
+        de.isDirectory = () => true;
+        return de;
+      })
+    );
+
+    const toolcacheDirectories = getToolchainDirectoriesFromCachedDirectories(
+      '1.1.1',
+      ['foo', 'bar']
+    );
+    expect(toolcacheDirectories).toEqual([]);
+  });
+
+  it('should return empty array when cacheDirectories does not contain toolchain@v[0-9.]+-go{goVersion}', async () => {
+    readdirSyncSpy.mockImplementation(dir =>
+      [`${dir}1`, `${dir}2`, `${dir}3`].map(s => {
+        const de = new fs.Dirent();
+        de.name = s;
+        de.isDirectory = () => true;
+        return de;
+      })
+    );
+
+    const toolcacheDirectories = getToolchainDirectoriesFromCachedDirectories(
+      'foo',
+      ['foo/go/pkg/mod', 'bar']
+    );
+    expect(toolcacheDirectories).toEqual([]);
+  });
+
+  it('should return one entry when cacheDirectories contains toolchain@v[0-9.]+-go{goVersion} in /pkg/mod', async () => {
+    let seqNo = 1;
+    readdirSyncSpy.mockImplementation(dir =>
+      [`toolchain@v0.0.1-go1.1.1.arch-${seqNo++}`].map(s => {
+        const de = new fs.Dirent();
+        de.name = s;
+        de.isDirectory = () => true;
+        return de;
+      })
+    );
+    existsSyncSpy.mockReturnValue(true);
+    // @ts-ignore - jest does not have relaxed mocks, so we ignore not-implemented methods
+    lstatSync.mockImplementation(() => ({isDirectory: () => true}));
+
+    const toolcacheDirectories = getToolchainDirectoriesFromCachedDirectories(
+      '1.1.1',
+      ['/foo/go/pkg/mod', 'bar']
+    );
+    expect(toolcacheDirectories).toEqual([
+      '/foo/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.1.1.arch-1'
+    ]);
   });
 });

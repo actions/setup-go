@@ -2,6 +2,7 @@ import * as cache from '@actions/cache';
 import * as core from '@actions/core';
 import * as exec from '@actions/exec';
 import {supportedPackageManagers, PackageManagerInfo} from './package-managers';
+import fs from 'fs';
 
 export const getCommandOutput = async (toolCommand: string) => {
   let {stdout, stderr, exitCode} = await exec.getExecOutput(
@@ -82,4 +83,51 @@ export function isCacheFeatureAvailable(): boolean {
     'The runner was not able to contact the cache service. Caching will be skipped'
   );
   return false;
+}
+
+export function parseGoModForToolchainVersion(
+  goModPath: string
+): string | null {
+  try {
+    const goMod = fs.readFileSync(goModPath, 'utf8');
+    const matches = Array.from(goMod.matchAll(/^toolchain\s+go(\S+)/gm));
+    if (matches && matches.length > 0) {
+      return matches[matches.length - 1][1];
+    }
+  } catch (error) {
+    if (error.message && error.message.startsWith('ENOENT')) {
+      core.warning(
+        `go.mod file not found at ${goModPath}, can't parse toolchain version`
+      );
+      return null;
+    }
+    throw error;
+  }
+  return null;
+}
+
+function isDirent(item: fs.Dirent | string): item is fs.Dirent {
+  return item instanceof fs.Dirent;
+}
+
+export function getToolchainDirectoriesFromCachedDirectories(
+  goVersion: string,
+  cacheDirectories: string[]
+): string[] {
+  const re = new RegExp(`^toolchain@v[0-9.]+-go${goVersion}\\.`);
+  return (
+    cacheDirectories
+      // This line should be replaced with separating the cache directory from build artefact directory
+      // see PoC PR: https://github.com/actions/setup-go/pull/426
+      // Till then, the workaround is expected to work in most cases, and it won't cause any harm
+      .filter(dir => dir.endsWith('/pkg/mod'))
+      .map(dir => `${dir}/golang.org`)
+      .flatMap(dir =>
+        fs
+          .readdirSync(dir)
+          .map(subdir => (isDirent(subdir) ? subdir.name : dir))
+          .filter(subdir => re.test(subdir))
+          .map(subdir => `${dir}/${subdir}`)
+      )
+  );
 }

@@ -58546,6 +58546,15 @@ const cachePackages = () => __awaiter(void 0, void 0, void 0, function* () {
         core.info(`Cache hit occurred on the primary key ${primaryKey}, not saving cache.`);
         return;
     }
+    const toolchainVersion = core.getState(constants_1.State.ToolchainVersion);
+    // toolchainVersion is always null for self-hosted runners
+    if (toolchainVersion) {
+        const toolchainDirectories = cache_utils_1.getToolchainDirectoriesFromCachedDirectories(toolchainVersion, cachePaths);
+        toolchainDirectories.forEach(toolchainDirectory => {
+            core.warning(`Toolchain version ${toolchainVersion} will be removed from cache: ${toolchainDirectory}`);
+            fs_1.default.rmSync(toolchainDirectory, { recursive: true });
+        });
+    }
     const cacheId = yield cache.saveCache(cachePaths, primaryKey);
     if (cacheId === -1) {
         return;
@@ -58594,12 +58603,16 @@ var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, ge
         step((generator = generator.apply(thisArg, _arguments || [])).next());
     });
 };
+var __importDefault = (this && this.__importDefault) || function (mod) {
+    return (mod && mod.__esModule) ? mod : { "default": mod };
+};
 Object.defineProperty(exports, "__esModule", ({ value: true }));
-exports.isCacheFeatureAvailable = exports.isGhes = exports.getCacheDirectoryPath = exports.getPackageManagerInfo = exports.getCommandOutput = void 0;
+exports.getToolchainDirectoriesFromCachedDirectories = exports.parseGoModForToolchainVersion = exports.isCacheFeatureAvailable = exports.isGhes = exports.getCacheDirectoryPath = exports.getPackageManagerInfo = exports.getCommandOutput = void 0;
 const cache = __importStar(__nccwpck_require__(7799));
 const core = __importStar(__nccwpck_require__(2186));
 const exec = __importStar(__nccwpck_require__(1514));
 const package_managers_1 = __nccwpck_require__(6663);
+const fs_1 = __importDefault(__nccwpck_require__(7147));
 const getCommandOutput = (toolCommand) => __awaiter(void 0, void 0, void 0, function* () {
     let { stdout, stderr, exitCode } = yield exec.getExecOutput(toolCommand, undefined, { ignoreReturnCode: true });
     if (exitCode) {
@@ -58654,6 +58667,42 @@ function isCacheFeatureAvailable() {
     return false;
 }
 exports.isCacheFeatureAvailable = isCacheFeatureAvailable;
+function parseGoModForToolchainVersion(goModPath) {
+    try {
+        const goMod = fs_1.default.readFileSync(goModPath, 'utf8');
+        const matches = Array.from(goMod.matchAll(/^toolchain\s+go(\S+)/gm));
+        if (matches && matches.length > 0) {
+            return matches[matches.length - 1][1];
+        }
+    }
+    catch (error) {
+        if (error.message && error.message.startsWith('ENOENT')) {
+            core.warning(`go.mod file not found at ${goModPath}, can't parse toolchain version`);
+            return null;
+        }
+        throw error;
+    }
+    return null;
+}
+exports.parseGoModForToolchainVersion = parseGoModForToolchainVersion;
+function isDirent(item) {
+    return item instanceof fs_1.default.Dirent;
+}
+function getToolchainDirectoriesFromCachedDirectories(goVersion, cacheDirectories) {
+    const re = new RegExp(`^toolchain@v[0-9.]+-go${goVersion}\\.`);
+    return (cacheDirectories
+        // This line should be replaced with separating the cache directory from build artefact directory
+        // see PoC PR: https://github.com/actions/setup-go/pull/426
+        // Till then, the workaround is expected to work in most cases, and it won't cause any harm
+        .filter(dir => dir.endsWith('/pkg/mod'))
+        .map(dir => `${dir}/golang.org`)
+        .flatMap(dir => fs_1.default
+        .readdirSync(dir)
+        .map(subdir => (isDirent(subdir) ? subdir.name : dir))
+        .filter(subdir => re.test(subdir))
+        .map(subdir => `${dir}/${subdir}`)));
+}
+exports.getToolchainDirectoriesFromCachedDirectories = getToolchainDirectoriesFromCachedDirectories;
 
 
 /***/ }),
@@ -58669,6 +58718,7 @@ var State;
 (function (State) {
     State["CachePrimaryKey"] = "CACHE_KEY";
     State["CacheMatchedKey"] = "CACHE_RESULT";
+    State["ToolchainVersion"] = "TOOLCACHE_VERSION";
 })(State = exports.State || (exports.State = {}));
 var Outputs;
 (function (Outputs) {

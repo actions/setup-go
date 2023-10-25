@@ -2,7 +2,11 @@ import * as core from '@actions/core';
 import * as cache from '@actions/cache';
 import fs from 'fs';
 import {State} from './constants';
-import {getCacheDirectoryPath, getPackageManagerInfo} from './cache-utils';
+import {
+  getCacheDirectoryPath,
+  getPackageManagerInfo,
+  getToolchainDirectoriesFromCachedDirectories
+} from './cache-utils';
 
 // Catch and log any unhandled exceptions.  These exceptions can leak out of the uploadChunk method in
 // @actions/toolkit when a failed upload closes the file descriptor causing any in-process reads to
@@ -71,6 +75,21 @@ const cachePackages = async () => {
       `Cache hit occurred on the primary key ${primaryKey}, not saving cache.`
     );
     return;
+  }
+
+  const toolchainVersion = core.getState(State.ToolchainVersion);
+  // toolchainVersion is always null for self-hosted runners
+  if (toolchainVersion) {
+    const toolchainDirectories = getToolchainDirectoriesFromCachedDirectories(
+      toolchainVersion,
+      cachePaths
+    );
+    toolchainDirectories.forEach(toolchainDirectory => {
+      core.warning(
+        `Toolchain version ${toolchainVersion} will be removed from cache: ${toolchainDirectory}`
+      );
+      fs.rmSync(toolchainDirectory, {recursive: true});
+    });
   }
 
   const cacheId = await cache.saveCache(cachePaths, primaryKey);

@@ -1,0 +1,40 @@
+name: Validate 'setup-go'
+
+on:
+  push:
+    branches:
+      - main
+    paths-ignore:
+      - '**.md'
+  pull_request:
+    paths-ignore:
+      - '**.md'
+  schedule:
+    - cron: 0 0 * * *
+
+jobs:
+  local-cache:
+    name: Setup local-cache version
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [macos-latest, windows-latest, ubuntu-latest]
+        go: [1.21]
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: substitute go.mod with toolchain
+        run: |
+          cp __tests__/toolchain.go.mod go.mod
+        shell: bash
+
+      - name: setup-go ${{ matrix.go }}
+        uses: ./
+        with:
+          go-version: ${{ matrix.go }}
+
+      - name: verify go
+        run: __tests__/verify-go.sh ${{ matrix.go }}
+        shell: bash
