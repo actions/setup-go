@@ -6,7 +6,12 @@ import fs from 'fs';
 
 import {State, Outputs} from './constants';
 import {PackageManagerInfo} from './package-managers';
-import {getCacheDirectoryPath, getPackageManagerInfo} from './cache-utils';
+import {
+  getCacheDirectoryPath,
+  getPackageManagerInfo,
+  parseGoModForToolchainVersion
+} from './cache-utils';
+import {isSelfHosted} from './utils';
 
 export const restoreCache = async (
   versionSpec: string,
@@ -21,6 +26,18 @@ export const restoreCache = async (
   const dependencyFilePath = cacheDependencyPath
     ? cacheDependencyPath
     : findDependencyFile(packageManagerInfo);
+
+  // In order to do not duplicate evaluation of dependency paths, we get
+  // toolchain Version here and pass to the saveCache via the state
+  if (!isSelfHosted()) {
+    const toolchainVersion =
+      cacheDependencyPath && path.basename(cacheDependencyPath) === 'go.mod'
+        ? parseGoModForToolchainVersion(cacheDependencyPath)
+        : null;
+    toolchainVersion &&
+      core.saveState(State.ToolchainVersion, toolchainVersion);
+  }
+
   const fileHash = await glob.hashFiles(dependencyFilePath);
 
   if (!fileHash) {

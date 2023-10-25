@@ -61191,6 +61191,7 @@ const path_1 = __importDefault(__nccwpck_require__(1017));
 const fs_1 = __importDefault(__nccwpck_require__(7147));
 const constants_1 = __nccwpck_require__(9042);
 const cache_utils_1 = __nccwpck_require__(1678);
+const utils_1 = __nccwpck_require__(1314);
 const restoreCache = (versionSpec, packageManager, cacheDependencyPath) => __awaiter(void 0, void 0, void 0, function* () {
     const packageManagerInfo = yield cache_utils_1.getPackageManagerInfo(packageManager);
     const platform = process.env.RUNNER_OS;
@@ -61198,6 +61199,15 @@ const restoreCache = (versionSpec, packageManager, cacheDependencyPath) => __awa
     const dependencyFilePath = cacheDependencyPath
         ? cacheDependencyPath
         : findDependencyFile(packageManagerInfo);
+    // In order to do not duplicate evaluation of dependency paths, we get
+    // toolchain Version here and pass to the saveCache via the state
+    if (!utils_1.isSelfHosted()) {
+        const toolchainVersion = cacheDependencyPath && path_1.default.basename(cacheDependencyPath) === 'go.mod'
+            ? cache_utils_1.parseGoModForToolchainVersion(cacheDependencyPath)
+            : null;
+        toolchainVersion &&
+            core.saveState(constants_1.State.ToolchainVersion, toolchainVersion);
+    }
     const fileHash = yield glob.hashFiles(dependencyFilePath);
     if (!fileHash) {
         throw new Error('Some specified paths were not resolved, unable to cache dependencies.');
@@ -61264,12 +61274,16 @@ var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, ge
         step((generator = generator.apply(thisArg, _arguments || [])).next());
     });
 };
+var __importDefault = (this && this.__importDefault) || function (mod) {
+    return (mod && mod.__esModule) ? mod : { "default": mod };
+};
 Object.defineProperty(exports, "__esModule", ({ value: true }));
-exports.isCacheFeatureAvailable = exports.isGhes = exports.getCacheDirectoryPath = exports.getPackageManagerInfo = exports.getCommandOutput = void 0;
+exports.getToolchainDirectoriesFromCachedDirectories = exports.parseGoModForToolchainVersion = exports.isCacheFeatureAvailable = exports.isGhes = exports.getCacheDirectoryPath = exports.getPackageManagerInfo = exports.getCommandOutput = void 0;
 const cache = __importStar(__nccwpck_require__(7799));
 const core = __importStar(__nccwpck_require__(2186));
 const exec = __importStar(__nccwpck_require__(1514));
 const package_managers_1 = __nccwpck_require__(6663);
+const fs_1 = __importDefault(__nccwpck_require__(7147));
 const getCommandOutput = (toolCommand) => __awaiter(void 0, void 0, void 0, function* () {
     let { stdout, stderr, exitCode } = yield exec.getExecOutput(toolCommand, undefined, { ignoreReturnCode: true });
     if (exitCode) {
@@ -61324,6 +61338,42 @@ function isCacheFeatureAvailable() {
     return false;
 }
 exports.isCacheFeatureAvailable = isCacheFeatureAvailable;
+function parseGoModForToolchainVersion(goModPath) {
+    try {
+        const goMod = fs_1.default.readFileSync(goModPath, 'utf8');
+        const matches = Array.from(goMod.matchAll(/^toolchain\s+go(\S+)/gm));
+        if (matches && matches.length > 0) {
+            return matches[matches.length - 1][1];
+        }
+    }
+    catch (error) {
+        if (error.message && error.message.startsWith('ENOENT')) {
+            core.warning(`go.mod file not found at ${goModPath}, can't parse toolchain version`);
+            return null;
+        }
+        throw error;
+    }
+    return null;
+}
+exports.parseGoModForToolchainVersion = parseGoModForToolchainVersion;
+function isDirent(item) {
+    return item instanceof fs_1.default.Dirent;
+}
+function getToolchainDirectoriesFromCachedDirectories(goVersion, cacheDirectories) {
+    const re = new RegExp(`^toolchain@v[0-9.]+-go${goVersion}\\.`);
+    return (cacheDirectories
+        // This line should be replaced with separating the cache directory from build artefact directory
+        // see PoC PR: https://github.com/actions/setup-go/pull/426
+        // Till then, the workaround is expected to work in most cases, and it won't cause any harm
+        .filter(dir => dir.endsWith('/pkg/mod'))
+        .map(dir => `${dir}/golang.org`)
+        .flatMap(dir => fs_1.default
+        .readdirSync(dir)
+        .map(subdir => (isDirent(subdir) ? subdir.name : dir))
+        .filter(subdir => re.test(subdir))
+        .map(subdir => `${dir}/${subdir}`)));
+}
+exports.getToolchainDirectoriesFromCachedDirectories = getToolchainDirectoriesFromCachedDirectories;
 
 
 /***/ }),
@@ -61339,6 +61389,7 @@ var State;
 (function (State) {
     State["CachePrimaryKey"] = "CACHE_KEY";
     State["CacheMatchedKey"] = "CACHE_RESULT";
+    State["ToolchainVersion"] = "TOOLCACHE_VERSION";
 })(State = exports.State || (exports.State = {}));
 var Outputs;
 (function (Outputs) {
@@ -61495,8 +61546,7 @@ function cacheWindowsDir(extPath, tool, version, arch) {
         if (os_1.default.platform() !== 'win32')
             return false;
         // make sure the action runs in the hosted environment
-        if (process.env['RUNNER_ENVIRONMENT'] !== 'github-hosted' &&
-            process.env['AGENT_ISSELFHOSTED'] === '1')
+        if (utils_1.isSelfHosted())
             return false;
         const defaultToolCacheRoot = process.env['RUNNER_TOOL_CACHE'];
         if (!defaultToolCacheRoot)
@@ -61975,12 +62025,21 @@ exports.getArch = getArch;
 "use strict";
 
 Object.defineProperty(exports, "__esModule", ({ value: true }));
-exports.StableReleaseAlias = void 0;
+exports.isSelfHosted = exports.StableReleaseAlias = void 0;
 var StableReleaseAlias;
 (function (StableReleaseAlias) {
     StableReleaseAlias["Stable"] = "stable";
     StableReleaseAlias["OldStable"] = "oldstable";
 })(StableReleaseAlias = exports.StableReleaseAlias || (exports.StableReleaseAlias = {}));
+const isSelfHosted = () => process.env['AGENT_ISSELFHOSTED'] === '1' ||
+    (process.env['AGENT_ISSELFHOSTED'] === undefined &&
+        process.env['RUNNER_ENVIRONMENT'] !== 'github-hosted');
+exports.isSelfHosted = isSelfHosted;
+/* the above is simplified from:
+    process.env['RUNNER_ENVIRONMENT'] === undefined && process.env['AGENT_ISSELFHOSTED'] === '1'
+    ||
+    process.env['AGENT_ISSELFHOSTED'] === undefined && process.env['RUNNER_ENVIRONMENT'] !== 'github-hosted'
+     */
 
 
 /***/ }),
