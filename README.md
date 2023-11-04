@@ -266,7 +266,7 @@ build:
     with:
       path: |
         ${{ env.cache }}
-      key: setup-go-deps-${{ runner.os }}-go-${{ hashFiles('go.sum go.mod') }}
+      key: setup-go-deps-${{ runner.os }}-go-${{ hashFiles('go.sum', 'go.mod') }}
 
   - name:
     run: echo "$GOOS $GOARCH"> env.txt
