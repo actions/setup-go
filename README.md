@@ -278,7 +278,7 @@ build:
         ${{ env.modcache }}
       key: setup-go-build-${{ env.GOOS }}-${{ env.GOARCH }}-${{ runner.os }}-go-${{ hashFiles('**/*.go', 'env.txt') }}
       restore-keys: |
-        setup-go-build-${{ env.GOOS }}-${{ env.GOARCH }}
+        setup-go-build-${{ env.GOOS }}-${{ env.GOARCH }}-${{ runner.os }}-go
 
 ```
 
