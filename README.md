@@ -209,14 +209,14 @@ env:
   GOARCH: ...
 
 steps:
-  - run: echo "$GOOS $GOARCH" > /tmp/env
+  - run: echo "$GOOS $GOARCH" > env.txt
 
   - uses: actions/setup-go@v4
     with:
       go-version: '1.17'
       cache-dependency-path: |
         go.sum
-        /tmp/env
+        env.txt
   - run: go run hello.go    
 ```
 
@@ -269,14 +269,14 @@ build:
       key: setup-go-deps-${{ runner.os }}-go-${{ hashFiles('go.sum go.mod') }}
 
   - name:
-    run: echo "$GOOS $GOARCH"> /tmp/env
+    run: echo "$GOOS $GOARCH"> env.txt
 
   - name: Set up intermediate built files cache
     uses: actions/cache@v3
     with:
       path: |
         ${{ env.modcache }}
-      key: setup-go-build-${{ env.GOOS }}-${{ env.GOARCH }}-${{ runner.os }}-go-${{ hashFiles('**/*.go /tmp/env') }}
+      key: setup-go-build-${{ env.GOOS }}-${{ env.GOARCH }}-${{ runner.os }}-go-${{ hashFiles('**/*.go', 'env.txt') }}
       restore-keys: |
         setup-go-build-${{ env.GOOS }}-${{ env.GOARCH }}
 
