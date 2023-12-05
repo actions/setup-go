@@ -80816,10 +80816,19 @@ process.on('uncaughtException', e => {
     const warningPrefix = '[warning]';
     core.info(`${warningPrefix}${e.message}`);
 });
-function run() {
+// Added early exit to resolve issue with slow post action step:
+// - https://github.com/actions/setup-node/issues/878
+// https://github.com/actions/cache/pull/1217
+function run(earlyExit) {
     return __awaiter(this, void 0, void 0, function* () {
         try {
-            yield cachePackages();
+            const cacheInput = core.getBooleanInput('cache');
+            if (cacheInput) {
+                yield cachePackages();
+                if (earlyExit) {
+                    process.exit(0);
+                }
+            }
         }
         catch (error) {
             let message = 'Unknown error!';
@@ -80835,10 +80844,6 @@ function run() {
 }
 exports.run = run;
 const cachePackages = () => __awaiter(void 0, void 0, void 0, function* () {
-    const cacheInput = core.getBooleanInput('cache');
-    if (!cacheInput) {
-        return;
-    }
     const packageManager = 'default';
     const state = core.getState(constants_1.State.CacheMatchedKey);
     const primaryKey = core.getState(constants_1.State.CachePrimaryKey);
@@ -80870,7 +80875,7 @@ function logWarning(message) {
     const warningPrefix = '[warning]';
     core.info(`${warningPrefix}${message}`);
 }
-run();
+run(true);
 
 
 /***/ }),
