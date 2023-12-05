@@ -114,9 +114,9 @@ export async function getGo(
         `Received HTTP status code ${err.httpStatusCode}.  This usually indicates the rate limit has been exceeded`
       );
     } else {
-      core.info(err.message);
+      core.info((err as Error).message);
     }
-    core.debug(err.stack);
+    core.debug((err as Error).stack ?? '');
     core.info('Falling back to download directly from Go');
   }
 
@@ -160,7 +160,7 @@ async function resolveVersionFromManifest(
     return info?.resolvedVersion;
   } catch (err) {
     core.info('Unable to resolve a version from the manifest...');
-    core.debug(err.message);
+    core.debug((err as Error).message);
   }
 }
 

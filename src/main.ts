@@ -74,7 +74,7 @@ export async function run() {
           cacheDependencyPath
         );
       } catch (error) {
-        core.warning(`Restore cache failed: ${error.message}`);
+        core.warning(`Restore cache failed: ${(error as Error).message}`);
       }
     }
 
@@ -92,7 +92,7 @@ export async function run() {
     core.info(goEnv);
     core.endGroup();
   } catch (error) {
-    core.setFailed(error.message);
+    core.setFailed((error as Error).message);
   }
 }
 
