@@ -43,7 +43,7 @@ Matching by [semver spec](https://github.com/npm/node-semver):
 ```yaml
 steps:
   - uses: actions/checkout@v4
-  - uses: actions/setup-go@v4
+  - uses: actions/setup-go@v5
     with:
       go-version: '^1.13.1' # The Go version to download (if necessary) and use.
   - run: go version
@@ -52,7 +52,7 @@ steps:
 ```yaml
 steps:
   - uses: actions/checkout@v4
-  - uses: actions/setup-go@v4
+  - uses: actions/setup-go@v5
     with:
       go-version: '>=1.17.0'
   - run: go version
@@ -70,7 +70,7 @@ Matching an unstable pre-release:
 ```yaml
 steps:
   - uses: actions/checkout@v4
-  - uses: actions/setup-go@v4
+  - uses: actions/setup-go@v5
     with:
       go-version: '1.18.0-rc.1' # The Go version to download (if necessary) and use.
   - run: go version
@@ -79,7 +79,7 @@ steps:
 ```yaml
 steps:
   - uses: actions/checkout@v4
-  - uses: actions/setup-go@v4
+  - uses: actions/setup-go@v5
     with:
       go-version: '1.16.0-beta.1' # The Go version to download (if necessary) and use.
   - run: go version
@@ -94,7 +94,7 @@ See [action.yml](action.yml)
 ```yaml
 steps:
   - uses: actions/checkout@v4
-  - uses: actions/setup-go@v4
+  - uses: actions/setup-go@v5
     with:
       go-version: '1.16.1' # The Go version to download (if necessary) and use.
   - run: go run hello.go
@@ -115,7 +115,7 @@ want the most up-to-date Go version to always be used.
 ```yaml
 steps:
   - uses: actions/checkout@v4
-  - uses: actions/setup-go@v4
+  - uses: actions/setup-go@v5
     with:
       go-version: '1.14'
       check-latest: true
@@ -136,7 +136,7 @@ set to `true`
 ```yaml
 steps:
   - uses: actions/checkout@v4
-  - uses: actions/setup-go@v4
+  - uses: actions/setup-go@v5
     with:
       go-version: 'stable'
   - run: go run hello.go
@@ -145,7 +145,7 @@ steps:
 ```yaml
 steps:
   - uses: actions/checkout@v4
-  - uses: actions/setup-go@v4
+  - uses: actions/setup-go@v5
     with:
       go-version: 'oldstable'
   - run: go run hello.go
@@ -168,7 +168,7 @@ If some problem that prevents success caching happens then the action issues the
 ```yaml
 steps:
   - uses: actions/checkout@v4
-  - uses: actions/setup-go@v4
+  - uses: actions/setup-go@v5
     with:
       go-version: '1.17'
       check-latest: true
@@ -194,7 +194,7 @@ If both the `go-version` and the `go-version-file` inputs are provided then the 
 ```yaml
 steps:
   - uses: actions/checkout@v4
-  - uses: actions/setup-go@v4
+  - uses: actions/setup-go@v5
     with:
       go-version-file: 'path/to/go.mod'
   - run: go version
@@ -213,7 +213,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - name: Setup go
-        uses: actions/setup-go@v4
+        uses: actions/setup-go@v5
         with:
           go-version: ${{ matrix.go }}
       - run: go run hello.go
@@ -245,7 +245,7 @@ can [generate a personal access token on github.com](https://github.com/settings
 input for the action:
 
 ```yaml
-uses: actions/setup-go@v4
+uses: actions/setup-go@v5
 with:
   token: ${{ secrets.GH_DOTCOM_TOKEN }}
   go-version: '1.18'
