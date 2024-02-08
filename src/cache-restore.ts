@@ -16,7 +16,9 @@ export const restoreCache = async (
   const packageManagerInfo = await getPackageManagerInfo(packageManager);
   const platform = process.env.RUNNER_OS;
 
-  const cachePaths = await getCacheDirectoryPath(packageManagerInfo);
+  const cachePaths = await getCacheDirectoryPath(packageManagerInfo, {
+    env: {...process.env, GOTOOLCHAIN: 'local'}
+  });
 
   const dependencyFilePath = cacheDependencyPath
     ? cacheDependencyPath

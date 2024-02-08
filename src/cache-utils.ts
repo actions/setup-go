@@ -3,11 +3,14 @@ import * as core from '@actions/core';
 import * as exec from '@actions/exec';
 import {supportedPackageManagers, PackageManagerInfo} from './package-managers';
 
-export const getCommandOutput = async (toolCommand: string) => {
+export const getCommandOutput = async (
+  toolCommand: string,
+  execOpts?: exec.ExecOptions
+) => {
   let {stdout, stderr, exitCode} = await exec.getExecOutput(
     toolCommand,
     undefined,
-    {ignoreReturnCode: true}
+    {...execOpts, ignoreReturnCode: true}
   );
 
   if (exitCode) {
@@ -32,11 +35,12 @@ export const getPackageManagerInfo = async (packageManager: string) => {
 };
 
 export const getCacheDirectoryPath = async (
-  packageManagerInfo: PackageManagerInfo
+  packageManagerInfo: PackageManagerInfo,
+  execOpts?: exec.ExecOptions
 ) => {
   const pathOutputs = await Promise.allSettled(
     packageManagerInfo.cacheFolderCommandList.map(async command =>
-      getCommandOutput(command)
+      getCommandOutput(command, execOpts)
     )
   );
 
