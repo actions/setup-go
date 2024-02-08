@@ -61817,7 +61817,10 @@ function run() {
             const added = yield addBinToPath();
             core.debug(`add bin ${added}`);
             const goPath = yield io.which('go');
-            const goVersion = (child_process_1.default.execSync(`${goPath} version`) || '').toString();
+            // run `go version` with the bundled Go toolchain to avoid potentially
+            // downloading one into the cache
+            const goVersion = (child_process_1.default.execSync(`${goPath} version`) || '',
+                { env: Object.assign(Object.assign({}, process.env), { GOTOOLCHAIN: 'local' }) }).toString();
             if (cache && cache_utils_1.isCacheFeatureAvailable()) {
                 const packageManager = 'default';
                 const cacheDependencyPath = core.getInput('cache-dependency-path');
@@ -61854,7 +61857,9 @@ function addBinToPath() {
             core.debug('go not in the path');
             return added;
         }
-        const buf = child_process_1.default.execSync('go env GOPATH');
+        const buf = child_process_1.default.execSync('go env GOPATH', {
+            env: Object.assign(Object.assign({}, process.env), { GOTOOLCHAIN: 'local' })
+        });
         if (buf.length > 1) {
             const gp = buf.toString().trim();
             core.debug(`go env GOPATH :${gp}:`);
