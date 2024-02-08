@@ -61819,8 +61819,9 @@ function run() {
             const goPath = yield io.which('go');
             // run `go version` with the bundled Go toolchain to avoid potentially
             // downloading one into the cache
-            const goVersion = (child_process_1.default.execSync(`${goPath} version`) || '',
-                { env: Object.assign(Object.assign({}, process.env), { GOTOOLCHAIN: 'local' }) }).toString();
+            const goVersion = (child_process_1.default.execSync(`${goPath} version`, {
+                env: Object.assign(Object.assign({}, process.env), { GOTOOLCHAIN: 'local' })
+            }) || '').toString();
             if (cache && cache_utils_1.isCacheFeatureAvailable()) {
                 const packageManager = 'default';
                 const cacheDependencyPath = core.getInput('cache-dependency-path');
