@@ -64,8 +64,11 @@ export async function run() {
     const goPath = await io.which('go');
     // run `go version` with the bundled Go toolchain to avoid potentially
     // downloading one into the cache
-    const goVersion = (cp.execSync(`${goPath} version`) || '',
-    {env: {...process.env, GOTOOLCHAIN: 'local'}}).toString();
+    const goVersion = (
+      cp.execSync(`${goPath} version`, {
+        env: {...process.env, GOTOOLCHAIN: 'local'}
+      }) || ''
+    ).toString();
 
     if (cache && isCacheFeatureAvailable()) {
       const packageManager = 'default';
