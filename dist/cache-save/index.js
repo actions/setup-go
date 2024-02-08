@@ -58600,8 +58600,8 @@ const cache = __importStar(__nccwpck_require__(7799));
 const core = __importStar(__nccwpck_require__(2186));
 const exec = __importStar(__nccwpck_require__(1514));
 const package_managers_1 = __nccwpck_require__(6663);
-const getCommandOutput = (toolCommand) => __awaiter(void 0, void 0, void 0, function* () {
-    let { stdout, stderr, exitCode } = yield exec.getExecOutput(toolCommand, undefined, { ignoreReturnCode: true });
+const getCommandOutput = (toolCommand, execOpts) => __awaiter(void 0, void 0, void 0, function* () {
+    let { stdout, stderr, exitCode } = yield exec.getExecOutput(toolCommand, undefined, Object.assign(Object.assign({}, execOpts), { ignoreReturnCode: true }));
     if (exitCode) {
         stderr = !stderr.trim()
             ? `The '${toolCommand}' command failed with exit code: ${exitCode}`
@@ -58619,8 +58619,8 @@ const getPackageManagerInfo = (packageManager) => __awaiter(void 0, void 0, void
     return obtainedPackageManager;
 });
 exports.getPackageManagerInfo = getPackageManagerInfo;
-const getCacheDirectoryPath = (packageManagerInfo) => __awaiter(void 0, void 0, void 0, function* () {
-    const pathOutputs = yield Promise.allSettled(packageManagerInfo.cacheFolderCommandList.map((command) => __awaiter(void 0, void 0, void 0, function* () { return exports.getCommandOutput(command); })));
+const getCacheDirectoryPath = (packageManagerInfo, execOpts) => __awaiter(void 0, void 0, void 0, function* () {
+    const pathOutputs = yield Promise.allSettled(packageManagerInfo.cacheFolderCommandList.map((command) => __awaiter(void 0, void 0, void 0, function* () { return exports.getCommandOutput(command, execOpts); })));
     const results = pathOutputs.map(item => {
         if (item.status === 'fulfilled') {
             return item.value;
