@@ -108,7 +108,9 @@ export async function addBinToPath(): Promise<boolean> {
     return added;
   }
 
-  const buf = cp.execSync('go env GOPATH');
+  const buf = cp.execSync('go env GOPATH', {
+    env: {...process.env, GOTOOLCHAIN: 'local'}
+  });
   if (buf.length > 1) {
     const gp = buf.toString().trim();
     core.debug(`go env GOPATH :${gp}:`);
