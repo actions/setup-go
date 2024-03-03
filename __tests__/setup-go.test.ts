@@ -965,6 +965,56 @@ use .
     );
   });
 
+  describe('go-version-file-toolchain', () => {
+    const goModContents = `module example.com/mymodule
+
+go 1.14
+
+toolchain go1.21.0
+
+require (
+	example.com/othermodule v1.2.3
+	example.com/thismodule v1.2.3
+	example.com/thatmodule v1.2.3
+)
+
+replace example.com/thatmodule => ../thatmodule
+exclude example.com/thismodule v1.3.0
+`;
+
+    const goWorkContents = `go 1.19
+
+toolchain go1.21.0
+
+use .
+
+`;
+
+    it('reads version from toolchain directive in go.mod', async () => {
+      inputs['go-version-file'] = 'go.mod';
+      existsSpy.mockImplementation(() => true);
+      readFileSpy.mockImplementation(() => Buffer.from(goModContents));
+
+      await main.run();
+
+      expect(logSpy).toHaveBeenCalledWith('Setup go version spec 1.21.0');
+      expect(logSpy).toHaveBeenCalledWith('Attempting to download 1.21.0...');
+      expect(logSpy).toHaveBeenCalledWith('matching 1.21.0...');
+    });
+
+    it('reads version from toolchain directive in go.work', async () => {
+      inputs['go-version-file'] = 'go.work';
+      existsSpy.mockImplementation(() => true);
+      readFileSpy.mockImplementation(() => Buffer.from(goWorkContents));
+
+      await main.run();
+
+      expect(logSpy).toHaveBeenCalledWith('Setup go version spec 1.21.0');
+      expect(logSpy).toHaveBeenCalledWith('Attempting to download 1.21.0...');
+      expect(logSpy).toHaveBeenCalledWith('matching 1.21.0...');
+    });
+  });
+
   it('exports GOTOOLCHAIN and sets it in current process env', async () => {
     inputs['go-version'] = '1.21.0';
     inSpy.mockImplementation(name => inputs[name]);
