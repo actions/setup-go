@@ -94663,8 +94663,14 @@ function parseGoVersionFile(versionFilePath) {
     const contents = fs_1.default.readFileSync(versionFilePath).toString();
     if (path.basename(versionFilePath) === 'go.mod' ||
         path.basename(versionFilePath) === 'go.work') {
-        const match = contents.match(/^go (\d+(\.\d+)*)/m);
-        return match ? match[1] : '';
+        // toolchain directive: https://go.dev/ref/mod#go-mod-file-toolchain
+        const matchToolchain = contents.match(/^toolchain go(\d+(\.\d+)*)/m);
+        if (matchToolchain) {
+            return matchToolchain[1];
+        }
+        // go directive: https://go.dev/ref/mod#go-mod-file-go
+        const matchGo = contents.match(/^go (\d+(\.\d+)*)/m);
+        return matchGo ? matchGo[1] : '';
     }
     return contents.trim();
 }
