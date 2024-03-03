@@ -265,7 +265,7 @@ describe('setup-go', () => {
     expect(logSpy).toHaveBeenCalledWith(`Setup go version spec 1.13.0`);
   });
 
-  it('does not export any variables for Go versions >=1.9', async () => {
+  it('does not export GOROOT for Go versions >=1.9', async () => {
     inputs['go-version'] = '1.13.0';
     inSpy.mockImplementation(name => inputs[name]);
 
@@ -278,7 +278,7 @@ describe('setup-go', () => {
     });
 
     await main.run();
-    expect(vars).toStrictEqual({});
+    expect(vars).not.toHaveProperty('GOROOT');
   });
 
   it('exports GOROOT for Go versions <1.9', async () => {
@@ -294,9 +294,7 @@ describe('setup-go', () => {
     });
 
     await main.run();
-    expect(vars).toStrictEqual({
-      GOROOT: toolPath
-    });
+    expect(vars).toHaveProperty('GOROOT', toolPath);
   });
 
   it('finds a version of go already in the cache', async () => {
@@ -965,5 +963,19 @@ use .
         );
       }
     );
+  });
+
+  it('exports GOTOOLCHAIN and sets it in current process env', async () => {
+    inputs['go-version'] = '1.21.0';
+    inSpy.mockImplementation(name => inputs[name]);
+
+    const vars: {[key: string]: string} = {};
+    exportVarSpy.mockImplementation((name: string, val: string) => {
+      vars[name] = val;
+    });
+
+    await main.run();
+    expect(vars).toStrictEqual({GOTOOLCHAIN: 'local'});
+    expect(process.env).toHaveProperty('GOTOOLCHAIN', 'local');
   });
 });
