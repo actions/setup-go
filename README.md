@@ -183,8 +183,7 @@ steps:
 
 ## Getting go version from the go.mod file
 
-The `go-version-file` input accepts a path to a `go.mod` file or a `go.work` file that contains the version of Go to be
-used by a project.
+The `go-version-file` input accepts a path to a `go.mod` file or a `go.work` file that contains the version of Go to be used by a project.
 
 If both the `go-version` and the `go-version-file` inputs are provided then the `go-version` input is used.
 > The action will search for the `go.mod` file relative to the repository root
