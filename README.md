@@ -199,7 +199,7 @@ steps:
   - uses: actions/checkout@v4
   - uses: actions/setup-go@v5
     with:
-      go-version-file: path/to/go.mod
+      go-version-file: 'path/to/go.mod'
   - run: go version
 ```
 
