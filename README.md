@@ -8,6 +8,14 @@ This action sets up a go environment for use in actions by:
 - Optionally downloading and caching a version of Go by version and adding to `PATH`.
 - Registering problem matchers for error output.
 
+# V5
+
+The V5 edition of the action offers:
+
+- Upgraded Node.js runtime from node16 to node20
+
+See full release notes on the [releases page](https://github.com/actions/setup-go/releases).
+
 # V4
 
 The V4 edition of the action offers:
