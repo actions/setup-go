@@ -197,7 +197,7 @@ The `go` directive in `go.mod` can specify a patch version or omit it altogether
 If a patch version is specified, that specific patch version will be used.  
 If no patch version is specified, it will search for the latest available patch version in the cache,
 [versions-manifest.json](https://github.com/actions/go-versions/blob/main/versions-manifest.json), and the
-[official Go language website](https://golang.org/dl/?mode=json&include=all), in that order.
+[official Go language website](https://go.dev/dl/?mode=json&include=all), in that order.
 
 If both the `go-version` and the `go-version-file` inputs are provided then the `go-version` input is used.
 > The action will search for the `go.mod` file relative to the repository root
