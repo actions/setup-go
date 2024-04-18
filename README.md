@@ -70,9 +70,10 @@ steps:
 >
 > ```yaml
 >   go-version: '1.20'
->  ```
+> ```
 >
 > The recommendation is based on the YAML parser's behavior, which interprets non-wrapped values as numbers and, in the case of version 1.20, trims it down to 1.2, which may not be very obvious.
+
 Matching an unstable pre-release:
 
 ```yaml
@@ -190,11 +191,13 @@ steps:
 
 ## Getting go version from the go.mod file
 
-The `go-version-file` input accepts a path to a `go.mod` file or a `go.work` file that contains the version of Go to be
-used by a project. As the `go.mod` file contains only major and minor (e.g. 1.18) tags, the action will search for the
-latest available patch version sequentially in the runner's directory with the cached tools, in
-the [versions-manifest.json](https://github.com/actions/go-versions/blob/main/versions-manifest.json) file or at the go
-servers.
+The `go-version-file` input accepts a path to a `go.mod` file or a `go.work` file that contains the version of Go to be used by a project.
+
+The `go` directive in `go.mod` can specify a patch version or omit it altogether (e.g., `go 1.22.0` or `go 1.22`).  
+If a patch version is specified, that specific patch version will be used.  
+If no patch version is specified, it will search for the latest available patch version in the cache,
+[versions-manifest.json](https://github.com/actions/go-versions/blob/main/versions-manifest.json), and the
+[official Go language website](https://golang.org/dl/?mode=json&include=all), in that order.
 
 If both the `go-version` and the `go-version-file` inputs are provided then the `go-version` input is used.
 > The action will search for the `go.mod` file relative to the repository root
