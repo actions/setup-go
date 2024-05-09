@@ -71,7 +71,7 @@ jobs:
       fail-fast: false
       matrix:
         os: [macos-latest, windows-latest, ubuntu-latest]
-        go: [1.17, 1.18, 1.19]
+        go: [1.20.14, 1.21.10, 1.22.3]
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -91,7 +91,7 @@ jobs:
       fail-fast: false
       matrix:
         os: [ubuntu-latest, windows-latest, macos-latest]
-        go-version: [1.16, 1.17]
+        go-version: [1.20, 1.21]
     steps:
       - uses: actions/checkout@v4
       - name: Setup Go and check latest
@@ -115,7 +115,7 @@ jobs:
         with:
           go-version-file: __tests__/data/go.mod
       - name: verify go
-        run: __tests__/verify-go.sh 1.14
+        run: __tests__/verify-go.sh 1.20
         shell: bash
 
   go-version-file-with-gowork:
@@ -131,7 +131,7 @@ jobs:
         with:
           go-version-file: __tests__/data/go.work
       - name: verify go
-        run: __tests__/verify-go.sh 1.19
+        run: __tests__/verify-go.sh 1.21
         shell: bash
 
   setup-versions-from-manifest:
@@ -141,7 +141,7 @@ jobs:
       fail-fast: false
       matrix:
         os: [macos-latest, windows-latest, ubuntu-latest]
-        go: [1.12.16, 1.13.11, 1.14.3]
+        go: [1.20.14, 1.21.10, 1.22.3]
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -162,7 +162,7 @@ jobs:
       fail-fast: false
       matrix:
         os: [macos-latest, windows-latest, ubuntu-latest]
-        go: [1.9, 1.8.6]
+        go: [1.20, 1.21]
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -182,7 +182,7 @@ jobs:
       fail-fast: false
       matrix:
         os: [ubuntu-latest, windows-latest, macos-latest]
-        go-version: [1.16, 1.17]
+        go-version: [1.20, 1.21]
     steps:
       - uses: actions/checkout@v4
       - name: Setup Go and check latest
