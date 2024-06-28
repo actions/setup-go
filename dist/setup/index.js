@@ -88254,6 +88254,7 @@ const sys = __importStar(__nccwpck_require__(5632));
 const fs_1 = __importDefault(__nccwpck_require__(7147));
 const os_1 = __importDefault(__nccwpck_require__(2037));
 const utils_1 = __nccwpck_require__(1314);
+const GOLANG_DOWNLOAD_URL = 'https://go.dev/dl/?mode=json&include=all';
 function getGo(versionSpec_1, checkLatest_1, auth_1) {
     return __awaiter(this, arguments, void 0, function* (versionSpec, checkLatest, auth, arch = os_1.default.arch()) {
         var _a;
@@ -88473,8 +88474,7 @@ function findMatch(versionSpec_1) {
         const platFilter = sys.getPlatform();
         let result;
         let match;
-        const dlUrl = 'https://golang.org/dl/?mode=json&include=all';
-        const candidates = yield module.exports.getVersionsDist(dlUrl);
+        const candidates = yield module.exports.getVersionsDist(GOLANG_DOWNLOAD_URL);
         if (!candidates) {
             throw new Error(`golang download url did not return results`);
         }
@@ -88554,8 +88554,7 @@ function resolveStableVersionDist(versionSpec, arch) {
     return __awaiter(this, void 0, void 0, function* () {
         const archFilter = sys.getArch(arch);
         const platFilter = sys.getPlatform();
-        const dlUrl = 'https://golang.org/dl/?mode=json&include=all';
-        const candidates = yield module.exports.getVersionsDist(dlUrl);
+        const candidates = yield module.exports.getVersionsDist(GOLANG_DOWNLOAD_URL);
         if (!candidates) {
             throw new Error(`golang download url did not return results`);
         }
