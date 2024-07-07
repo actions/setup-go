@@ -417,20 +417,6 @@ export function makeSemver(version: string): string {
   return fullVersion;
 }
 
-export function parseGoVersionFile(versionFilePath: string): string {
-  const contents = fs.readFileSync(versionFilePath).toString();
-
-  if (
-    path.basename(versionFilePath) === 'go.mod' ||
-    path.basename(versionFilePath) === 'go.work'
-  ) {
-    const match = contents.match(/^go (\d+(\.\d+)*)/m);
-    return match ? match[1] : '';
-  }
-
-  return contents.trim();
-}
-
 async function resolveStableVersionDist(versionSpec: string, arch: string) {
   const archFilter = sys.getArch(arch);
   const platFilter = sys.getPlatform();

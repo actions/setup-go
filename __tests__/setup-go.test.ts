@@ -868,18 +868,6 @@ use .
       expect(logSpy).toHaveBeenCalledWith('matching 1.19...');
     });
 
-    it('reads version from .go-version', async () => {
-      inputs['go-version-file'] = '.go-version';
-      existsSpy.mockImplementation(() => true);
-      readFileSpy.mockImplementation(() => Buffer.from(`1.13.0${osm.EOL}`));
-
-      await main.run();
-
-      expect(logSpy).toHaveBeenCalledWith('Setup go version spec 1.13.0');
-      expect(logSpy).toHaveBeenCalledWith('Attempting to download 1.13.0...');
-      expect(logSpy).toHaveBeenCalledWith('matching 1.13.0...');
-    });
-
     it('is overwritten by go-version', async () => {
       inputs['go-version'] = '1.13.1';
       inputs['go-version-file'] = 'go.mod';
@@ -901,6 +889,29 @@ use .
 
       expect(cnSpy).toHaveBeenCalledWith(
         `::error::The specified go version file at: go.mod does not exist${osm.EOL}`
+      );
+    });
+
+    it('go-version accepts a go.mod file', async () => {
+      inputs['go-version'] = 'go.mod';
+      existsSpy.mockImplementation(() => true);
+      readFileSpy.mockImplementation(() => Buffer.from(goModContents));
+
+      await main.run();
+
+      expect(logSpy).toHaveBeenCalledWith('Setup go version spec 1.14');
+      expect(logSpy).toHaveBeenCalledWith('Attempting to download 1.14...');
+      expect(logSpy).toHaveBeenCalledWith('matching 1.14...');
+    });
+
+    it('go-version reports a read failure', async () => {
+      inputs['go-version'] = 'path/to/go.mod';
+      existsSpy.mockImplementation(() => false);
+
+      await main.run();
+
+      expect(cnSpy).toHaveBeenCalledWith(
+        `::error::The specified go version file at: path/to/go.mod does not exist${osm.EOL}`
       );
     });
 

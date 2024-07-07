@@ -88244,7 +88244,7 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", ({ value: true }));
-exports.resolveStableVersionInput = exports.parseGoVersionFile = exports.makeSemver = exports.getVersionsDist = exports.findMatch = exports.getInfoFromManifest = exports.getManifest = exports.extractGoArchive = exports.getGo = void 0;
+exports.resolveStableVersionInput = exports.makeSemver = exports.getVersionsDist = exports.findMatch = exports.getInfoFromManifest = exports.getManifest = exports.extractGoArchive = exports.getGo = void 0;
 const tc = __importStar(__nccwpck_require__(7784));
 const core = __importStar(__nccwpck_require__(2186));
 const path = __importStar(__nccwpck_require__(1017));
@@ -88540,16 +88540,6 @@ function makeSemver(version) {
     return fullVersion;
 }
 exports.makeSemver = makeSemver;
-function parseGoVersionFile(versionFilePath) {
-    const contents = fs_1.default.readFileSync(versionFilePath).toString();
-    if (path.basename(versionFilePath) === 'go.mod' ||
-        path.basename(versionFilePath) === 'go.work') {
-        const match = contents.match(/^go (\d+(\.\d+)*)/m);
-        return match ? match[1] : '';
-    }
-    return contents.trim();
-}
-exports.parseGoVersionFile = parseGoVersionFile;
 function resolveStableVersionDist(versionSpec, arch) {
     return __awaiter(this, void 0, void 0, function* () {
         const archFilter = sys.getArch(arch);
@@ -88749,18 +88739,22 @@ function parseGoVersion(versionString) {
 exports.parseGoVersion = parseGoVersion;
 function resolveVersionInput() {
     let version = core.getInput('go-version');
-    const versionFilePath = core.getInput('go-version-file');
+    let versionFilePath = core.getInput('go-version-file');
     if (version && versionFilePath) {
         core.warning('Both go-version and go-version-file inputs are specified, only go-version will be used');
-    }
-    if (version) {
-        return version;
+        versionFilePath = '';
     }
     if (versionFilePath) {
-        if (!fs_1.default.existsSync(versionFilePath)) {
-            throw new Error(`The specified go version file at: ${versionFilePath} does not exist`);
+        version = versionFilePath;
+    }
+    if (path_1.default.basename(version) === 'go.mod' ||
+        path_1.default.basename(version) === 'go.work') {
+        if (!fs_1.default.existsSync(version)) {
+            throw new Error(`The specified go version file at: ${version} does not exist`);
         }
-        version = installer.parseGoVersionFile(versionFilePath);
+        const contents = fs_1.default.readFileSync(version).toString();
+        const match = contents.match(/^go (\d+(\.\d+)*)/m);
+        return match ? match[1] : '';
     }
     return version;
 }
