@@ -88045,6 +88045,7 @@ const cache_utils_1 = __nccwpck_require__(1678);
 const restoreCache = (versionSpec, packageManager, cacheDependencyPath) => __awaiter(void 0, void 0, void 0, function* () {
     const packageManagerInfo = yield (0, cache_utils_1.getPackageManagerInfo)(packageManager);
     const platform = process.env.RUNNER_OS;
+    const arch = process.arch;
     const cachePaths = yield (0, cache_utils_1.getCacheDirectoryPath)(packageManagerInfo);
     const dependencyFilePath = cacheDependencyPath
         ? cacheDependencyPath
@@ -88054,7 +88055,7 @@ const restoreCache = (versionSpec, packageManager, cacheDependencyPath) => __awa
         throw new Error('Some specified paths were not resolved, unable to cache dependencies.');
     }
     const linuxVersion = process.env.RUNNER_OS === 'Linux' ? `${process.env.ImageOS}-` : '';
-    const primaryKey = `setup-go-${platform}-${linuxVersion}go-${versionSpec}-${fileHash}`;
+    const primaryKey = `setup-go-${platform}-${arch}-${linuxVersion}go-${versionSpec}-${fileHash}`;
     core.debug(`primary key is ${primaryKey}`);
     core.saveState(constants_1.State.CachePrimaryKey, primaryKey);
     const cacheKey = yield cache.restoreCache(cachePaths, primaryKey);
