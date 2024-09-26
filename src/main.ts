@@ -63,13 +63,23 @@ export async function run() {
 
     const goPath = await io.which('go');
     const goVersion = (cp.execSync(`${goPath} version`) || '').toString();
+    const goEnv = (cp.execSync(`${goPath} env`) || '').toString();
+    const goEnvJson = JSON.parse(convertEnvStringToJson(goEnv));
+    const parsedGoVersion = parseGoVersion(goVersion);
+
+    // Go versions less that 1.16 do not have the GOVERSION environment variable
+    if (semver.lt(parsedGoVersion, '1.16.0')) {
+      goEnvJson['GOVERSION'] = 'go' + parsedGoVersion;
+    }
+
+    core.info(goVersion);
 
     if (cache && isCacheFeatureAvailable()) {
       const packageManager = 'default';
       const cacheDependencyPath = core.getInput('cache-dependency-path');
       try {
         await restoreCache(
-          parseGoVersion(goVersion),
+          parsedGoVersion,
           packageManager,
           cacheDependencyPath
         );
@@ -82,13 +92,13 @@ export async function run() {
     const matchersPath = path.join(__dirname, '../..', 'matchers.json');
     core.info(`##[add-matcher]${matchersPath}`);
 
-    // output the version actually being used
-    core.info(goVersion);
-
-    core.setOutput('go-version', parseGoVersion(goVersion));
+    core.setOutput('go-version', parsedGoVersion);
+    core.setOutput('go-path', goEnvJson['GOPATH']);
+    core.setOutput('go-cache', goEnvJson['GOCACHE']);
+    core.setOutput('go-mod-cache', goEnvJson['GOMODCACHE']);
+    core.setOutput('go-env', goEnvJson);
 
     core.startGroup('go env');
-    const goEnv = (cp.execSync(`${goPath} env`) || '').toString();
     core.info(goEnv);
     core.endGroup();
   } catch (error) {
@@ -133,6 +143,18 @@ export function parseGoVersion(versionString: string): string {
   // fmt.Printf("go version %s %s/%s\n", runtime.Version(), runtime.GOOS, runtime.GOARCH)
   // expecting go<version> for runtime.Version()
   return versionString.split(' ')[2].slice('go'.length);
+}
+
+export function convertEnvStringToJson(envString: string): string {
+  const envArray = envString.split('\n');
+  const envObject: {[key: string]: string} = {};
+
+  envArray.forEach(envVar => {
+    const [key, value] = envVar.split(/=(?=")/);
+    envObject[key] = value?.replace(/"/g, '');
+  });
+
+  return JSON.stringify(envObject);
 }
 
 function resolveVersionInput(): string {
