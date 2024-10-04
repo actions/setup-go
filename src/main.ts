@@ -137,25 +137,31 @@ export function parseGoVersion(versionString: string): string {
 
 function resolveVersionInput(): string {
   let version = core.getInput('go-version');
-  const versionFilePath = core.getInput('go-version-file');
+  let versionFilePath = core.getInput('go-version-file');
 
   if (version && versionFilePath) {
     core.warning(
       'Both go-version and go-version-file inputs are specified, only go-version will be used'
     );
+    versionFilePath = '';
   }
-
-  if (version) {
-    return version;
-  }
-
   if (versionFilePath) {
-    if (!fs.existsSync(versionFilePath)) {
+    version = versionFilePath;
+  }
+
+  if (
+    path.basename(version) === 'go.mod' ||
+    path.basename(version) === 'go.work'
+  ) {
+    if (!fs.existsSync(version)) {
       throw new Error(
-        `The specified go version file at: ${versionFilePath} does not exist`
+        `The specified go version file at: ${version} does not exist`
       );
     }
-    version = installer.parseGoVersionFile(versionFilePath);
+
+    const contents = fs.readFileSync(version).toString();
+    const match = contents.match(/^go (\d+(\.\d+)*)/m);
+    return match ? match[1] : '';
   }
 
   return version;
