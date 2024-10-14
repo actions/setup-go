@@ -93,7 +93,7 @@ jobs:
       fail-fast: false
       matrix:
         os: [ubuntu-latest, windows-latest, macos-latest, macos-13]
-        go-version: [1.20.14, 1.21]
+        go-version: ['1.20', '1.21', '1.22', '1.23']
     steps:
       - uses: actions/checkout@v4
       - name: Setup Go and check latest
@@ -137,13 +137,12 @@ jobs:
         shell: bash
 
   setup-versions-from-manifest:
-    name: Setup ${{ matrix.go }} ${{ matrix.os }}
     runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
       matrix:
         os: [macos-latest, windows-latest, ubuntu-latest, macos-13]
-        go: [1.20.14, 1.21.10, 1.22.3]
+        go: [1.20.14, 1.21.10, 1.22.8, 1.23.2]
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -158,13 +157,12 @@ jobs:
         shell: bash
 
   setup-versions-from-dist:
-    name: Setup ${{ matrix.go }} ${{ matrix.os }}
     runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
       matrix:
-        os: [macos-latest, windows-latest, ubuntu-latest, macos-13]
-        go: [1.20.14, 1.21]
+        os: [windows-latest, ubuntu-latest, macos-13]
+        go: [1.11.12]
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -184,7 +182,7 @@ jobs:
       fail-fast: false
       matrix:
         os: [ubuntu-latest, windows-latest, macos-latest, macos-13]
-        go-version: [1.20.14, 1.21]
+        go-version: [1.20.14, 1.21, 1.22, 1.23]
     steps:
       - uses: actions/checkout@v4
       - name: Setup Go and check latest
