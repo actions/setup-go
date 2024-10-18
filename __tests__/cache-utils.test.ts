@@ -223,7 +223,7 @@ describe('isGhes', () => {
   });  
 
   it('returns false when the GITHUB_SERVER_URL environment variable is not defined', async () => {
-    process.env['GITHUB_SERVER_URL'] = undefined;
+    delete process.env['GITHUB_SERVER_URL'];
     expect(cacheUtils.isGhes()).toBeFalsy();
   });
 
