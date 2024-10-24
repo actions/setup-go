@@ -18,7 +18,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-latest, windows-latest, macos-latest]
+        os: [ubuntu-latest, windows-latest, macos-latest, macos-13]
     steps:
       - uses: actions/checkout@v4
       - name: Setup Go Stable
@@ -33,7 +33,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-latest, windows-latest, macos-latest]
+        os: [ubuntu-latest, windows-latest, macos-latest, macos-13]
     steps:
       - uses: actions/checkout@v4
       - name: Setup Go oldStable
@@ -48,11 +48,13 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-latest, windows-latest, macos-latest]
+        os: [ubuntu-latest, windows-latest, macos-latest, macos-13]
         version: [stable, oldstable]
         architecture: [x64, x32]
         exclude:
           - os: macos-latest
+            architecture: x32
+          - os: macos-13
             architecture: x32
     steps:
       - uses: actions/checkout@v4
@@ -70,8 +72,14 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [macos-latest, windows-latest, ubuntu-latest]
-        go: [1.20.14, 1.21.10, 1.22.3]
+        os: [macos-latest, windows-latest, ubuntu-latest, macos-13]
+        go: [1.21.13, 1.22.8, 1.23.2]
+        include:
+          - os: windows-latest
+            go: 1.20.14
+        exclude:
+          - os: windows-latest
+            go: 1.23.2
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -90,8 +98,8 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-latest, windows-latest, macos-latest]
-        go-version: [1.20.14, 1.21]
+        os: [ubuntu-latest, windows-latest, macos-latest, macos-13]
+        go-version: ['1.20', '1.21', '1.22', '1.23']
     steps:
       - uses: actions/checkout@v4
       - name: Setup Go and check latest
@@ -107,7 +115,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-latest, windows-latest, macos-latest]
+        os: [ubuntu-latest, windows-latest, macos-latest, macos-13]
     steps:
       - uses: actions/checkout@v4
       - name: Setup Go and check latest
@@ -123,7 +131,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-latest, windows-latest, macos-latest]
+        os: [ubuntu-latest, windows-latest, macos-latest, macos-13]
     steps:
       - uses: actions/checkout@v4
       - name: Setup Go and check latest
@@ -135,13 +143,12 @@ jobs:
         shell: bash
 
   setup-versions-from-manifest:
-    name: Setup ${{ matrix.go }} ${{ matrix.os }}
     runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
       matrix:
-        os: [macos-latest, windows-latest, ubuntu-latest]
-        go: [1.20.14, 1.21.10, 1.22.3]
+        os: [macos-latest, windows-latest, ubuntu-latest, macos-13]
+        go: [1.20.14, 1.21.10, 1.22.8, 1.23.2]
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -156,13 +163,12 @@ jobs:
         shell: bash
 
   setup-versions-from-dist:
-    name: Setup ${{ matrix.go }} ${{ matrix.os }}
     runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
       matrix:
-        os: [macos-latest, windows-latest, ubuntu-latest]
-        go: [1.20.14, 1.21]
+        os: [windows-latest, ubuntu-latest, macos-13]
+        go: [1.11.12]
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -181,14 +187,23 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-latest, windows-latest, macos-latest]
-        go-version: [1.20.14, 1.21]
+        os: [ubuntu-latest, windows-latest, macos-latest, macos-13]
+        go-version: [1.20.14, 1.21, 1.22, 1.23]
+        include:
+          - os: macos-latest
+            architecture: arm64
+          - os: ubuntu-latest
+            architecture: x64
+          - os: windows-latest
+            architecture: x64
+          - os: macos-13
+            architecture: x64
     steps:
       - uses: actions/checkout@v4
       - name: Setup Go and check latest
         uses: ./
         with:
           go-version: ${{ matrix.go-version }}
-          architecture: x64
+          architecture: ${{ matrix.architecture }}
       - name: Verify Go
         run: go version
