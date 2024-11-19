@@ -88390,6 +88390,7 @@ function cacheWindowsDir(extPath, tool, version, arch) {
         if (!cacheDirectoryPaths) {
             throw new Error(`Could not get cache folder paths.`);
         }
+        core.info(`Found Cache Directory Paths: ${cacheDirectoryPaths}`);
         // replace cache directory path with actual cache directory path
         const actualCacheDirectoryPaths = cacheDirectoryPaths.map(path => {
             return {
@@ -88400,6 +88401,7 @@ function cacheWindowsDir(extPath, tool, version, arch) {
         // iterate through actual cache directory paths and make links
         for (const cachePath of actualCacheDirectoryPaths) {
             if (!fs_1.default.existsSync(cachePath.actualPath)) {
+                core.info(`Creating directory ${cachePath.actualPath}`);
                 fs_1.default.mkdirSync(path.dirname(cachePath.actualPath), { recursive: true });
             }
             fs_1.default.symlinkSync(cachePath.actualPath, cachePath.defaultPath, 'junction');
