@@ -88401,22 +88401,28 @@ function cacheWindowsDir(extPath, tool, version, arch) {
         // iterate through actual cache directory paths and make links if necessary
         for (const cachePath of actualCacheDirectoryPaths) {
             core.info(`Trying to link ${cachePath.defaultPath} to ${cachePath.actualPath}`);
-            if (!fs_1.default.existsSync(cachePath.actualPath)) {
-                core.info(`Creating directory ${cachePath.actualPath}`);
-                fs_1.default.mkdirSync(path.dirname(cachePath.actualPath), { recursive: true });
+            try {
+                if (!fs_1.default.existsSync(cachePath.actualPath)) {
+                    core.info(`Creating directory ${cachePath.actualPath}`);
+                    fs_1.default.mkdirSync(path.dirname(cachePath.actualPath), { recursive: true });
+                }
+                else {
+                    core.info(`Directory ${cachePath.actualPath} already exists`);
+                }
+                // check if the default path is a symlink
+                const isSymlink = fs_1.default.lstatSync(cachePath.defaultPath).isSymbolicLink();
+                if (isSymlink) {
+                    core.info(`Default path is symlink ${cachePath.defaultPath} => ${fs_1.default.readlinkSync(cachePath.defaultPath)}`);
+                }
+                else {
+                    core.info(`Default path is not a symlink ${cachePath.defaultPath}`);
+                    fs_1.default.symlinkSync(cachePath.actualPath, cachePath.defaultPath, 'junction');
+                    core.info(`Created link ${cachePath.defaultPath} => ${cachePath.actualPath}`);
+                }
             }
-            else {
-                core.info(`Directory ${cachePath.actualPath} already exists`);
-            }
-            // make sure the link is pointing to the actual cache directory
-            const symlinkTarget = fs_1.default.readlinkSync(cachePath.defaultPath);
-            core.info(`Symlink target: ${symlinkTarget}`);
-            if (symlinkTarget !== "") {
-                core.info(`Found link ${cachePath.defaultPath} => ${symlinkTarget}`);
-            }
-            else {
-                fs_1.default.symlinkSync(cachePath.actualPath, cachePath.defaultPath, 'junction');
-                core.info(`Created link ${cachePath.defaultPath} => ${cachePath.actualPath}`);
+            catch (err) {
+                core.info(`Failed to link ${cachePath.defaultPath} to ${cachePath.actualPath}`);
+                core.info('Error: ' + err);
             }
         }
         // make outer code to continue using toolcache as if it were installed on c:
