@@ -240,7 +240,7 @@ async function cacheWindowsDir(
     } else {
       core.info(`Directory ${cachePath.actualPath} already exists`);
       // make sure the link is pointing to the actual cache directory
-      let symlinkTarget = fs.readlinkSync(cachePath.defaultPath);
+      const symlinkTarget = fs.readlinkSync(cachePath.defaultPath);
       if (symlinkTarget !== "") {
         core.info(`Found link ${cachePath.defaultPath} => ${symlinkTarget}`);
       } else {
