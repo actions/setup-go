@@ -228,7 +228,7 @@ async function cacheWindowsDir(
   const actualCacheDirectoryPaths = cacheDirectoryPaths.map(path => {
     return {
       defaultPath: path,
-      actualPath: path.replace('D:', 'C:').replace('d:', 'c:')
+      actualPath: path.replace('C:', 'D:').replace('c:', 'd:')
     };
   });
 
