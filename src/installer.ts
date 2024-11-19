@@ -234,6 +234,7 @@ async function cacheWindowsDir(
 
   // iterate through actual cache directory paths and make links if necessary
   for (const cachePath of actualCacheDirectoryPaths) {
+    core.info(`Trying to link ${cachePath.defaultPath} to ${cachePath.actualPath}`);
     if (!fs.existsSync(cachePath.actualPath)) {
       core.info(`Creating directory ${cachePath.actualPath}`);
       fs.mkdirSync(path.dirname(cachePath.actualPath), {recursive: true});
@@ -242,6 +243,7 @@ async function cacheWindowsDir(
     }
     // make sure the link is pointing to the actual cache directory
     const symlinkTarget = fs.readlinkSync(cachePath.defaultPath);
+    core.info(`Symlink target: ${symlinkTarget}`);
     if (symlinkTarget !== "") {
       core.info(`Found link ${cachePath.defaultPath} => ${symlinkTarget}`);
     } else {
