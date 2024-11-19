@@ -222,6 +222,8 @@ async function cacheWindowsDir(
     throw new Error(`Could not get cache folder paths.`);
   }
 
+  core.info(`Found Cache Directory Paths: ${cacheDirectoryPaths}`);
+  
   // replace cache directory path with actual cache directory path
   const actualCacheDirectoryPaths = cacheDirectoryPaths.map(path => {
     return {
@@ -233,6 +235,7 @@ async function cacheWindowsDir(
   // iterate through actual cache directory paths and make links
   for (const cachePath of actualCacheDirectoryPaths) {
     if (!fs.existsSync(cachePath.actualPath)) {
+      core.info(`Creating directory ${cachePath.actualPath}`);
       fs.mkdirSync(path.dirname(cachePath.actualPath), {recursive: true});
     }
 
