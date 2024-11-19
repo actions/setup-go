@@ -239,16 +239,16 @@ async function cacheWindowsDir(
       fs.mkdirSync(path.dirname(cachePath.actualPath), {recursive: true});
     } else {
       core.info(`Directory ${cachePath.actualPath} already exists`);
-      // make sure the link is pointing to the actual cache directory
-      const symlinkTarget = fs.readlinkSync(cachePath.defaultPath);
-      if (symlinkTarget !== "") {
-        core.info(`Found link ${cachePath.defaultPath} => ${symlinkTarget}`);
-      } else {
-        fs.symlinkSync(cachePath.actualPath, cachePath.defaultPath, 'junction');
-        core.info(
-          `Created link ${cachePath.defaultPath} => ${cachePath.actualPath}`
-        );
-      }
+    }
+    // make sure the link is pointing to the actual cache directory
+    const symlinkTarget = fs.readlinkSync(cachePath.defaultPath);
+    if (symlinkTarget !== "") {
+      core.info(`Found link ${cachePath.defaultPath} => ${symlinkTarget}`);
+    } else {
+      fs.symlinkSync(cachePath.actualPath, cachePath.defaultPath, 'junction');
+      core.info(
+        `Created link ${cachePath.defaultPath} => ${cachePath.actualPath}`
+      );
     }
   }
 
