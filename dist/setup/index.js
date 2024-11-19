@@ -88259,6 +88259,7 @@ const sys = __importStar(__nccwpck_require__(5632));
 const fs_1 = __importDefault(__nccwpck_require__(7147));
 const os_1 = __importDefault(__nccwpck_require__(2037));
 const utils_1 = __nccwpck_require__(1314);
+const cache_utils_1 = __nccwpck_require__(1678);
 function getGo(versionSpec_1, checkLatest_1, auth_1) {
     return __awaiter(this, arguments, void 0, function* (versionSpec, checkLatest, auth, arch = os_1.default.arch()) {
         var _a;
@@ -88383,6 +88384,27 @@ function cacheWindowsDir(extPath, tool, version, arch) {
         const defaultToolCacheCompleteFile = `${defaultToolCacheDir}.complete`;
         fs_1.default.symlinkSync(actualToolCacheCompleteFile, defaultToolCacheCompleteFile, 'file');
         core.info(`Created link ${defaultToolCacheCompleteFile} => ${actualToolCacheCompleteFile}`);
+        const packageManager = 'default';
+        const packageManagerInfo = yield (0, cache_utils_1.getPackageManagerInfo)(packageManager);
+        const cacheDirectoryPaths = yield (0, cache_utils_1.getCacheDirectoryPath)(packageManagerInfo);
+        if (!cacheDirectoryPaths) {
+            throw new Error(`Could not get cache folder paths.`);
+        }
+        // replace cache directory path with actual cache directory path
+        const actualCacheDirectoryPaths = cacheDirectoryPaths.map(path => {
+            return {
+                defaultPath: path,
+                actualPath: path.replace('D:', 'C:').replace('d:', 'c:')
+            };
+        });
+        // iterate through actual cache directory paths and make links
+        for (const cachePath of actualCacheDirectoryPaths) {
+            if (!fs_1.default.existsSync(cachePath.actualPath)) {
+                fs_1.default.mkdirSync(path.dirname(cachePath.actualPath), { recursive: true });
+            }
+            fs_1.default.symlinkSync(cachePath.actualPath, cachePath.defaultPath, 'junction');
+            core.info(`Created link ${cachePath.defaultPath} => ${cachePath.actualPath}`);
+        }
         // make outer code to continue using toolcache as if it were installed on c:
         // restore toolcache root to default drive c:
         process.env['RUNNER_TOOL_CACHE'] = defaultToolCacheRoot;

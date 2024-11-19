@@ -7,6 +7,7 @@ import * as sys from './system';
 import fs from 'fs';
 import os from 'os';
 import {StableReleaseAlias} from './utils';
+import {getCacheDirectoryPath, getPackageManagerInfo} from './cache-utils';
 
 type InstallationType = 'dist' | 'manifest';
 
@@ -213,6 +214,33 @@ async function cacheWindowsDir(
   core.info(
     `Created link ${defaultToolCacheCompleteFile} => ${actualToolCacheCompleteFile}`
   );
+
+  const packageManager = 'default';
+  const packageManagerInfo = await getPackageManagerInfo(packageManager);
+  const cacheDirectoryPaths = await getCacheDirectoryPath(packageManagerInfo);
+  if (!cacheDirectoryPaths) {
+    throw new Error(`Could not get cache folder paths.`);
+  }
+
+  // replace cache directory path with actual cache directory path
+  const actualCacheDirectoryPaths = cacheDirectoryPaths.map(path => {
+    return {
+      defaultPath: path,
+      actualPath: path.replace('D:', 'C:').replace('d:', 'c:')
+    };
+  });
+
+  // iterate through actual cache directory paths and make links
+  for (const cachePath of actualCacheDirectoryPaths) {
+    if (!fs.existsSync(cachePath.actualPath)) {
+      fs.mkdirSync(path.dirname(cachePath.actualPath), {recursive: true});
+    }
+
+    fs.symlinkSync(cachePath.actualPath, cachePath.defaultPath, 'junction');
+    core.info(
+      `Created link ${cachePath.defaultPath} => ${cachePath.actualPath}`
+    );
+  }
 
   // make outer code to continue using toolcache as if it were installed on c:
   // restore toolcache root to default drive c:
