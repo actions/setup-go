@@ -7,7 +7,6 @@ import * as sys from './system';
 import fs from 'fs';
 import os from 'os';
 import {StableReleaseAlias} from './utils';
-import {getCacheDirectoryPath, getPackageManagerInfo} from './cache-utils';
 
 type InstallationType = 'dist' | 'manifest';
 
@@ -214,56 +213,6 @@ async function cacheWindowsDir(
   core.info(
     `Created link ${defaultToolCacheCompleteFile} => ${actualToolCacheCompleteFile}`
   );
-
-  const packageManager = 'default';
-  const packageManagerInfo = await getPackageManagerInfo(packageManager);
-  const cacheDirectoryPaths = await getCacheDirectoryPath(packageManagerInfo);
-  if (!cacheDirectoryPaths) {
-    throw new Error(`Could not get cache folder paths.`);
-  }
-
-  core.info(`Found Cache Directory Paths: ${cacheDirectoryPaths}`);
-
-  // replace cache directory path with actual cache directory path
-  const actualCacheDirectoryPaths = cacheDirectoryPaths.map(path => {
-    return {
-      defaultPath: path,
-      actualPath: path.replace('C:', 'D:').replace('c:', 'd:')
-    };
-  });
-
-  // iterate through actual cache directory paths and make links if necessary
-  for (const cachePath of actualCacheDirectoryPaths) {
-    core.info(`Trying to link ${cachePath.defaultPath} to ${cachePath.actualPath}`);
-    try {
-      // the symlink already exists, skip
-      const stats = fs.lstatSync(cachePath.defaultPath);
-      if (fs.existsSync(cachePath.defaultPath) && stats.isSymbolicLink()) {
-        core.info(`Directory ${cachePath.defaultPath} already linked. Skipping`);
-        continue
-      }
-      // the directory is empty, delete it to be able to create a symlink
-      if (stats.size == 0) {
-        fs.rmSync(cachePath.defaultPath, {recursive: true, force: true});
-      } else {
-        core.info(`Directory ${cachePath.defaultPath} is not empty. Skipping`);
-        continue;
-      }
-      // create a parent directory where the link will be created
-      fs.mkdirSync(path.dirname(cachePath.defaultPath), {recursive: true});
-
-      // create the target directory if it doesn't exist yet
-      if (!fs.existsSync(cachePath.actualPath)) {
-        core.info(`Actual path ${cachePath.actualPath} does not exist. Creating`);
-        fs.mkdirSync(cachePath.actualPath, {recursive: true});
-      }
-      fs.symlinkSync(cachePath.actualPath, cachePath.defaultPath, 'junction');
-      core.info(`Created link ${cachePath.defaultPath} => ${cachePath.actualPath}`);
-    } catch (err) {
-      core.info(`Failed to link ${cachePath.defaultPath} to ${cachePath.actualPath}`);
-      core.info('Error: ' + err);
-    }
-  }
 
   // make outer code to continue using toolcache as if it were installed on c:
   // restore toolcache root to default drive c:

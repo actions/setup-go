@@ -88283,7 +88283,6 @@ const sys = __importStar(__nccwpck_require__(5632));
 const fs_1 = __importDefault(__nccwpck_require__(7147));
 const os_1 = __importDefault(__nccwpck_require__(2037));
 const utils_1 = __nccwpck_require__(1314);
-const cache_utils_1 = __nccwpck_require__(1678);
 function getGo(versionSpec_1, checkLatest_1, auth_1) {
     return __awaiter(this, arguments, void 0, function* (versionSpec, checkLatest, auth, arch = os_1.default.arch()) {
         var _a;
@@ -88408,53 +88407,6 @@ function cacheWindowsDir(extPath, tool, version, arch) {
         const defaultToolCacheCompleteFile = `${defaultToolCacheDir}.complete`;
         fs_1.default.symlinkSync(actualToolCacheCompleteFile, defaultToolCacheCompleteFile, 'file');
         core.info(`Created link ${defaultToolCacheCompleteFile} => ${actualToolCacheCompleteFile}`);
-        const packageManager = 'default';
-        const packageManagerInfo = yield (0, cache_utils_1.getPackageManagerInfo)(packageManager);
-        const cacheDirectoryPaths = yield (0, cache_utils_1.getCacheDirectoryPath)(packageManagerInfo);
-        if (!cacheDirectoryPaths) {
-            throw new Error(`Could not get cache folder paths.`);
-        }
-        core.info(`Found Cache Directory Paths: ${cacheDirectoryPaths}`);
-        // replace cache directory path with actual cache directory path
-        const actualCacheDirectoryPaths = cacheDirectoryPaths.map(path => {
-            return {
-                defaultPath: path,
-                actualPath: path.replace('C:', 'D:').replace('c:', 'd:')
-            };
-        });
-        // iterate through actual cache directory paths and make links if necessary
-        for (const cachePath of actualCacheDirectoryPaths) {
-            core.info(`Trying to link ${cachePath.defaultPath} to ${cachePath.actualPath}`);
-            try {
-                // the symlink already exists, skip
-                const stats = fs_1.default.lstatSync(cachePath.defaultPath);
-                if (fs_1.default.existsSync(cachePath.defaultPath) && stats.isSymbolicLink()) {
-                    core.info(`Directory ${cachePath.defaultPath} already linked. Skipping`);
-                    continue;
-                }
-                // the directory is empty, delete it to be able to create a symlink
-                if (stats.size == 0) {
-                    fs_1.default.rmSync(cachePath.defaultPath, { recursive: true, force: true });
-                }
-                else {
-                    core.info(`Directory ${cachePath.defaultPath} is not empty. Skipping`);
-                    continue;
-                }
-                // create a parent directory where the link will be created
-                fs_1.default.mkdirSync(path.dirname(cachePath.defaultPath), { recursive: true });
-                // create the target directory if it doesn't exist yet
-                if (!fs_1.default.existsSync(cachePath.actualPath)) {
-                    core.info(`Actual path ${cachePath.actualPath} does not exist. Creating`);
-                    fs_1.default.mkdirSync(cachePath.actualPath, { recursive: true });
-                }
-                fs_1.default.symlinkSync(cachePath.actualPath, cachePath.defaultPath, 'junction');
-                core.info(`Created link ${cachePath.defaultPath} => ${cachePath.actualPath}`);
-            }
-            catch (err) {
-                core.info(`Failed to link ${cachePath.defaultPath} to ${cachePath.actualPath}`);
-                core.info('Error: ' + err);
-            }
-        }
         // make outer code to continue using toolcache as if it were installed on c:
         // restore toolcache root to default drive c:
         process.env['RUNNER_TOOL_CACHE'] = defaultToolCacheRoot;
