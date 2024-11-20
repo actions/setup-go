@@ -237,8 +237,17 @@ async function cacheWindowsDir(
     core.info(`Trying to link ${cachePath.defaultPath} to ${cachePath.actualPath}`);
     try {
       // the symlink already exists, skip
-      if (fs.existsSync(cachePath.defaultPath) && fs.lstatSync(cachePath.defaultPath).isSymbolicLink()) {
+      const stats = fs.lstatSync(cachePath.defaultPath);
+      if (fs.existsSync(cachePath.defaultPath) && stats.isSymbolicLink()) {
+        core.info(`Directory ${cachePath.defaultPath} already linked. Skipping`);
         continue
+      }
+      // the directory is empty, delete it to be able to create a symlink
+      if (stats.size == 0) {
+        fs.rmSync(cachePath.defaultPath, {recursive: true, force: true});
+      } else {
+        core.info(`Directory ${cachePath.defaultPath} is not empty. Skipping`);
+        continue;
       }
       // create a parent directory where the link will be created
       fs.mkdirSync(path.dirname(cachePath.defaultPath), {recursive: true});

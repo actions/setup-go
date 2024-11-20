@@ -88402,28 +88402,29 @@ function cacheWindowsDir(extPath, tool, version, arch) {
         for (const cachePath of actualCacheDirectoryPaths) {
             core.info(`Trying to link ${cachePath.defaultPath} to ${cachePath.actualPath}`);
             try {
-                if (!fs_1.default.existsSync(cachePath.defaultPath)) {
-                    core.info(`Default path ${cachePath.defaultPath} does not exist`);
-                    core.info(`Creating directory ${cachePath.defaultPath}`);
-                    fs_1.default.mkdirSync(cachePath.defaultPath, { recursive: true });
-                }
-                if (!fs_1.default.existsSync(cachePath.actualPath)) {
-                    core.info(`Actual path ${cachePath.actualPath} does not exist. Safe to create symlink`);
-                }
-                else {
-                    core.info(`Actual path ${cachePath.actualPath} already exists. Skipping symlink creation`);
+                // the symlink already exists, skip
+                const stats = fs_1.default.lstatSync(cachePath.defaultPath);
+                if (fs_1.default.existsSync(cachePath.defaultPath) && stats.isSymbolicLink()) {
+                    core.info(`Directory ${cachePath.defaultPath} already linked. Skipping`);
                     continue;
                 }
-                // check if the default path is a symlink
-                const isSymlink = fs_1.default.lstatSync(cachePath.defaultPath).isSymbolicLink();
-                if (isSymlink) {
-                    core.info(`Default path is symlink ${cachePath.defaultPath} => ${fs_1.default.readlinkSync(cachePath.defaultPath)}`);
+                // the directory is empty, delete it to be able to create a symlink
+                if (stats.size == 0) {
+                    fs_1.default.rmSync(cachePath.defaultPath, { recursive: true, force: true });
                 }
                 else {
-                    core.info(`Default path is not a symlink ${cachePath.defaultPath}`);
-                    fs_1.default.symlinkSync(cachePath.actualPath, cachePath.defaultPath, 'junction');
-                    core.info(`Created link ${cachePath.defaultPath} => ${cachePath.actualPath}`);
+                    core.info(`Directory ${cachePath.defaultPath} is not empty. Skipping`);
+                    continue;
                 }
+                // create a parent directory where the link will be created
+                fs_1.default.mkdirSync(path.dirname(cachePath.defaultPath), { recursive: true });
+                // create the target directory if it doesn't exist yet
+                if (!fs_1.default.existsSync(cachePath.actualPath)) {
+                    core.info(`Actual path ${cachePath.actualPath} does not exist. Creating`);
+                    fs_1.default.mkdirSync(cachePath.actualPath, { recursive: true });
+                }
+                fs_1.default.symlinkSync(cachePath.actualPath, cachePath.defaultPath, 'junction');
+                core.info(`Created link ${cachePath.defaultPath} => ${cachePath.actualPath}`);
             }
             catch (err) {
                 core.info(`Failed to link ${cachePath.defaultPath} to ${cachePath.actualPath}`);
