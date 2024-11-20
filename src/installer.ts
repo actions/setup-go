@@ -236,29 +236,20 @@ async function cacheWindowsDir(
   for (const cachePath of actualCacheDirectoryPaths) {
     core.info(`Trying to link ${cachePath.defaultPath} to ${cachePath.actualPath}`);
     try {
-      if (!fs.existsSync(cachePath.defaultPath)) {
-        core.info(`Default path ${cachePath.defaultPath} does not exist`);
-        core.info(`Creating directory ${cachePath.defaultPath}`);
-        fs.mkdirSync(cachePath.defaultPath, {recursive: true});
+      // the symlink already exists, skip
+      if (fs.existsSync(cachePath.defaultPath) && fs.lstatSync(cachePath.defaultPath).isSymbolicLink()) {
+        continue
       }
-      if (!fs.existsSync(cachePath.actualPath)) {
-        core.info(`Actual path ${cachePath.actualPath} does not exist. Safe to create symlink`);
-      } else {
-        core.info(`Actual path ${cachePath.actualPath} already exists. Skipping symlink creation`);
-        continue;
-      }
+      // create a parent directory where the link will be created
+      fs.mkdirSync(path.dirname(cachePath.defaultPath), {recursive: true});
 
-      // check if the default path is a symlink
-      const isSymlink = fs.lstatSync(cachePath.defaultPath).isSymbolicLink();
-      if (isSymlink) {
-        core.info(`Default path is symlink ${cachePath.defaultPath} => ${fs.readlinkSync(cachePath.defaultPath)}`);
-      } else {
-        core.info(`Default path is not a symlink ${cachePath.defaultPath}`);
-        fs.symlinkSync(cachePath.actualPath, cachePath.defaultPath, 'junction');
-        core.info(
-          `Created link ${cachePath.defaultPath} => ${cachePath.actualPath}`
-        );
+      // create the target directory if it doesn't exist yet
+      if (!fs.existsSync(cachePath.actualPath)) {
+        core.info(`Actual path ${cachePath.actualPath} does not exist. Creating`);
+        fs.mkdirSync(cachePath.actualPath, {recursive: true});
       }
+      fs.symlinkSync(cachePath.actualPath, cachePath.defaultPath, 'junction');
+      core.info(`Created link ${cachePath.defaultPath} => ${cachePath.actualPath}`);
     } catch (err) {
       core.info(`Failed to link ${cachePath.defaultPath} to ${cachePath.actualPath}`);
       core.info('Error: ' + err);
