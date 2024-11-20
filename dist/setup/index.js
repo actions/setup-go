@@ -88034,7 +88034,7 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", ({ value: true }));
-exports.restoreCache = void 0;
+exports.setWindowsCacheDirectories = exports.restoreCache = void 0;
 const cache = __importStar(__nccwpck_require__(7799));
 const core = __importStar(__nccwpck_require__(2186));
 const glob = __importStar(__nccwpck_require__(8090));
@@ -88042,6 +88042,7 @@ const path_1 = __importDefault(__nccwpck_require__(1017));
 const fs_1 = __importDefault(__nccwpck_require__(7147));
 const constants_1 = __nccwpck_require__(9042);
 const cache_utils_1 = __nccwpck_require__(1678);
+const os_1 = __importDefault(__nccwpck_require__(2037));
 const restoreCache = (versionSpec, packageManager, cacheDependencyPath) => __awaiter(void 0, void 0, void 0, function* () {
     const packageManagerInfo = yield (0, cache_utils_1.getPackageManagerInfo)(packageManager);
     const platform = process.env.RUNNER_OS;
@@ -88069,6 +88070,29 @@ const restoreCache = (versionSpec, packageManager, cacheDependencyPath) => __awa
     core.info(`Cache restored from key: ${cacheKey}`);
 });
 exports.restoreCache = restoreCache;
+const setWindowsCacheDirectories = () => __awaiter(void 0, void 0, void 0, function* () {
+    if (os_1.default.platform() !== 'win32')
+        return;
+    let goCache = yield (0, cache_utils_1.getCommandOutput)(`go env GOCACHE`);
+    core.info(`GOCACHE: ${goCache}`);
+    goCache = goCache.replace('C:', 'D:').replace('c:', 'd:');
+    if (!fs_1.default.existsSync(goCache)) {
+        core.info(`${goCache} does not exist. Creating`);
+        fs_1.default.mkdirSync(goCache, { recursive: true });
+    }
+    const setOutput = yield (0, cache_utils_1.getCommandOutput)(`go env -w GOCACHE=${goCache}`);
+    core.info(`go env -w GOCACHE output: ${setOutput}`);
+    let goModCache = yield (0, cache_utils_1.getCommandOutput)(`go env GOMODCACHE`);
+    core.info(`GOMODCACHE: ${goModCache}`);
+    goModCache = goModCache.replace('C:', 'D:').replace('c:', 'd:');
+    if (!fs_1.default.existsSync(goModCache)) {
+        core.info(`${goModCache} does not exist. Creating`);
+        fs_1.default.mkdirSync(goModCache, { recursive: true });
+    }
+    const setModOutput = yield (0, cache_utils_1.getCommandOutput)(`go env -w GOMODCACHE=${goModCache}`);
+    core.info(`go env -w GOMODCACHE output: ${setModOutput}`);
+});
+exports.setWindowsCacheDirectories = setWindowsCacheDirectories;
 const findDependencyFile = (packageManager) => {
     const dependencyFile = packageManager.dependencyFilePattern;
     const workspace = process.env.GITHUB_WORKSPACE;
@@ -88701,6 +88725,7 @@ const os_1 = __importDefault(__nccwpck_require__(2037));
 function run() {
     return __awaiter(this, void 0, void 0, function* () {
         try {
+            yield (0, cache_restore_1.setWindowsCacheDirectories)();
             //
             // versionSpec is optional.  If supplied, install / use from the tool cache
             // If not supplied then problem matchers will still be setup.  Useful for self-hosted.
