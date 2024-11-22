@@ -93,7 +93,7 @@ describe('setup-go', () => {
     getAllVersionsSpy = jest.spyOn(im, 'getManifest');
 
     // httm
-    httpmGetJsonSpy = jest.spyOn(httpm.HttpClient.prototype, 'getJson')
+    httpmGetJsonSpy = jest.spyOn(httpm.HttpClient.prototype, 'getJson');
 
     // io
     whichSpy = jest.spyOn(io, 'which');
@@ -162,9 +162,7 @@ describe('setup-go', () => {
   });
 
   it('should return manifest from raw URL if repo fetch fails', async () => {
-    getManifestSpy.mockRejectedValue(
-      new Error('Fetch failed')
-    );
+    getManifestSpy.mockRejectedValue(new Error('Fetch failed'));
     httpmGetJsonSpy.mockResolvedValue({
       result: goTestManifest
     });
@@ -812,7 +810,9 @@ describe('setup-go', () => {
       getManifestSpy.mockImplementation(() => {
         throw new Error('Unable to download manifest');
       });
-      httpmGetJsonSpy.mockRejectedValue(new Error('Unable to download manifest from raw URL'));
+      httpmGetJsonSpy.mockRejectedValue(
+        new Error('Unable to download manifest from raw URL')
+      );
       getAllVersionsSpy.mockImplementationOnce(() => undefined);
 
       dlSpy.mockImplementation(async () => '/some/temp/path');

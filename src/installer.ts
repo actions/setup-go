@@ -13,7 +13,6 @@ const MANIFEST_REPO_NAME = 'go-versions';
 const MANIFEST_REPO_BRANCH = 'main';
 const MANIFEST_URL = `https://raw.githubusercontent.com/${MANIFEST_REPO_OWNER}/${MANIFEST_REPO_NAME}/${MANIFEST_REPO_BRANCH}/versions-manifest.json`;
 
-
 type InstallationType = 'dist' | 'manifest';
 
 export interface IGoVersionFile {
@@ -280,7 +279,9 @@ export async function extractGoArchive(archivePath: string): Promise<string> {
   return extPath;
 }
 
-export async function getManifest(auth: string | undefined): Promise<tc.IToolRelease[]> {
+export async function getManifest(
+  auth: string | undefined
+): Promise<tc.IToolRelease[]> {
   try {
     return await getManifestFromRepo(auth);
   } catch (err) {
@@ -292,7 +293,9 @@ export async function getManifest(auth: string | undefined): Promise<tc.IToolRel
   return await getManifestFromURL();
 }
 
-function getManifestFromRepo(auth: string | undefined): Promise<tc.IToolRelease[]> {
+function getManifestFromRepo(
+  auth: string | undefined
+): Promise<tc.IToolRelease[]> {
   core.debug(
     `Getting manifest from ${MANIFEST_REPO_OWNER}/${MANIFEST_REPO_NAME}@${MANIFEST_REPO_BRANCH}`
   );
