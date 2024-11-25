@@ -88259,6 +88259,10 @@ const sys = __importStar(__nccwpck_require__(5632));
 const fs_1 = __importDefault(__nccwpck_require__(7147));
 const os_1 = __importDefault(__nccwpck_require__(2037));
 const utils_1 = __nccwpck_require__(1314);
+const MANIFEST_REPO_OWNER = 'actions';
+const MANIFEST_REPO_NAME = 'go-versions';
+const MANIFEST_REPO_BRANCH = 'main';
+const MANIFEST_URL = `https://raw.githubusercontent.com/${MANIFEST_REPO_OWNER}/${MANIFEST_REPO_NAME}/${MANIFEST_REPO_BRANCH}/versions-manifest.json`;
 function getGo(versionSpec_1, checkLatest_1, auth_1) {
     return __awaiter(this, arguments, void 0, function* (versionSpec, checkLatest, auth, arch = os_1.default.arch()) {
         var _a;
@@ -88433,10 +88437,34 @@ function extractGoArchive(archivePath) {
 exports.extractGoArchive = extractGoArchive;
 function getManifest(auth) {
     return __awaiter(this, void 0, void 0, function* () {
-        return tc.getManifestFromRepo('actions', 'go-versions', auth, 'main');
+        try {
+            return yield getManifestFromRepo(auth);
+        }
+        catch (err) {
+            core.debug('Fetching the manifest via the API failed.');
+            if (err instanceof Error) {
+                core.debug(err.message);
+            }
+        }
+        return yield getManifestFromURL();
     });
 }
 exports.getManifest = getManifest;
+function getManifestFromRepo(auth) {
+    core.debug(`Getting manifest from ${MANIFEST_REPO_OWNER}/${MANIFEST_REPO_NAME}@${MANIFEST_REPO_BRANCH}`);
+    return tc.getManifestFromRepo(MANIFEST_REPO_OWNER, MANIFEST_REPO_NAME, auth, MANIFEST_REPO_BRANCH);
+}
+function getManifestFromURL() {
+    return __awaiter(this, void 0, void 0, function* () {
+        core.debug('Falling back to fetching the manifest using raw URL.');
+        const http = new httpm.HttpClient('tool-cache');
+        const response = yield http.getJson(MANIFEST_URL);
+        if (!response.result) {
+            throw new Error(`Unable to get manifest from ${MANIFEST_URL}`);
+        }
+        return response.result;
+    });
+}
 function getInfoFromManifest(versionSpec_1, stable_1, auth_1) {
     return __awaiter(this, arguments, void 0, function* (versionSpec, stable, auth, arch = os_1.default.arch(), manifest) {
         let info = null;
