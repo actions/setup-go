@@ -11,6 +11,7 @@ import os from 'os';
 
 export async function run() {
   try {
+    setToolchain();
     //
     // versionSpec is optional.  If supplied, install / use from the tool cache
     // If not supplied then problem matchers will still be setup.  Useful for self-hosted.
@@ -159,4 +160,21 @@ function resolveVersionInput(): string {
   }
 
   return version;
+}
+
+function setToolchain() {
+  // docs: https://go.dev/doc/toolchain
+  // "local indicates the bundled Go toolchain (the one that shipped with the go command being run)"
+  // this is so any 'go' command is run with the selected Go version
+  // and doesn't trigger a toolchain download and run commands with that
+  // see e.g. issue #424
+  // and a similar discussion: https://github.com/docker-library/golang/issues/472
+  const toolchain = 'local';
+  const toolchainVar = 'GOTOOLCHAIN';
+
+  // set the value in process env so any `go` commands run as child-process
+  // don't cause toolchain downloads
+  process.env[toolchainVar] = toolchain;
+  // and in the runner env so e.g. a user running `go mod tidy` won't cause it
+  core.exportVariable(toolchainVar, toolchain);
 }
