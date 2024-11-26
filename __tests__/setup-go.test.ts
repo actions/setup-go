@@ -8,6 +8,7 @@ import path from 'path';
 import * as main from '../src/main';
 import * as im from '../src/installer';
 import * as httpm from '@actions/http-client';
+import {getArch} from '../src/system';
 
 import goJsonData from './data/golang-dl.json';
 import matchers from '../matchers.json';
@@ -32,6 +33,7 @@ describe('setup-go', () => {
   let getSpy: jest.SpyInstance;
   let platSpy: jest.SpyInstance;
   let archSpy: jest.SpyInstance;
+  let endianSpy: jest.SpyInstance;
   let joinSpy: jest.SpyInstance;
   let dlSpy: jest.SpyInstance;
   let extractTarSpy: jest.SpyInstance;
@@ -71,6 +73,8 @@ describe('setup-go', () => {
     archSpy = jest.spyOn(osm, 'arch');
     archSpy.mockImplementation(() => os['arch']);
     execSpy = jest.spyOn(cp, 'execSync');
+    endianSpy = jest.spyOn(osm, 'endianness');
+    endianSpy.mockImplementation(() => os['endianness']);
 
     // switch path join behaviour based on set os.platform
     joinSpy = jest.spyOn(path, 'join');
@@ -988,5 +992,17 @@ use .
         );
       }
     );
+
+    it('should return ppc64 when architecture is ppc64 and system is Big Endian', () => {
+      endianSpy.mockReturnValue('BE');
+      const result = getArch('ppc64');
+      expect(result).toBe('ppc64');
+    });
+
+    it('should return ppc64le when architecture is ppc64 and system is Little Endian', () => {
+      endianSpy.mockReturnValue('LE');
+      const result = getArch('ppc64');
+      expect(result).toBe('ppc64le');
+    });
   });
 });
