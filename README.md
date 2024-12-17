@@ -8,6 +8,14 @@ This action sets up a go environment for use in actions by:
 - Optionally downloading and caching a version of Go by version and adding to `PATH`.
 - Registering problem matchers for error output.
 
+# V5
+
+The V5 edition of the action offers:
+
+- Upgraded Node.js runtime from node16 to node20
+
+See full release notes on the [releases page](https://github.com/actions/setup-go/releases).
+
 # V4
 
 The V4 edition of the action offers:
@@ -43,7 +51,7 @@ Matching by [semver spec](https://github.com/npm/node-semver):
 ```yaml
 steps:
   - uses: actions/checkout@v4
-  - uses: actions/setup-go@v4
+  - uses: actions/setup-go@v5
     with:
       go-version: '^1.13.1' # The Go version to download (if necessary) and use.
   - run: go version
@@ -52,7 +60,7 @@ steps:
 ```yaml
 steps:
   - uses: actions/checkout@v4
-  - uses: actions/setup-go@v4
+  - uses: actions/setup-go@v5
     with:
       go-version: '>=1.17.0'
   - run: go version
@@ -62,15 +70,16 @@ steps:
 >
 > ```yaml
 >   go-version: '1.20'
->  ```
+> ```
 >
 > The recommendation is based on the YAML parser's behavior, which interprets non-wrapped values as numbers and, in the case of version 1.20, trims it down to 1.2, which may not be very obvious.
+
 Matching an unstable pre-release:
 
 ```yaml
 steps:
   - uses: actions/checkout@v4
-  - uses: actions/setup-go@v4
+  - uses: actions/setup-go@v5
     with:
       go-version: '1.18.0-rc.1' # The Go version to download (if necessary) and use.
   - run: go version
@@ -79,7 +88,7 @@ steps:
 ```yaml
 steps:
   - uses: actions/checkout@v4
-  - uses: actions/setup-go@v4
+  - uses: actions/setup-go@v5
     with:
       go-version: '1.16.0-beta.1' # The Go version to download (if necessary) and use.
   - run: go version
@@ -94,7 +103,7 @@ See [action.yml](action.yml)
 ```yaml
 steps:
   - uses: actions/checkout@v4
-  - uses: actions/setup-go@v4
+  - uses: actions/setup-go@v5
     with:
       go-version: '1.16.1' # The Go version to download (if necessary) and use.
   - run: go run hello.go
@@ -115,7 +124,7 @@ want the most up-to-date Go version to always be used.
 ```yaml
 steps:
   - uses: actions/checkout@v4
-  - uses: actions/setup-go@v4
+  - uses: actions/setup-go@v5
     with:
       go-version: '1.14'
       check-latest: true
@@ -136,7 +145,7 @@ set to `true`
 ```yaml
 steps:
   - uses: actions/checkout@v4
-  - uses: actions/setup-go@v4
+  - uses: actions/setup-go@v5
     with:
       go-version: 'stable'
   - run: go run hello.go
@@ -145,7 +154,7 @@ steps:
 ```yaml
 steps:
   - uses: actions/checkout@v4
-  - uses: actions/setup-go@v4
+  - uses: actions/setup-go@v5
     with:
       go-version: 'oldstable'
   - run: go run hello.go
@@ -168,7 +177,7 @@ If some problem that prevents success caching happens then the action issues the
 ```yaml
 steps:
   - uses: actions/checkout@v4
-  - uses: actions/setup-go@v4
+  - uses: actions/setup-go@v5
     with:
       go-version: '1.17'
       check-latest: true
@@ -182,11 +191,13 @@ steps:
 
 ## Getting go version from the go.mod file
 
-The `go-version-file` input accepts a path to a `go.mod` file or a `go.work` file that contains the version of Go to be
-used by a project. As the `go.mod` file contains only major and minor (e.g. 1.18) tags, the action will search for the
-latest available patch version sequentially in the runner's directory with the cached tools, in
-the [versions-manifest.json](https://github.com/actions/go-versions/blob/main/versions-manifest.json) file or at the go
-servers.
+The `go-version-file` input accepts a path to a `go.mod` file or a `go.work` file that contains the version of Go to be used by a project.
+
+The `go` directive in `go.mod` can specify a patch version or omit it altogether (e.g., `go 1.22.0` or `go 1.22`).  
+If a patch version is specified, that specific patch version will be used.  
+If no patch version is specified, it will search for the latest available patch version in the cache,
+[versions-manifest.json](https://github.com/actions/go-versions/blob/main/versions-manifest.json), and the
+[official Go language website](https://golang.org/dl/?mode=json&include=all), in that order.
 
 If both the `go-version` and the `go-version-file` inputs are provided then the `go-version` input is used.
 > The action will search for the `go.mod` file relative to the repository root
@@ -194,7 +205,7 @@ If both the `go-version` and the `go-version-file` inputs are provided then the 
 ```yaml
 steps:
   - uses: actions/checkout@v4
-  - uses: actions/setup-go@v4
+  - uses: actions/setup-go@v5
     with:
       go-version-file: 'path/to/go.mod'
   - run: go version
@@ -213,7 +224,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - name: Setup go
-        uses: actions/setup-go@v4
+        uses: actions/setup-go@v5
         with:
           go-version: ${{ matrix.go }}
       - run: go run hello.go
@@ -231,28 +242,23 @@ documentation.
 
 ## Using `setup-go` on GHES
 
-`setup-go` comes pre-installed on the appliance with GHES if Actions is enabled. When dynamically downloading Go
-distributions, `setup-go` downloads distributions from [`actions/go-versions`](https://github.com/actions/go-versions)
-on github.com (outside of the appliance). These calls to `actions/go-versions` are made via unauthenticated requests,
-which are limited
-to [60 requests per hour per IP](https://docs.github.com/en/rest/overview/resources-in-the-rest-api#rate-limiting). If
-more requests are made within the time frame, then you will start to see rate-limit errors during downloading that looks
-like: `##[error]API rate limit exceeded for...`. After that error the action will try to download versions directly
-from https://storage.googleapis.com/golang, but it also can have rate limit so it's better to put token.
+`setup-go` comes pre-installed on the appliance with GHES if Actions is enabled.
+When dynamically downloading Go distributions, `setup-go` downloads distributions from [`actions/go-versions`](https://github.com/actions/go-versions) on github.com (outside of the appliance).
 
-To get a higher rate limit, you
-can [generate a personal access token on github.com](https://github.com/settings/tokens/new) and pass it as the `token`
-input for the action:
+These calls to `actions/go-versions` are made via unauthenticated requests, which are limited to [60 requests per hour per IP](https://docs.github.com/en/rest/overview/resources-in-the-rest-api#rate-limiting).
+If more requests are made within the time frame, then the action leverages the `raw API` to retrieve the version-manifest. This approach does not impose a rate limit and hence facilitates unrestricted consumption. This is particularly beneficial for GHES runners, which often share the same IP, to avoid the quick exhaustion of the unauthenticated rate limit.
+If that fails as well the action will try to download versions directly from https://storage.googleapis.com/golang.
+
+If that fails as well you can get a higher rate limit with [generating a personal access token on github.com](https://github.com/settings/tokens/new) and passing it as the `token` input to the action:
 
 ```yaml
-uses: actions/setup-go@v4
+uses: actions/setup-go@v5
 with:
   token: ${{ secrets.GH_DOTCOM_TOKEN }}
   go-version: '1.18'
 ```
 
-If the runner is not able to access github.com, any Go versions requested during a workflow run must come from the
-runner's tool cache.
+If the runner is not able to access github.com, any Go versions requested during a workflow run must come from the runner's tool cache.
 See "[Setting up the tool cache on self-hosted runners without internet access](https://docs.github.com/en/enterprise-server@3.2/admin/github-actions/managing-access-to-actions-from-githubcom/setting-up-the-tool-cache-on-self-hosted-runners-without-internet-access)"
 for more information.
 

@@ -7,6 +7,7 @@ import osm, {type} from 'os';
 import path from 'path';
 import * as main from '../src/main';
 import * as im from '../src/installer';
+import * as httpm from '@actions/http-client';
 
 import goJsonData from './data/golang-dl.json';
 import matchers from '../matchers.json';
@@ -46,6 +47,7 @@ describe('setup-go', () => {
   let execSpy: jest.SpyInstance;
   let getManifestSpy: jest.SpyInstance;
   let getAllVersionsSpy: jest.SpyInstance;
+  let httpmGetJsonSpy: jest.SpyInstance;
 
   beforeAll(async () => {
     process.env['GITHUB_ENV'] = ''; // Stub out Environment file functionality so we can verify it writes to standard out (toolkit is backwards compatible)
@@ -89,6 +91,9 @@ describe('setup-go', () => {
     getSpy = jest.spyOn(im, 'getVersionsDist');
     getManifestSpy = jest.spyOn(tc, 'getManifestFromRepo');
     getAllVersionsSpy = jest.spyOn(im, 'getManifest');
+
+    // httm
+    httpmGetJsonSpy = jest.spyOn(httpm.HttpClient.prototype, 'getJson');
 
     // io
     whichSpy = jest.spyOn(io, 'which');
@@ -149,6 +154,21 @@ describe('setup-go', () => {
     expect(match!.downloadUrl).toBe(
       'https://github.com/actions/go-versions/releases/download/1.9.7/go-1.9.7-darwin-x64.tar.gz'
     );
+  });
+
+  it('should return manifest from repo', async () => {
+    const manifest = await im.getManifest(undefined);
+    expect(manifest).toEqual(goTestManifest);
+  });
+
+  it('should return manifest from raw URL if repo fetch fails', async () => {
+    getManifestSpy.mockRejectedValue(new Error('Fetch failed'));
+    httpmGetJsonSpy.mockResolvedValue({
+      result: goTestManifest
+    });
+    const manifest = await im.getManifest(undefined);
+    expect(httpmGetJsonSpy).toHaveBeenCalled();
+    expect(manifest).toEqual(goTestManifest);
   });
 
   it('can find 1.9 from manifest on linux', async () => {
@@ -790,6 +810,9 @@ describe('setup-go', () => {
       getManifestSpy.mockImplementation(() => {
         throw new Error('Unable to download manifest');
       });
+      httpmGetJsonSpy.mockRejectedValue(
+        new Error('Unable to download manifest from raw URL')
+      );
       getAllVersionsSpy.mockImplementationOnce(() => undefined);
 
       dlSpy.mockImplementation(async () => '/some/temp/path');
