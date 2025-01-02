@@ -146,7 +146,7 @@ describe('setup-go', () => {
     expect(main.parseGoVersion(goVersionOutput)).toBe('1.16.6');
   });
 
-  it('can find 1.9.7 from manifest on osx', async () => {
+  it('can find 1.9.7 from manifest on macOS', async () => {
     os.platform = 'darwin';
     os.arch = 'x64';
 
