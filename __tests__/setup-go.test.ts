@@ -92,7 +92,7 @@ describe('setup-go', () => {
     getManifestSpy = jest.spyOn(tc, 'getManifestFromRepo');
     getAllVersionsSpy = jest.spyOn(im, 'getManifest');
 
-    // httm
+    // httpm
     httpmGetJsonSpy = jest.spyOn(httpm.HttpClient.prototype, 'getJson');
 
     // io
