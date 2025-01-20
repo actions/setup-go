@@ -96501,13 +96501,23 @@ var __setModuleDefault = (this && this.__setModuleDefault) || (Object.create ? (
 }) : function(o, v) {
     o["default"] = v;
 });
-var __importStar = (this && this.__importStar) || function (mod) {
-    if (mod && mod.__esModule) return mod;
-    var result = {};
-    if (mod != null) for (var k in mod) if (k !== "default" && Object.prototype.hasOwnProperty.call(mod, k)) __createBinding(result, mod, k);
-    __setModuleDefault(result, mod);
-    return result;
-};
+var __importStar = (this && this.__importStar) || (function () {
+    var ownKeys = function(o) {
+        ownKeys = Object.getOwnPropertyNames || function (o) {
+            var ar = [];
+            for (var k in o) if (Object.prototype.hasOwnProperty.call(o, k)) ar[ar.length] = k;
+            return ar;
+        };
+        return ownKeys(o);
+    };
+    return function (mod) {
+        if (mod && mod.__esModule) return mod;
+        var result = {};
+        if (mod != null) for (var k = ownKeys(mod), i = 0; i < k.length; i++) if (k[i] !== "default") __createBinding(result, mod, k[i]);
+        __setModuleDefault(result, mod);
+        return result;
+    };
+})();
 var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, generator) {
     function adopt(value) { return value instanceof P ? value : new P(function (resolve) { resolve(value); }); }
     return new (P || (P = Promise))(function (resolve, reject) {
@@ -96591,13 +96601,23 @@ var __setModuleDefault = (this && this.__setModuleDefault) || (Object.create ? (
 }) : function(o, v) {
     o["default"] = v;
 });
-var __importStar = (this && this.__importStar) || function (mod) {
-    if (mod && mod.__esModule) return mod;
-    var result = {};
-    if (mod != null) for (var k in mod) if (k !== "default" && Object.prototype.hasOwnProperty.call(mod, k)) __createBinding(result, mod, k);
-    __setModuleDefault(result, mod);
-    return result;
-};
+var __importStar = (this && this.__importStar) || (function () {
+    var ownKeys = function(o) {
+        ownKeys = Object.getOwnPropertyNames || function (o) {
+            var ar = [];
+            for (var k in o) if (Object.prototype.hasOwnProperty.call(o, k)) ar[ar.length] = k;
+            return ar;
+        };
+        return ownKeys(o);
+    };
+    return function (mod) {
+        if (mod && mod.__esModule) return mod;
+        var result = {};
+        if (mod != null) for (var k = ownKeys(mod), i = 0; i < k.length; i++) if (k[i] !== "default") __createBinding(result, mod, k[i]);
+        __setModuleDefault(result, mod);
+        return result;
+    };
+})();
 var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, generator) {
     function adopt(value) { return value instanceof P ? value : new P(function (resolve) { resolve(value); }); }
     return new (P || (P = Promise))(function (resolve, reject) {
@@ -96608,7 +96628,9 @@ var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, ge
     });
 };
 Object.defineProperty(exports, "__esModule", ({ value: true }));
-exports.isCacheFeatureAvailable = exports.isGhes = exports.getCacheDirectoryPath = exports.getPackageManagerInfo = exports.getCommandOutput = void 0;
+exports.getCacheDirectoryPath = exports.getPackageManagerInfo = exports.getCommandOutput = void 0;
+exports.isGhes = isGhes;
+exports.isCacheFeatureAvailable = isCacheFeatureAvailable;
 const cache = __importStar(__nccwpck_require__(7799));
 const core = __importStar(__nccwpck_require__(2186));
 const exec = __importStar(__nccwpck_require__(1514));
@@ -96658,7 +96680,6 @@ function isGhes() {
     const isLocalHost = hostname.endsWith('.LOCALHOST');
     return !isGitHubHost && !isGitHubEnterpriseCloudHost && !isLocalHost;
 }
-exports.isGhes = isGhes;
 function isCacheFeatureAvailable() {
     if (cache.isFeatureAvailable()) {
         return true;
@@ -96670,7 +96691,6 @@ function isCacheFeatureAvailable() {
     core.warning('The runner was not able to contact the cache service. Caching will be skipped');
     return false;
 }
-exports.isCacheFeatureAvailable = isCacheFeatureAvailable;
 
 
 /***/ }),
@@ -96716,13 +96736,23 @@ var __setModuleDefault = (this && this.__setModuleDefault) || (Object.create ? (
 }) : function(o, v) {
     o["default"] = v;
 });
-var __importStar = (this && this.__importStar) || function (mod) {
-    if (mod && mod.__esModule) return mod;
-    var result = {};
-    if (mod != null) for (var k in mod) if (k !== "default" && Object.prototype.hasOwnProperty.call(mod, k)) __createBinding(result, mod, k);
-    __setModuleDefault(result, mod);
-    return result;
-};
+var __importStar = (this && this.__importStar) || (function () {
+    var ownKeys = function(o) {
+        ownKeys = Object.getOwnPropertyNames || function (o) {
+            var ar = [];
+            for (var k in o) if (Object.prototype.hasOwnProperty.call(o, k)) ar[ar.length] = k;
+            return ar;
+        };
+        return ownKeys(o);
+    };
+    return function (mod) {
+        if (mod && mod.__esModule) return mod;
+        var result = {};
+        if (mod != null) for (var k = ownKeys(mod), i = 0; i < k.length; i++) if (k[i] !== "default") __createBinding(result, mod, k[i]);
+        __setModuleDefault(result, mod);
+        return result;
+    };
+})();
 var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, generator) {
     function adopt(value) { return value instanceof P ? value : new P(function (resolve) { resolve(value); }); }
     return new (P || (P = Promise))(function (resolve, reject) {
@@ -96736,7 +96766,15 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", ({ value: true }));
-exports.resolveStableVersionInput = exports.parseGoVersionFile = exports.makeSemver = exports.getVersionsDist = exports.findMatch = exports.getInfoFromManifest = exports.getManifest = exports.extractGoArchive = exports.getGo = void 0;
+exports.getGo = getGo;
+exports.extractGoArchive = extractGoArchive;
+exports.getManifest = getManifest;
+exports.getInfoFromManifest = getInfoFromManifest;
+exports.findMatch = findMatch;
+exports.getVersionsDist = getVersionsDist;
+exports.makeSemver = makeSemver;
+exports.parseGoVersionFile = parseGoVersionFile;
+exports.resolveStableVersionInput = resolveStableVersionInput;
 const tc = __importStar(__nccwpck_require__(7784));
 const core = __importStar(__nccwpck_require__(2186));
 const path = __importStar(__nccwpck_require__(1017));
@@ -96831,7 +96869,6 @@ function getGo(versionSpec_1, checkLatest_1, auth_1) {
         return downloadPath;
     });
 }
-exports.getGo = getGo;
 function resolveVersionFromManifest(versionSpec, stable, auth, arch, manifest) {
     return __awaiter(this, void 0, void 0, function* () {
         try {
@@ -96921,7 +96958,6 @@ function extractGoArchive(archivePath) {
         return extPath;
     });
 }
-exports.extractGoArchive = extractGoArchive;
 function getManifest(auth) {
     return __awaiter(this, void 0, void 0, function* () {
         try {
@@ -96936,7 +96972,6 @@ function getManifest(auth) {
         return yield getManifestFromURL();
     });
 }
-exports.getManifest = getManifest;
 function getManifestFromRepo(auth) {
     core.debug(`Getting manifest from ${MANIFEST_REPO_OWNER}/${MANIFEST_REPO_NAME}@${MANIFEST_REPO_BRANCH}`);
     return tc.getManifestFromRepo(MANIFEST_REPO_OWNER, MANIFEST_REPO_NAME, auth, MANIFEST_REPO_BRANCH);
@@ -96971,7 +97006,6 @@ function getInfoFromManifest(versionSpec_1, stable_1, auth_1) {
         return info;
     });
 }
-exports.getInfoFromManifest = getInfoFromManifest;
 function getInfoFromDist(versionSpec, arch) {
     return __awaiter(this, void 0, void 0, function* () {
         const version = yield findMatch(versionSpec, arch);
@@ -97023,7 +97057,6 @@ function findMatch(versionSpec_1) {
         return result;
     });
 }
-exports.findMatch = findMatch;
 function getVersionsDist(dlUrl) {
     return __awaiter(this, void 0, void 0, function* () {
         // this returns versions descending so latest is first
@@ -97034,7 +97067,6 @@ function getVersionsDist(dlUrl) {
         return (yield http.getJson(dlUrl)).result;
     });
 }
-exports.getVersionsDist = getVersionsDist;
 //
 // Convert the go version syntax into semver for semver matching
 // 1.13.1 => 1.13.1
@@ -97059,7 +97091,6 @@ function makeSemver(version) {
     }
     return fullVersion;
 }
-exports.makeSemver = makeSemver;
 function parseGoVersionFile(versionFilePath) {
     const contents = fs_1.default.readFileSync(versionFilePath).toString();
     if (path.basename(versionFilePath) === 'go.mod' ||
@@ -97069,7 +97100,6 @@ function parseGoVersionFile(versionFilePath) {
     }
     return contents.trim();
 }
-exports.parseGoVersionFile = parseGoVersionFile;
 function resolveStableVersionDist(versionSpec, arch) {
     return __awaiter(this, void 0, void 0, function* () {
         const archFilter = sys.getArch(arch);
@@ -97108,7 +97138,6 @@ function resolveStableVersionInput(versionSpec, arch, platform, manifest) {
         }
     });
 }
-exports.resolveStableVersionInput = resolveStableVersionInput;
 
 
 /***/ }),
@@ -97134,13 +97163,23 @@ var __setModuleDefault = (this && this.__setModuleDefault) || (Object.create ? (
 }) : function(o, v) {
     o["default"] = v;
 });
-var __importStar = (this && this.__importStar) || function (mod) {
-    if (mod && mod.__esModule) return mod;
-    var result = {};
-    if (mod != null) for (var k in mod) if (k !== "default" && Object.prototype.hasOwnProperty.call(mod, k)) __createBinding(result, mod, k);
-    __setModuleDefault(result, mod);
-    return result;
-};
+var __importStar = (this && this.__importStar) || (function () {
+    var ownKeys = function(o) {
+        ownKeys = Object.getOwnPropertyNames || function (o) {
+            var ar = [];
+            for (var k in o) if (Object.prototype.hasOwnProperty.call(o, k)) ar[ar.length] = k;
+            return ar;
+        };
+        return ownKeys(o);
+    };
+    return function (mod) {
+        if (mod && mod.__esModule) return mod;
+        var result = {};
+        if (mod != null) for (var k = ownKeys(mod), i = 0; i < k.length; i++) if (k[i] !== "default") __createBinding(result, mod, k[i]);
+        __setModuleDefault(result, mod);
+        return result;
+    };
+})();
 var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, generator) {
     function adopt(value) { return value instanceof P ? value : new P(function (resolve) { resolve(value); }); }
     return new (P || (P = Promise))(function (resolve, reject) {
@@ -97154,7 +97193,9 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", ({ value: true }));
-exports.parseGoVersion = exports.addBinToPath = exports.run = void 0;
+exports.run = run;
+exports.addBinToPath = addBinToPath;
+exports.parseGoVersion = parseGoVersion;
 const core = __importStar(__nccwpck_require__(2186));
 const io = __importStar(__nccwpck_require__(7436));
 const installer = __importStar(__nccwpck_require__(2574));
@@ -97228,7 +97269,6 @@ function run() {
         }
     });
 }
-exports.run = run;
 function addBinToPath() {
     return __awaiter(this, void 0, void 0, function* () {
         let added = false;
@@ -97258,7 +97298,6 @@ function addBinToPath() {
         return added;
     });
 }
-exports.addBinToPath = addBinToPath;
 function parseGoVersion(versionString) {
     // get the installed version as an Action output
     // based on go/src/cmd/go/internal/version/version.go:
@@ -97266,7 +97305,6 @@ function parseGoVersion(versionString) {
     // expecting go<version> for runtime.Version()
     return versionString.split(' ')[2].slice('go'.length);
 }
-exports.parseGoVersion = parseGoVersion;
 function resolveVersionInput() {
     let version = core.getInput('go-version');
     const versionFilePath = core.getInput('go-version-file');
@@ -97314,7 +97352,8 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", ({ value: true }));
-exports.getArch = exports.getPlatform = void 0;
+exports.getPlatform = getPlatform;
+exports.getArch = getArch;
 const os_1 = __importDefault(__nccwpck_require__(2037));
 function getPlatform() {
     // darwin and linux match already
@@ -97327,7 +97366,6 @@ function getPlatform() {
     }
     return plat;
 }
-exports.getPlatform = getPlatform;
 function getArch(arch) {
     // 'arm', 'arm64', 'ia32', 'mips', 'mipsel', 'ppc', 'ppc64', 's390', 's390x', 'x32', and 'x64'.
     // wants amd64, 386, arm64, armv61, ppc641e, s390x
@@ -97348,7 +97386,6 @@ function getArch(arch) {
     }
     return arch;
 }
-exports.getArch = getArch;
 
 
 /***/ }),

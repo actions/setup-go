@@ -3,7 +3,7 @@ name: yallist
 version: 4.0.0
 type: npm
 summary: Yet Another Linked List
-homepage: 
+homepage:
 license: isc
 licenses:
 - sources: LICENSE

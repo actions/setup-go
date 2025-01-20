@@ -3,7 +3,7 @@ name: lru-cache
 version: 6.0.0
 type: npm
 summary: A cache object that deletes the least-recently-used items.
-homepage: 
+homepage:
 license: isc
 licenses:
 - sources: LICENSE
