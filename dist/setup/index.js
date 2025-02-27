@@ -96642,15 +96642,15 @@ var StableReleaseAlias;
     StableReleaseAlias["Stable"] = "stable";
     StableReleaseAlias["OldStable"] = "oldstable";
 })(StableReleaseAlias || (exports.StableReleaseAlias = StableReleaseAlias = {}));
-const isSelfHosted = () => process.env['AGENT_ISSELFHOSTED'] === '1' ||
-    (process.env['AGENT_ISSELFHOSTED'] === undefined &&
-        process.env['RUNNER_ENVIRONMENT'] !== 'github-hosted');
+const isSelfHosted = () => process.env['RUNNER_ENVIRONMENT'] !== 'github-hosted' &&
+    (process.env['AGENT_ISSELFHOSTED'] === '1' ||
+        process.env['AGENT_ISSELFHOSTED'] === undefined);
 exports.isSelfHosted = isSelfHosted;
 /* the above is simplified from:
-    process.env['RUNNER_ENVIRONMENT'] === undefined && process.env['AGENT_ISSELFHOSTED'] === '1'
+    process.env['RUNNER_ENVIRONMENT'] !== 'github-hosted' && process.env['AGENT_ISSELFHOSTED'] === '1'
     ||
-    process.env['AGENT_ISSELFHOSTED'] === undefined && process.env['RUNNER_ENVIRONMENT'] !== 'github-hosted'
-     */
+    process.env['RUNNER_ENVIRONMENT'] !== 'github-hosted' && process.env['AGENT_ISSELFHOSTED'] === undefined
+*/
 
 
 /***/ }),
