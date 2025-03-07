@@ -6,8 +6,12 @@ import fs from 'fs';
 
 import {Outputs, State} from './constants';
 import {PackageManagerInfo} from './package-managers';
-import {getCacheDirectoryPath, getCommandOutput, getPackageManagerInfo} from './cache-utils';
-import os from "os";
+import {
+  getCacheDirectoryPath,
+  getCommandOutput,
+  getPackageManagerInfo
+} from './cache-utils';
+import os from 'os';
 
 export const restoreCache = async (
   versionSpec: string,
@@ -75,8 +79,27 @@ export const setWindowsCacheDirectories = async () => {
     fs.mkdirSync(goModCache, {recursive: true});
   }
 
-  const setModOutput = await getCommandOutput(`go env -w GOMODCACHE=${goModCache}`);
+  const setModOutput = await getCommandOutput(
+    `go env -w GOMODCACHE=${goModCache}`
+  );
   core.info(`go env -w GOMODCACHE output: ${setModOutput}`);
+
+  let goTmpDir = await getCommandOutput(`go env GOTMPDIR`);
+  core.info(`GOTMPDIR: ${goTmpDir}`);
+  if (!goTmpDir || goTmpDir === '') {
+    goTmpDir = 'D:\\gotmp';
+  }
+  goTmpDir = goTmpDir.replace('C:', 'D:').replace('c:', 'd:');
+
+  if (!fs.existsSync(goTmpDir)) {
+    core.info(`${goTmpDir} does not exist. Creating`);
+    fs.mkdirSync(goTmpDir, {recursive: true});
+  }
+
+  const setGoTmpOutput = await getCommandOutput(
+    `go env -w GOTMPDIR=${goTmpDir}`
+  );
+  core.info(`go env -w GOTMPDIR output: ${setGoTmpOutput}`);
 };
 
 const findDependencyFile = (packageManager: PackageManagerInfo) => {

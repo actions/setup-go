@@ -88091,6 +88091,18 @@ const setWindowsCacheDirectories = () => __awaiter(void 0, void 0, void 0, funct
     }
     const setModOutput = yield (0, cache_utils_1.getCommandOutput)(`go env -w GOMODCACHE=${goModCache}`);
     core.info(`go env -w GOMODCACHE output: ${setModOutput}`);
+    let goTmpDir = yield (0, cache_utils_1.getCommandOutput)(`go env GOTMPDIR`);
+    core.info(`GOTMPDIR: ${goTmpDir}`);
+    if (!goTmpDir || goTmpDir === '') {
+        goTmpDir = 'D:\\gotmp';
+    }
+    goTmpDir = goTmpDir.replace('C:', 'D:').replace('c:', 'd:');
+    if (!fs_1.default.existsSync(goTmpDir)) {
+        core.info(`${goTmpDir} does not exist. Creating`);
+        fs_1.default.mkdirSync(goTmpDir, { recursive: true });
+    }
+    const setGoTmpOutput = yield (0, cache_utils_1.getCommandOutput)(`go env -w GOTMPDIR=${goTmpDir}`);
+    core.info(`go env -w GOTMPDIR output: ${setGoTmpOutput}`);
 });
 exports.setWindowsCacheDirectories = setWindowsCacheDirectories;
 const findDependencyFile = (packageManager) => {
