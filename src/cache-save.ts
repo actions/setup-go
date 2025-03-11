@@ -19,7 +19,7 @@ export async function run(earlyExit?: boolean) {
   try {
     const cacheInput = core.getBooleanInput('cache');
     if (cacheInput) {
-      await cachePackages();
+      await cachePackages(core.getBooleanInput('always-cache'));
 
       if (earlyExit) {
         process.exit(0);
@@ -37,7 +37,7 @@ export async function run(earlyExit?: boolean) {
   }
 }
 
-const cachePackages = async () => {
+const cachePackages = async (alwaysCache: boolean = false) => {
   const packageManager = 'default';
 
   const state = core.getState(State.CacheMatchedKey);
@@ -71,9 +71,9 @@ const cachePackages = async () => {
     return;
   }
 
-  if (primaryKey === state) {
+  if (primaryKey === state && !alwaysCache) {
     core.info(
-      `Cache hit occurred on the primary key ${primaryKey}, not saving cache.`
+      `Cache hit occurred on the primary key ${primaryKey} and always-cache is 'false', not saving cache.`
     );
     return;
   }

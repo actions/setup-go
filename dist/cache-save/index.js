@@ -89440,7 +89440,7 @@ function run(earlyExit) {
         try {
             const cacheInput = core.getBooleanInput('cache');
             if (cacheInput) {
-                yield cachePackages();
+                yield cachePackages(core.getBooleanInput('always-cache'));
                 if (earlyExit) {
                     process.exit(0);
                 }
@@ -89459,7 +89459,7 @@ function run(earlyExit) {
     });
 }
 exports.run = run;
-const cachePackages = () => __awaiter(void 0, void 0, void 0, function* () {
+const cachePackages = (...args_1) => __awaiter(void 0, [...args_1], void 0, function* (alwaysCache = false) {
     const packageManager = 'default';
     const state = core.getState(constants_1.State.CacheMatchedKey);
     const primaryKey = core.getState(constants_1.State.CachePrimaryKey);
@@ -89477,8 +89477,8 @@ const cachePackages = () => __awaiter(void 0, void 0, void 0, function* () {
         core.info('Primary key was not generated. Please check the log messages above for more errors or information');
         return;
     }
-    if (primaryKey === state) {
-        core.info(`Cache hit occurred on the primary key ${primaryKey}, not saving cache.`);
+    if (primaryKey === state && !alwaysCache) {
+        core.info(`Cache hit occurred on the primary key ${primaryKey} and always-cache is 'false', not saving cache.`);
         return;
     }
     const cacheId = yield cache.saveCache(cachePaths, primaryKey);

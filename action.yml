@@ -15,6 +15,9 @@ inputs:
   cache:
     description: Used to specify whether caching is needed. Set to true, if you'd like to enable caching.
     default: true
+  always-cache:
+    description: If enabled, stores the cache even in the event of a cache hit. This will result in a larger Go build (and test) cache, but less repeated test runs.
+    default: false
   cache-dependency-path:
     description: 'Used to specify the path to a dependency file - go.sum'
   architecture:
