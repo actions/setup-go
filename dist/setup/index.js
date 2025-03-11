@@ -71739,6 +71739,14 @@ const { isUint8Array, isArrayBuffer } = __nccwpck_require__(9830)
 const { File: UndiciFile } = __nccwpck_require__(8511)
 const { parseMIMEType, serializeAMimeType } = __nccwpck_require__(685)
 
+let random
+try {
+  const crypto = __nccwpck_require__(6005)
+  random = (max) => crypto.randomInt(0, max)
+} catch {
+  random = (max) => Math.floor(Math.random(max))
+}
+
 let ReadableStream = globalThis.ReadableStream
 
 /** @type {globalThis['File']} */
@@ -71824,7 +71832,7 @@ function extractBody (object, keepalive = false) {
     // Set source to a copy of the bytes held by object.
     source = new Uint8Array(object.buffer.slice(object.byteOffset, object.byteOffset + object.byteLength))
   } else if (util.isFormDataLike(object)) {
-    const boundary = `----formdata-undici-0${`${Math.floor(Math.random() * 1e11)}`.padStart(11, '0')}`
+    const boundary = `----formdata-undici-0${`${random(1e11)}`.padStart(11, '0')}`
     const prefix = `--${boundary}\r\nContent-Disposition: form-data`
 
     /*! formdata-polyfill. MIT License. Jimmy Wärting <https://jimmy.warting.se/opensource> */
@@ -93262,8 +93270,7 @@ function cacheWindowsDir(extPath, tool, version, arch) {
         if (os_1.default.platform() !== 'win32')
             return false;
         // make sure the action runs in the hosted environment
-        if (process.env['RUNNER_ENVIRONMENT'] !== 'github-hosted' &&
-            process.env['AGENT_ISSELFHOSTED'] === '1')
+        if ((0, utils_1.isSelfHosted)())
             return false;
         const defaultToolCacheRoot = process.env['RUNNER_TOOL_CACHE'];
         if (!defaultToolCacheRoot)
@@ -93770,12 +93777,21 @@ exports.getArch = getArch;
 "use strict";
 
 Object.defineProperty(exports, "__esModule", ({ value: true }));
-exports.StableReleaseAlias = void 0;
+exports.isSelfHosted = exports.StableReleaseAlias = void 0;
 var StableReleaseAlias;
 (function (StableReleaseAlias) {
     StableReleaseAlias["Stable"] = "stable";
     StableReleaseAlias["OldStable"] = "oldstable";
 })(StableReleaseAlias || (exports.StableReleaseAlias = StableReleaseAlias = {}));
+const isSelfHosted = () => process.env['RUNNER_ENVIRONMENT'] !== 'github-hosted' &&
+    (process.env['AGENT_ISSELFHOSTED'] === '1' ||
+        process.env['AGENT_ISSELFHOSTED'] === undefined);
+exports.isSelfHosted = isSelfHosted;
+/* the above is simplified from:
+    process.env['RUNNER_ENVIRONMENT'] !== 'github-hosted' && process.env['AGENT_ISSELFHOSTED'] === '1'
+    ||
+    process.env['RUNNER_ENVIRONMENT'] !== 'github-hosted' && process.env['AGENT_ISSELFHOSTED'] === undefined
+*/
 
 
 /***/ }),
@@ -93889,6 +93905,14 @@ module.exports = require("https");
 
 "use strict";
 module.exports = require("net");
+
+/***/ }),
+
+/***/ 6005:
+/***/ ((module) => {
+
+"use strict";
+module.exports = require("node:crypto");
 
 /***/ }),
 
