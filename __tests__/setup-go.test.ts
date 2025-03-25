@@ -143,6 +143,29 @@ describe('setup-go', () => {
     expect(main.parseGoVersion(goVersionOutput)).toBe('1.16.6');
   });
 
+  it('can read go env variables', async () => {
+    const goRoot = '/opt/hostedtoolcache/go/1.18.10/x64';
+    const goPath = '/home/runner/go';
+    const goModCache = '/home/runner/go/pkg/mod';
+    const goCache = '/home/runner/.cache/go-build';
+    const goVersion = 'go1.18.10';
+
+    const env = `
+GOROOT="${goRoot}"
+GOPATH="${goPath}"
+GOMODCACHE="${goModCache}"
+GOCACHE="${goCache}"
+GOVERSION="${goVersion}"
+    `;
+    const json = JSON.parse(main.convertEnvStringToJson(env));
+    expect(json).toBeDefined();
+    expect(json['GOROOT']).toBe(goRoot);
+    expect(json['GOPATH']).toBe(goPath);
+    expect(json['GOMODCACHE']).toBe(goModCache);
+    expect(json['GOCACHE']).toBe(goCache);
+    expect(json['GOVERSION']).toBe(goVersion);
+  });
+
   it('can find 1.9.7 from manifest on osx', async () => {
     os.platform = 'darwin';
     os.arch = 'x64';
