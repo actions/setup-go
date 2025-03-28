@@ -262,6 +262,15 @@ If the runner is not able to access github.com, any Go versions requested during
 See "[Setting up the tool cache on self-hosted runners without internet access](https://docs.github.com/en/enterprise-server@3.2/admin/github-actions/managing-access-to-actions-from-githubcom/setting-up-the-tool-cache-on-self-hosted-runners-without-internet-access)"
 for more information.
 
+## Recommended permissions
+
+When using the `setup-go` action in your GitHub Actions workflow, it is recommended to set the following permissions to ensure proper functionality:
+
+```yaml
+permissions:
+  contents: read # access to check out code and install dependencies
+```
+
 # License
 
 The scripts and documentation in this project are released under the [MIT License](LICENSE)
