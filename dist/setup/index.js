@@ -93353,8 +93353,7 @@ function cacheWindowsDir(extPath, tool, version, arch) {
         if (os_1.default.platform() !== 'win32')
             return false;
         // make sure the action runs in the hosted environment
-        if (process.env['RUNNER_ENVIRONMENT'] !== 'github-hosted' &&
-            process.env['AGENT_ISSELFHOSTED'] === '1')
+        if ((0, utils_1.isSelfHosted)())
             return false;
         const defaultToolCacheRoot = process.env['RUNNER_TOOL_CACHE'];
         if (!defaultToolCacheRoot)
@@ -93861,12 +93860,21 @@ exports.getArch = getArch;
 "use strict";
 
 Object.defineProperty(exports, "__esModule", ({ value: true }));
-exports.StableReleaseAlias = void 0;
+exports.isSelfHosted = exports.StableReleaseAlias = void 0;
 var StableReleaseAlias;
 (function (StableReleaseAlias) {
     StableReleaseAlias["Stable"] = "stable";
     StableReleaseAlias["OldStable"] = "oldstable";
 })(StableReleaseAlias || (exports.StableReleaseAlias = StableReleaseAlias = {}));
+const isSelfHosted = () => process.env['RUNNER_ENVIRONMENT'] !== 'github-hosted' &&
+    (process.env['AGENT_ISSELFHOSTED'] === '1' ||
+        process.env['AGENT_ISSELFHOSTED'] === undefined);
+exports.isSelfHosted = isSelfHosted;
+/* the above is simplified from:
+    process.env['RUNNER_ENVIRONMENT'] !== 'github-hosted' && process.env['AGENT_ISSELFHOSTED'] === '1'
+    ||
+    process.env['RUNNER_ENVIRONMENT'] !== 'github-hosted' && process.env['AGENT_ISSELFHOSTED'] === undefined
+*/
 
 
 /***/ }),
