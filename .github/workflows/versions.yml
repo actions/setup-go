@@ -107,7 +107,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-latest, windows-latest, macos-latest]
+        os: [ubuntu-latest, windows-latest, macos-13]
     steps:
       - uses: actions/checkout@v3
       - name: Setup Go and check latest
@@ -140,7 +140,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [macos-latest, windows-latest, ubuntu-latest]
+        os: [macos-13, windows-latest, ubuntu-latest]
         go: [1.12.16, 1.13.11, 1.14.3]
     steps:
       - name: Checkout
@@ -161,8 +161,11 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [macos-latest, windows-latest, ubuntu-latest]
-        go: [1.9, 1.8.6]
+        os: [macos-13, windows-latest, ubuntu-latest]
+        go: [1.11.12, 1.8.6]
+        exclude:
+          - os: macos-13
+            go: 1.8.6
     steps:
       - name: Checkout
         uses: actions/checkout@v3
