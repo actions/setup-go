@@ -93475,10 +93475,33 @@ function extractGoArchive(archivePath) {
     });
 }
 exports.extractGoArchive = extractGoArchive;
+function isIToolRelease(obj) {
+    return (typeof obj === 'object' &&
+        obj !== null &&
+        typeof obj.version === 'string' &&
+        typeof obj.stable === 'boolean' &&
+        Array.isArray(obj.files) &&
+        obj.files.every((file) => typeof file.filename === 'string' &&
+            typeof file.platform === 'string' &&
+            typeof file.arch === 'string' &&
+            typeof file.download_url === 'string'));
+}
 function getManifest(auth) {
     return __awaiter(this, void 0, void 0, function* () {
         try {
-            return yield getManifestFromRepo(auth);
+            const manifest = yield getManifestFromRepo(auth);
+            if (Array.isArray(manifest) &&
+                manifest.length &&
+                manifest.every(isIToolRelease)) {
+                return manifest;
+            }
+            let errorMessage = 'An unexpected error occurred while fetching the manifest.';
+            if (typeof manifest === 'object' &&
+                manifest !== null &&
+                'message' in manifest) {
+                errorMessage = manifest.message;
+            }
+            throw new Error(errorMessage);
         }
         catch (err) {
             core.debug('Fetching the manifest via the API failed.');
