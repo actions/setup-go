@@ -6,7 +6,12 @@ import * as httpm from '@actions/http-client';
 import * as sys from './system';
 import fs from 'fs';
 import os from 'os';
-import {StableReleaseAlias} from './utils';
+import {StableReleaseAlias, isSelfHosted} from './utils';
+
+const MANIFEST_REPO_OWNER = 'actions';
+const MANIFEST_REPO_NAME = 'go-versions';
+const MANIFEST_REPO_BRANCH = 'main';
+const MANIFEST_URL = `https://raw.githubusercontent.com/${MANIFEST_REPO_OWNER}/${MANIFEST_REPO_NAME}/${MANIFEST_REPO_BRANCH}/versions-manifest.json`;
 
 type InstallationType = 'dist' | 'manifest';
 
@@ -175,11 +180,7 @@ async function cacheWindowsDir(
   if (os.platform() !== 'win32') return false;
 
   // make sure the action runs in the hosted environment
-  if (
-    process.env['RUNNER_ENVIRONMENT'] !== 'github-hosted' &&
-    process.env['AGENT_ISSELFHOSTED'] === '1'
-  )
-    return false;
+  if (isSelfHosted()) return false;
 
   const defaultToolCacheRoot = process.env['RUNNER_TOOL_CACHE'];
   if (!defaultToolCacheRoot) return false;
@@ -274,8 +275,78 @@ export async function extractGoArchive(archivePath: string): Promise<string> {
   return extPath;
 }
 
-export async function getManifest(auth: string | undefined) {
-  return tc.getManifestFromRepo('actions', 'go-versions', auth, 'main');
+function isIToolRelease(obj: any): obj is tc.IToolRelease {
+  return (
+    typeof obj === 'object' &&
+    obj !== null &&
+    typeof obj.version === 'string' &&
+    typeof obj.stable === 'boolean' &&
+    Array.isArray(obj.files) &&
+    obj.files.every(
+      (file: any) =>
+        typeof file.filename === 'string' &&
+        typeof file.platform === 'string' &&
+        typeof file.arch === 'string' &&
+        typeof file.download_url === 'string'
+    )
+  );
+}
+
+export async function getManifest(
+  auth: string | undefined
+): Promise<tc.IToolRelease[]> {
+  try {
+    const manifest = await getManifestFromRepo(auth);
+    if (
+      Array.isArray(manifest) &&
+      manifest.length &&
+      manifest.every(isIToolRelease)
+    ) {
+      return manifest;
+    }
+
+    let errorMessage =
+      'An unexpected error occurred while fetching the manifest.';
+    if (
+      typeof manifest === 'object' &&
+      manifest !== null &&
+      'message' in manifest
+    ) {
+      errorMessage = (manifest as {message: string}).message;
+    }
+    throw new Error(errorMessage);
+  } catch (err) {
+    core.debug('Fetching the manifest via the API failed.');
+    if (err instanceof Error) {
+      core.debug(err.message);
+    }
+  }
+  return await getManifestFromURL();
+}
+
+function getManifestFromRepo(
+  auth: string | undefined
+): Promise<tc.IToolRelease[]> {
+  core.debug(
+    `Getting manifest from ${MANIFEST_REPO_OWNER}/${MANIFEST_REPO_NAME}@${MANIFEST_REPO_BRANCH}`
+  );
+  return tc.getManifestFromRepo(
+    MANIFEST_REPO_OWNER,
+    MANIFEST_REPO_NAME,
+    auth,
+    MANIFEST_REPO_BRANCH
+  );
+}
+
+async function getManifestFromURL(): Promise<tc.IToolRelease[]> {
+  core.debug('Falling back to fetching the manifest using raw URL.');
+
+  const http: httpm.HttpClient = new httpm.HttpClient('tool-cache');
+  const response = await http.getJson<tc.IToolRelease[]>(MANIFEST_URL);
+  if (!response.result) {
+    throw new Error(`Unable to get manifest from ${MANIFEST_URL}`);
+  }
+  return response.result;
 }
 
 export async function getInfoFromManifest(
