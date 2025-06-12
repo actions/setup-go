@@ -93114,6 +93114,8 @@ exports.restoreCache = restoreCache;
 const setWindowsCacheDirectories = () => __awaiter(void 0, void 0, void 0, function* () {
     if (os_1.default.platform() !== 'win32')
         return;
+    if (!fs_1.default.existsSync('D:'))
+        return;
     let goCache = yield (0, cache_utils_1.getCommandOutput)(`go env GOCACHE`);
     core.info(`GOCACHE: ${goCache}`);
     goCache = goCache.replace('C:', 'D:').replace('c:', 'd:');

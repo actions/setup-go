@@ -58,6 +58,8 @@ export const restoreCache = async (
 export const setWindowsCacheDirectories = async () => {
   if (os.platform() !== 'win32') return;
 
+  if (!fs.existsSync('D:')) return;
+
   let goCache = await getCommandOutput(`go env GOCACHE`);
   core.info(`GOCACHE: ${goCache}`);
   goCache = goCache.replace('C:', 'D:').replace('c:', 'd:');
