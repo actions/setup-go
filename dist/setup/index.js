@@ -93304,6 +93304,7 @@ const MANIFEST_REPO_OWNER = 'actions';
 const MANIFEST_REPO_NAME = 'go-versions';
 const MANIFEST_REPO_BRANCH = 'main';
 const MANIFEST_URL = `https://raw.githubusercontent.com/${MANIFEST_REPO_OWNER}/${MANIFEST_REPO_NAME}/${MANIFEST_REPO_BRANCH}/versions-manifest.json`;
+const GOLANG_DOWNLOAD_URL = 'https://go.dev/dl/?mode=json&include=all';
 function getGo(versionSpec_1, checkLatest_1, auth_1) {
     return __awaiter(this, arguments, void 0, function* (versionSpec, checkLatest, auth, arch = os_1.default.arch()) {
         var _a;
@@ -93569,8 +93570,7 @@ function findMatch(versionSpec_1) {
         const platFilter = sys.getPlatform();
         let result;
         let match;
-        const dlUrl = 'https://golang.org/dl/?mode=json&include=all';
-        const candidates = yield module.exports.getVersionsDist(dlUrl);
+        const candidates = yield module.exports.getVersionsDist(GOLANG_DOWNLOAD_URL);
         if (!candidates) {
             throw new Error(`golang download url did not return results`);
         }
@@ -93650,8 +93650,7 @@ function resolveStableVersionDist(versionSpec, arch) {
     return __awaiter(this, void 0, void 0, function* () {
         const archFilter = sys.getArch(arch);
         const platFilter = sys.getPlatform();
-        const dlUrl = 'https://golang.org/dl/?mode=json&include=all';
-        const candidates = yield module.exports.getVersionsDist(dlUrl);
+        const candidates = yield module.exports.getVersionsDist(GOLANG_DOWNLOAD_URL);
         if (!candidates) {
             throw new Error(`golang download url did not return results`);
         }
