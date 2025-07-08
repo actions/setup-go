@@ -1,0 +1,24 @@
+name: Test outputs
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+
+jobs:
+  setup-go-env:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - id: setup-go
+        uses: ./
+      - run: |
+          echo GOPATH=${{ steps.setup-go.outputs.go-path }}
+          echo GOMOD=${{ steps.setup-go.outputs.go-mod }}
+          echo GOMODCACHE=${{ steps.setup-go.outputs.go-mod-cache }}
+          echo GOVERSION=${{ steps.setup-go.outputs.go-version }}
+          echo GOCACHE=${{ steps.setup-go.outputs.go-cache }}
+
+          echo Go environment variables json:
+          jq . <<< '${{ steps.setup-go.outputs.go-env }}'

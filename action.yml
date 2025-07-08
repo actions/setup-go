@@ -22,6 +22,18 @@ inputs:
 outputs:
   go-version:
     description: 'The installed Go version. Useful when given a version range as input.'
+  go-cache:
+    description: 'The GOCACHE environment variable'
+  go-path:
+    description: 'The GOPATH environment variable'
+  go-root:
+    description: 'The GOROOT environment variable'
+  go-mod:
+    description: 'The GOMOD environment variable'
+  go-mod-cache:
+    description: 'The GOMODCACHE environment variable'
+  go-env:
+    description: 'The Go environment variables in JSON format'
   cache-hit:
     description: 'A boolean value to indicate if a cache was hit'
 runs:
