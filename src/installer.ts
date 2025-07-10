@@ -6,7 +6,7 @@ import * as httpm from '@actions/http-client';
 import * as sys from './system';
 import fs from 'fs';
 import os from 'os';
-import {StableReleaseAlias} from './utils';
+import {StableReleaseAlias, isSelfHosted} from './utils';
 
 const MANIFEST_REPO_OWNER = 'actions';
 const MANIFEST_REPO_NAME = 'go-versions';
@@ -180,11 +180,7 @@ async function cacheWindowsDir(
   if (os.platform() !== 'win32') return false;
 
   // make sure the action runs in the hosted environment
-  if (
-    process.env['RUNNER_ENVIRONMENT'] !== 'github-hosted' &&
-    process.env['AGENT_ISSELFHOSTED'] === '1'
-  )
-    return false;
+  if (isSelfHosted()) return false;
 
   const defaultToolCacheRoot = process.env['RUNNER_TOOL_CACHE'];
   if (!defaultToolCacheRoot) return false;
@@ -279,11 +275,46 @@ export async function extractGoArchive(archivePath: string): Promise<string> {
   return extPath;
 }
 
+function isIToolRelease(obj: any): obj is tc.IToolRelease {
+  return (
+    typeof obj === 'object' &&
+    obj !== null &&
+    typeof obj.version === 'string' &&
+    typeof obj.stable === 'boolean' &&
+    Array.isArray(obj.files) &&
+    obj.files.every(
+      (file: any) =>
+        typeof file.filename === 'string' &&
+        typeof file.platform === 'string' &&
+        typeof file.arch === 'string' &&
+        typeof file.download_url === 'string'
+    )
+  );
+}
+
 export async function getManifest(
   auth: string | undefined
 ): Promise<tc.IToolRelease[]> {
   try {
-    return await getManifestFromRepo(auth);
+    const manifest = await getManifestFromRepo(auth);
+    if (
+      Array.isArray(manifest) &&
+      manifest.length &&
+      manifest.every(isIToolRelease)
+    ) {
+      return manifest;
+    }
+
+    let errorMessage =
+      'An unexpected error occurred while fetching the manifest.';
+    if (
+      typeof manifest === 'object' &&
+      manifest !== null &&
+      'message' in manifest
+    ) {
+      errorMessage = (manifest as {message: string}).message;
+    }
+    throw new Error(errorMessage);
   } catch (err) {
     core.debug('Fetching the manifest via the API failed.');
     if (err instanceof Error) {
