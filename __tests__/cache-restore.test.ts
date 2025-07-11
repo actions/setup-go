@@ -51,7 +51,7 @@ describe('restoreCache', () => {
     );
   });
 
-  it('should inform if cache hit is not occured', async () => {
+  it('should inform if cache hit is not occurred', async () => {
     //Arrange
     hashFilesSpy.mockImplementation((somePath: string) => {
       return new Promise<string>(resolve => {
@@ -74,7 +74,7 @@ describe('restoreCache', () => {
     expect(infoSpy).toHaveBeenCalledWith(`Cache is not found`);
   });
 
-  it('should set output if cache hit is occured', async () => {
+  it('should set output if cache hit is occurred', async () => {
     //Arrange
     hashFilesSpy.mockImplementation((somePath: string) => {
       return new Promise<string>(resolve => {
