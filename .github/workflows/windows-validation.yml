@@ -134,3 +134,40 @@ jobs:
         with:
           go-version: ${{ matrix.go }}
           cache: ${{ matrix.cache }}
+
+  go-mod-cache-and-tmp-location:
+    name: 'Validate if GOCACHE, GOMODCACHE, GOTMPDIR is set to drive D:'
+    runs-on: windows-latest
+    strategy:
+      matrix:
+        cache: [false]
+        go: [1.20.1]
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: 'Setup ${{ matrix.go }}, cache: ${{ matrix.cache }}'
+        uses: ./
+        with:
+          go-version: ${{ matrix.go }}
+          cache: ${{ matrix.cache }}
+
+      - name: 'Check if go mod cache and tmp location is set correctly'
+        run: |
+          go env GOCACHE
+          go env GOMODCACHE
+          go env GOTMPDIR
+
+          if [ $(go env GOCACHE) != 'D:\Users\runneradmin\AppData\Local\go-build' ];then
+            echo 'go env GOCACHE should return "D:\Users\runneradmin\AppData\Local\go-build"'
+            exit 1
+          fi
+          if [ $(go env GOMODCACHE) != 'D:\Users\runneradmin\go\pkg\mod' ];then
+            echo 'go env GOMODCACHE should return "D:\Users\runneradmin\go\pkg\mod"'
+            exit 1
+          fi
+          if [ $(go env GOTMPDIR) != 'D:\gotmp' ];then
+            echo 'go env GOTMPDIR should return "D:\gotmp"'
+            exit 1
+          fi
+
+        shell: bash
