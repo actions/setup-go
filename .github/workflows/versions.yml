@@ -3,7 +3,7 @@ name: Validate 'setup-go'
 on:
   push:
     branches:
-      - main
+      - test-macos-x64-runner
     paths-ignore:
       - '**.md'
   pull_request:
@@ -18,7 +18,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-latest, windows-latest, macos-latest, macos-13]
+        os: [macos-14-large]
     steps:
       - uses: actions/checkout@v4
       - name: Setup Go Stable
@@ -33,7 +33,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-latest, windows-latest, macos-latest, macos-13]
+        os: [macos-14-large]
     steps:
       - uses: actions/checkout@v4
       - name: Setup Go oldStable
@@ -43,28 +43,28 @@ jobs:
       - name: Verify Go
         run: go version
 
-  aliases-arch:
-    runs-on: ${{ matrix.os }}
-    strategy:
-      fail-fast: false
-      matrix:
-        os: [ubuntu-latest, windows-latest, macos-latest, macos-13]
-        version: [stable, oldstable]
-        architecture: [x64, x32]
-        exclude:
-          - os: macos-latest
-            architecture: x32
-          - os: macos-13
-            architecture: x32
-    steps:
-      - uses: actions/checkout@v4
-      - name: Setup Go ${{ matrix.version }} ${{ matrix.architecture }}
-        uses: ./
-        with:
-          go-version: ${{ matrix.version }}
-          architecture: ${{ matrix.architecture }}
-      - name: Verify Go
-        run: go version
+  # aliases-arch:
+  #   runs-on: ${{ matrix.os }}
+  #   strategy:
+  #     fail-fast: false
+  #     matrix:
+  #       os: [ubuntu-latest, windows-latest, macos-latest, macos-14-large]
+  #       version: [stable, oldstable]
+  #       architecture: [x64, x32]
+  #       exclude:
+  #         - os: macos-latest
+  #           architecture: x32
+  #         - os: macos-14-large
+  #           architecture: x32
+  #   steps:
+  #     - uses: actions/checkout@v4
+  #     - name: Setup Go ${{ matrix.version }} ${{ matrix.architecture }}
+  #       uses: ./
+  #       with:
+  #         go-version: ${{ matrix.version }}
+  #         architecture: ${{ matrix.architecture }}
+  #     - name: Verify Go
+  #       run: go version
 
   local-cache:
     name: Setup local-cache version
@@ -72,14 +72,14 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [macos-latest, windows-latest, ubuntu-latest, macos-13]
+        os: [macos-14-large]
         go: [1.21.13, 1.22.8, 1.23.2]
-        include:
-          - os: windows-latest
-            go: 1.20.14
-        exclude:
-          - os: windows-latest
-            go: 1.23.2
+        # include:
+        #   - os: windows-latest
+        #     go: 1.20.14
+        # exclude:
+        #   - os: windows-latest
+        #     go: 1.23.2
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -98,7 +98,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-latest, windows-latest, macos-latest, macos-13]
+        os: [macos-14-large]
         go-version: ['1.20', '1.21', '1.22', '1.23']
     steps:
       - uses: actions/checkout@v4
@@ -115,7 +115,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-latest, windows-latest, macos-latest, macos-13]
+        os: [macos-14-large]
     steps:
       - uses: actions/checkout@v4
       - name: Setup Go and check latest
@@ -131,7 +131,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-latest, windows-latest, macos-latest, macos-13]
+        os: [macos-14-large]
     steps:
       - uses: actions/checkout@v4
       - name: Setup Go and check latest
@@ -147,7 +147,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [macos-latest, windows-latest, ubuntu-latest, macos-13]
+        os: [macos-14-large]
         go: [1.20.14, 1.21.10, 1.22.8, 1.23.2]
     steps:
       - name: Checkout
@@ -167,7 +167,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [windows-latest, ubuntu-latest, macos-13]
+        os: [macos-14-large]
         go: [1.11.12]
     steps:
       - name: Checkout
@@ -187,7 +187,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-latest, windows-latest, macos-latest, macos-13]
+        os: [macos-14-large]
         go-version: [1.20.14, 1.21, 1.22, 1.23]
         include:
           - os: macos-latest
@@ -196,7 +196,7 @@ jobs:
             architecture: x64
           - os: windows-latest
             architecture: x64
-          - os: macos-13
+          - os: macos-14-large
             architecture: x64
     steps:
       - uses: actions/checkout@v4
