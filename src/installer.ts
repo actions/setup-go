@@ -503,7 +503,10 @@ export function parseGoVersionFile(versionFilePath: string): string {
   return contents.trim();
 }
 
-async function resolveStableVersionDist(versionSpec: string, arch: Architecture) {
+async function resolveStableVersionDist(
+  versionSpec: string,
+  arch: Architecture
+) {
   const archFilter = sys.getArch(arch);
   const platFilter = sys.getPlatform();
   const dlUrl = 'https://golang.org/dl/?mode=json&include=all';
