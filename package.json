@@ -4,7 +4,7 @@
   "private": true,
   "description": "setup go action",
   "main": "lib/setup-go.js",
-   "engines": {
+  "engines": {
     "node": ">=24.0.0"
   },
   "scripts": {
@@ -39,7 +39,7 @@
   },
   "devDependencies": {
     "@types/jest": "^29.5.14",
-    "@types/node": "^20.11.28",
+    "@types/node": "^24.2.1",
     "@types/semver": "^7.5.8",
     "@typescript-eslint/eslint-plugin": "^8.31.1",
     "@typescript-eslint/parser": "^8.35.1",
