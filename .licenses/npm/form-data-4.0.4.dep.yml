@@ -4,11 +4,7 @@ version: 4.0.4
 type: npm
 summary: A library to create readable "multipart/form-data" streams. Can be used to
   submit forms and file uploads to other web applications.
-<<<<<<< HEAD
-homepage:
-=======
 homepage: 
->>>>>>> origin/main
 license: mit
 licenses:
 - sources: License
