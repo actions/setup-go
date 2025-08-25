@@ -497,10 +497,16 @@ export function parseGoVersionFile(versionFilePath: string): string {
     path.basename(versionFilePath) === 'go.mod' ||
     path.basename(versionFilePath) === 'go.work'
   ) {
-    // toolchain directive: https://go.dev/ref/mod#go-mod-file-toolchain
-    const matchToolchain = contents.match(/^toolchain go(\d+(\.\d+)*)/m);
-    if (matchToolchain) {
-      return matchToolchain[1];
+    // for backwards compatibility: use version from go directive if
+    // 'GOTOOLCHAIN' has been explicitly set
+    if (process.env[GOTOOLCHAIN_ENV_VAR] !== GOTOOLCHAIN_LOCAL_VAL) {
+      // toolchain directive: https://go.dev/ref/mod#go-mod-file-toolchain
+      const matchToolchain = contents.match(
+        /^toolchain go(1\.\d+(?:\.\d+|rc\d+)?)/m
+      );
+      if (matchToolchain) {
+        return matchToolchain[1];
+      }
     }
 
     // go directive: https://go.dev/ref/mod#go-mod-file-go

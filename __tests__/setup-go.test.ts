@@ -129,6 +129,9 @@ describe('setup-go', () => {
   });
 
   afterEach(() => {
+    // clear out env var set during 'run'
+    delete process.env[im.GOTOOLCHAIN_ENV_VAR];
+
     //jest.resetAllMocks();
     jest.clearAllMocks();
     //jest.restoreAllMocks();
@@ -989,11 +992,16 @@ use .
   });
 
   describe('go-version-file-toolchain', () => {
-    const goModContents = `module example.com/mymodule
+    const goVersions = ['1.22.0', '1.21rc2', '1.18'];
+    const placeholderVersion = '1.19';
+    const buildGoMod = (
+      goVersion: string,
+      toolchainVersion: string
+    ) => `module example.com/mymodule
 
-go 1.14
+go ${goVersion}
 
-toolchain go1.21.0
+toolchain go${toolchainVersion}
 
 require (
 	example.com/othermodule v1.2.3
@@ -1005,36 +1013,67 @@ replace example.com/thatmodule => ../thatmodule
 exclude example.com/thismodule v1.3.0
 `;
 
-    const goWorkContents = `go 1.19
+    const buildGoWork = (
+      goVersion: string,
+      toolchainVersion: string
+    ) => `go 1.19
 
-toolchain go1.21.0
+toolchain go${toolchainVersion}
 
 use .
 
 `;
 
-    it('reads version from toolchain directive in go.mod', async () => {
-      inputs['go-version-file'] = 'go.mod';
-      existsSpy.mockImplementation(() => true);
-      readFileSpy.mockImplementation(() => Buffer.from(goModContents));
+    goVersions.forEach(version => {
+      [
+        {
+          goVersionfile: 'go.mod',
+          fileContents: Buffer.from(buildGoMod(placeholderVersion, version)),
+          expected_version: version,
+          desc: 'from toolchain directive'
+        },
+        {
+          goVersionfile: 'go.work',
+          fileContents: Buffer.from(buildGoMod(placeholderVersion, version)),
+          expected_version: version,
+          desc: 'from toolchain directive'
+        },
+        {
+          goVersionfile: 'go.mod',
+          fileContents: Buffer.from(buildGoMod(placeholderVersion, version)),
+          gotoolchain_env: 'local',
+          expected_version: placeholderVersion,
+          desc: 'from go directive when GOTOOLCHAIN is local'
+        },
+        {
+          goVersionfile: 'go.work',
+          fileContents: Buffer.from(buildGoMod(placeholderVersion, version)),
+          gotoolchain_env: 'local',
+          expected_version: placeholderVersion,
+          desc: 'from go directive when GOTOOLCHAIN is local'
+        }
+      ].forEach(test => {
+        it(`reads version (${version}) in ${test.goVersionfile} ${test.desc}`, async () => {
+          inputs['go-version-file'] = test.goVersionfile;
+          if (test.gotoolchain_env !== undefined) {
+            process.env[im.GOTOOLCHAIN_ENV_VAR] = test.gotoolchain_env;
+          }
+          existsSpy.mockImplementation(() => true);
+          readFileSpy.mockImplementation(() => Buffer.from(test.fileContents));
 
-      await main.run();
+          await main.run();
 
-      expect(logSpy).toHaveBeenCalledWith('Setup go version spec 1.21.0');
-      expect(logSpy).toHaveBeenCalledWith('Attempting to download 1.21.0...');
-      expect(logSpy).toHaveBeenCalledWith('matching 1.21.0...');
-    });
-
-    it('reads version from toolchain directive in go.work', async () => {
-      inputs['go-version-file'] = 'go.work';
-      existsSpy.mockImplementation(() => true);
-      readFileSpy.mockImplementation(() => Buffer.from(goWorkContents));
-
-      await main.run();
-
-      expect(logSpy).toHaveBeenCalledWith('Setup go version spec 1.21.0');
-      expect(logSpy).toHaveBeenCalledWith('Attempting to download 1.21.0...');
-      expect(logSpy).toHaveBeenCalledWith('matching 1.21.0...');
+          expect(logSpy).toHaveBeenCalledWith(
+            `Setup go version spec ${test.expected_version}`
+          );
+          expect(logSpy).toHaveBeenCalledWith(
+            `Attempting to download ${test.expected_version}...`
+          );
+          expect(logSpy).toHaveBeenCalledWith(
+            `matching ${test.expected_version}...`
+          );
+        });
+      });
     });
   });
 

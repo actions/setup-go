@@ -94666,10 +94666,14 @@ function parseGoVersionFile(versionFilePath) {
     const contents = fs_1.default.readFileSync(versionFilePath).toString();
     if (path.basename(versionFilePath) === 'go.mod' ||
         path.basename(versionFilePath) === 'go.work') {
-        // toolchain directive: https://go.dev/ref/mod#go-mod-file-toolchain
-        const matchToolchain = contents.match(/^toolchain go(\d+(\.\d+)*)/m);
-        if (matchToolchain) {
-            return matchToolchain[1];
+        // for backwards compatibility: use version from go directive if
+        // 'GOTOOLCHAIN' has been explicitly set
+        if (process.env[exports.GOTOOLCHAIN_ENV_VAR] !== exports.GOTOOLCHAIN_LOCAL_VAL) {
+            // toolchain directive: https://go.dev/ref/mod#go-mod-file-toolchain
+            const matchToolchain = contents.match(/^toolchain go(1\.\d+(?:\.\d+|rc\d+)?)/m);
+            if (matchToolchain) {
+                return matchToolchain[1];
+            }
         }
         // go directive: https://go.dev/ref/mod#go-mod-file-go
         const matchGo = contents.match(/^go (\d+(\.\d+)*)/m);
