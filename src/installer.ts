@@ -8,6 +8,8 @@ import fs from 'fs';
 import os from 'os';
 import {StableReleaseAlias, isSelfHosted} from './utils';
 
+export const GOTOOLCHAIN_ENV_VAR = 'GOTOOLCHAIN';
+export const GOTOOLCHAIN_LOCAL_VAL = 'local';
 const MANIFEST_REPO_OWNER = 'actions';
 const MANIFEST_REPO_NAME = 'go-versions';
 const MANIFEST_REPO_BRANCH = 'main';
