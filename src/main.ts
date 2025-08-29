@@ -8,6 +8,7 @@ import {isCacheFeatureAvailable} from './cache-utils';
 import cp from 'child_process';
 import fs from 'fs';
 import os from 'os';
+import {Architecture} from './types';
 
 export async function run() {
   try {
@@ -21,10 +22,10 @@ export async function run() {
     const cache = core.getBooleanInput('cache');
     core.info(`Setup go version spec ${versionSpec}`);
 
-    let arch = core.getInput('architecture');
+    let arch = core.getInput('architecture') as Architecture;
 
     if (!arch) {
-      arch = os.arch();
+      arch = os.arch() as Architecture;
     }
 
     if (versionSpec) {
