@@ -4,9 +4,14 @@ import * as glob from '@actions/glob';
 import path from 'path';
 import fs from 'fs';
 
-import {State, Outputs} from './constants';
+import {Outputs, State} from './constants';
 import {PackageManagerInfo} from './package-managers';
-import {getCacheDirectoryPath, getPackageManagerInfo} from './cache-utils';
+import {
+  getCacheDirectoryPath,
+  getCommandOutput,
+  getPackageManagerInfo
+} from './cache-utils';
+import os from 'os';
 
 export const restoreCache = async (
   versionSpec: string,
@@ -48,6 +53,55 @@ export const restoreCache = async (
 
   core.saveState(State.CacheMatchedKey, cacheKey);
   core.info(`Cache restored from key: ${cacheKey}`);
+};
+
+export const setWindowsCacheDirectories = async () => {
+  if (os.platform() !== 'win32') return;
+
+  if (!fs.existsSync('D:')) return;
+
+  let goCache = await getCommandOutput(`go env GOCACHE`);
+  core.info(`GOCACHE: ${goCache}`);
+  goCache = goCache.replace('C:', 'D:').replace('c:', 'd:');
+
+  if (!fs.existsSync(goCache)) {
+    core.info(`${goCache} does not exist. Creating`);
+    fs.mkdirSync(goCache, {recursive: true});
+  }
+
+  const setOutput = await getCommandOutput(`go env -w GOCACHE=${goCache}`);
+  core.info(`go env -w GOCACHE output: ${setOutput}`);
+
+  let goModCache = await getCommandOutput(`go env GOMODCACHE`);
+  core.info(`GOMODCACHE: ${goModCache}`);
+  goModCache = goModCache.replace('C:', 'D:').replace('c:', 'd:');
+
+  if (!fs.existsSync(goModCache)) {
+    core.info(`${goModCache} does not exist. Creating`);
+    fs.mkdirSync(goModCache, {recursive: true});
+  }
+
+  const setModOutput = await getCommandOutput(
+    `go env -w GOMODCACHE=${goModCache}`
+  );
+  core.info(`go env -w GOMODCACHE output: ${setModOutput}`);
+
+  let goTmpDir = await getCommandOutput(`go env GOTMPDIR`);
+  core.info(`GOTMPDIR: ${goTmpDir}`);
+  if (!goTmpDir || goTmpDir === '') {
+    goTmpDir = 'D:\\gotmp';
+  }
+  goTmpDir = goTmpDir.replace('C:', 'D:').replace('c:', 'd:');
+
+  if (!fs.existsSync(goTmpDir)) {
+    core.info(`${goTmpDir} does not exist. Creating`);
+    fs.mkdirSync(goTmpDir, {recursive: true});
+  }
+
+  const setGoTmpOutput = await getCommandOutput(
+    `go env -w GOTMPDIR=${goTmpDir}`
+  );
+  core.info(`go env -w GOTMPDIR output: ${setGoTmpOutput}`);
 };
 
 const findDependencyFile = (packageManager: PackageManagerInfo) => {
