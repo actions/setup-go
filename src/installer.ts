@@ -8,6 +8,8 @@ import fs from 'fs';
 import os from 'os';
 import {StableReleaseAlias, isSelfHosted} from './utils';
 
+export const GOTOOLCHAIN_ENV_VAR = 'GOTOOLCHAIN';
+export const GOTOOLCHAIN_LOCAL_VAL = 'local';
 const MANIFEST_REPO_OWNER = 'actions';
 const MANIFEST_REPO_NAME = 'go-versions';
 const MANIFEST_REPO_BRANCH = 'main';
@@ -495,8 +497,21 @@ export function parseGoVersionFile(versionFilePath: string): string {
     path.basename(versionFilePath) === 'go.mod' ||
     path.basename(versionFilePath) === 'go.work'
   ) {
-    const match = contents.match(/^go (\d+(\.\d+)*)/m);
-    return match ? match[1] : '';
+    // for backwards compatibility: use version from go directive if
+    // 'GOTOOLCHAIN' has been explicitly set
+    if (process.env[GOTOOLCHAIN_ENV_VAR] !== GOTOOLCHAIN_LOCAL_VAL) {
+      // toolchain directive: https://go.dev/ref/mod#go-mod-file-toolchain
+      const matchToolchain = contents.match(
+        /^toolchain go(1\.\d+(?:\.\d+|rc\d+)?)/m
+      );
+      if (matchToolchain) {
+        return matchToolchain[1];
+      }
+    }
+
+    // go directive: https://go.dev/ref/mod#go-mod-file-go
+    const matchGo = contents.match(/^go (\d+(\.\d+)*)/m);
+    return matchGo ? matchGo[1] : '';
   }
 
   return contents.trim();

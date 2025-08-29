@@ -94312,6 +94312,7 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", ({ value: true }));
+exports.GOTOOLCHAIN_LOCAL_VAL = exports.GOTOOLCHAIN_ENV_VAR = void 0;
 exports.getGo = getGo;
 exports.extractGoArchive = extractGoArchive;
 exports.getManifest = getManifest;
@@ -94330,6 +94331,8 @@ const sys = __importStar(__nccwpck_require__(5632));
 const fs_1 = __importDefault(__nccwpck_require__(7147));
 const os_1 = __importDefault(__nccwpck_require__(2037));
 const utils_1 = __nccwpck_require__(1314);
+exports.GOTOOLCHAIN_ENV_VAR = 'GOTOOLCHAIN';
+exports.GOTOOLCHAIN_LOCAL_VAL = 'local';
 const MANIFEST_REPO_OWNER = 'actions';
 const MANIFEST_REPO_NAME = 'go-versions';
 const MANIFEST_REPO_BRANCH = 'main';
@@ -94663,8 +94666,18 @@ function parseGoVersionFile(versionFilePath) {
     const contents = fs_1.default.readFileSync(versionFilePath).toString();
     if (path.basename(versionFilePath) === 'go.mod' ||
         path.basename(versionFilePath) === 'go.work') {
-        const match = contents.match(/^go (\d+(\.\d+)*)/m);
-        return match ? match[1] : '';
+        // for backwards compatibility: use version from go directive if
+        // 'GOTOOLCHAIN' has been explicitly set
+        if (process.env[exports.GOTOOLCHAIN_ENV_VAR] !== exports.GOTOOLCHAIN_LOCAL_VAL) {
+            // toolchain directive: https://go.dev/ref/mod#go-mod-file-toolchain
+            const matchToolchain = contents.match(/^toolchain go(1\.\d+(?:\.\d+|rc\d+)?)/m);
+            if (matchToolchain) {
+                return matchToolchain[1];
+            }
+        }
+        // go directive: https://go.dev/ref/mod#go-mod-file-go
+        const matchGo = contents.match(/^go (\d+(\.\d+)*)/m);
+        return matchGo ? matchGo[1] : '';
     }
     return contents.trim();
 }
@@ -94782,6 +94795,7 @@ function run() {
             // If not supplied then problem matchers will still be setup.  Useful for self-hosted.
             //
             const versionSpec = resolveVersionInput();
+            setGoToolchain();
             const cache = core.getBooleanInput('cache');
             core.info(`Setup go version spec ${versionSpec}`);
             let arch = core.getInput('architecture');
@@ -94889,6 +94903,19 @@ function resolveVersionInput() {
         version = installer.parseGoVersionFile(versionFilePath);
     }
     return version;
+}
+function setGoToolchain() {
+    // docs: https://go.dev/doc/toolchain
+    // "local indicates the bundled Go toolchain (the one that shipped with the go command being run)"
+    // this is so any 'go' command is run with the selected Go version
+    // and doesn't trigger a toolchain download and run commands with that
+    // see e.g. issue #424
+    // and a similar discussion: https://github.com/docker-library/golang/issues/472.
+    // Set the value in process env so any `go` commands run as child-process
+    // don't cause toolchain downloads
+    process.env[installer.GOTOOLCHAIN_ENV_VAR] = installer.GOTOOLCHAIN_LOCAL_VAL;
+    // and in the runner env so e.g. a user running `go mod tidy` won't cause it
+    core.exportVariable(installer.GOTOOLCHAIN_ENV_VAR, installer.GOTOOLCHAIN_LOCAL_VAL);
 }
 
 
