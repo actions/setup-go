@@ -191,9 +191,15 @@ steps:
 
 ## Getting go version from the go.mod file
 
-The `go-version-file` input accepts a path to a `go.mod` file or a `go.work` file that contains the version of Go to be used by a project.
+The `go-version-file` input accepts a path to a `go.mod` file or a `go.work`
+file that contains the version of Go to be used by a project. The version taken
+from thils file will be:
 
-The `go` directive in `go.mod` can specify a patch version or omit it altogether (e.g., `go 1.22.0` or `go 1.22`).  
+  - The version from the `toolchain` directive, if there is one, otherwise
+  - The version from the `go` directive
+
+The version can specify a patch version or omit it altogether (e.g., `go 1.22.0` or `go 1.22`).
+
 If a patch version is specified, that specific patch version will be used.  
 If no patch version is specified, it will search for the latest available patch version in the cache,
 [versions-manifest.json](https://github.com/actions/go-versions/blob/main/versions-manifest.json), and the
