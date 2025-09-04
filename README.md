@@ -50,8 +50,8 @@ Matching by [semver spec](https://github.com/npm/node-semver):
 
 ```yaml
 steps:
-  - uses: actions/checkout@v4
-  - uses: actions/setup-go@v5
+  - uses: actions/checkout@v5
+  - uses: actions/setup-go@v6
     with:
       go-version: '^1.13.1' # The Go version to download (if necessary) and use.
   - run: go version
@@ -59,8 +59,8 @@ steps:
 
 ```yaml
 steps:
-  - uses: actions/checkout@v4
-  - uses: actions/setup-go@v5
+  - uses: actions/checkout@v5
+  - uses: actions/setup-go@v6
     with:
       go-version: '>=1.17.0'
   - run: go version
@@ -78,8 +78,8 @@ Matching an unstable pre-release:
 
 ```yaml
 steps:
-  - uses: actions/checkout@v4
-  - uses: actions/setup-go@v5
+  - uses: actions/checkout@v5
+  - uses: actions/setup-go@v6
     with:
       go-version: '1.18.0-rc.1' # The Go version to download (if necessary) and use.
   - run: go version
@@ -87,8 +87,8 @@ steps:
 
 ```yaml
 steps:
-  - uses: actions/checkout@v4
-  - uses: actions/setup-go@v5
+  - uses: actions/checkout@v5
+  - uses: actions/setup-go@v6
     with:
       go-version: '1.16.0-beta.1' # The Go version to download (if necessary) and use.
   - run: go version
@@ -102,8 +102,8 @@ See [action.yml](action.yml)
 
 ```yaml
 steps:
-  - uses: actions/checkout@v4
-  - uses: actions/setup-go@v5
+  - uses: actions/checkout@v5
+  - uses: actions/setup-go@v6
     with:
       go-version: '1.16.1' # The Go version to download (if necessary) and use.
   - run: go run hello.go
@@ -123,8 +123,8 @@ want the most up-to-date Go version to always be used.
 
 ```yaml
 steps:
-  - uses: actions/checkout@v4
-  - uses: actions/setup-go@v5
+  - uses: actions/checkout@v5
+  - uses: actions/setup-go@v6
     with:
       go-version: '1.14'
       check-latest: true
@@ -144,8 +144,8 @@ set to `true`
 
 ```yaml
 steps:
-  - uses: actions/checkout@v4
-  - uses: actions/setup-go@v5
+  - uses: actions/checkout@v5
+  - uses: actions/setup-go@v6
     with:
       go-version: 'stable'
   - run: go run hello.go
@@ -153,8 +153,8 @@ steps:
 
 ```yaml
 steps:
-  - uses: actions/checkout@v4
-  - uses: actions/setup-go@v5
+  - uses: actions/checkout@v5
+  - uses: actions/setup-go@v6
     with:
       go-version: 'oldstable'
   - run: go run hello.go
@@ -176,8 +176,8 @@ If some problem that prevents success caching happens then the action issues the
 
 ```yaml
 steps:
-  - uses: actions/checkout@v4
-  - uses: actions/setup-go@v5
+  - uses: actions/checkout@v5
+  - uses: actions/setup-go@v6
     with:
       go-version: '1.17'
       check-latest: true
@@ -210,8 +210,8 @@ If both the `go-version` and the `go-version-file` inputs are provided then the 
 
 ```yaml
 steps:
-  - uses: actions/checkout@v4
-  - uses: actions/setup-go@v5
+  - uses: actions/checkout@v5
+  - uses: actions/setup-go@v6
     with:
       go-version-file: 'path/to/go.mod'
   - run: go version
@@ -228,9 +228,9 @@ jobs:
         go: [ '1.14', '1.13' ]
     name: Go ${{ matrix.go }} sample
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - name: Setup go
-        uses: actions/setup-go@v5
+        uses: actions/setup-go@v6
         with:
           go-version: ${{ matrix.go }}
       - run: go run hello.go
@@ -258,7 +258,7 @@ If that fails as well the action will try to download versions directly from htt
 If that fails as well you can get a higher rate limit with [generating a personal access token on github.com](https://github.com/settings/tokens/new) and passing it as the `token` input to the action:
 
 ```yaml
-uses: actions/setup-go@v5
+uses: actions/setup-go@v6
 with:
   token: ${{ secrets.GH_DOTCOM_TOKEN }}
   go-version: '1.18'
