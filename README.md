@@ -8,6 +8,16 @@ This action sets up a go environment for use in actions by:
 - Optionally downloading and caching a version of Go by version and adding to `PATH`.
 - Registering problem matchers for error output.
 
+# Breaking changes in V6
+
+- Improve toolchain handling to ensure more reliable and consistent toolchain selection and management in [#460](https://github.com/actions/setup-go/pull/460)
+
+- Upgrade Nodejs runtime from node20 to node 24 in [#624](https://github.com/actions/setup-go/pull/624)
+
+Make sure your runner is on version v2.327.1 or later to ensure compatibility with this release. [See Release Notes](https://github.com/actions/runner/releases/tag/v2.327.1)
+
+For more detailed release notes, please track [release notes](https://github.com/actions/setup-go/releases/edit/v6.0.0)
+
 # V5
 
 The V5 edition of the action offers:
@@ -15,27 +25,6 @@ The V5 edition of the action offers:
 - Upgraded Node.js runtime from node16 to node20
 
 See full release notes on the [releases page](https://github.com/actions/setup-go/releases).
-
-# V4
-
-The V4 edition of the action offers:
-
- - Enabled caching by default
-
-The action will try to enable caching unless the `cache` input is explicitly set to false.
-
-Please see "[Caching dependency files and build outputs](https://github.com/actions/setup-go#caching-dependency-files-and-build-outputs)" for more information.
-
-# V3
-
-The V3 edition of the action offers:
-
-- Adds `GOBIN` to the `PATH`
-- Proxy support
-- Check latest version
-- Caching packages dependencies
-- stable and oldstable aliases
-- Bug Fixes (including issues around version matching and semver)
 
 The action will first check the local cache for a version match. If a version is not found locally, it will pull it from
 the `main` branch of the [go-versions](https://github.com/actions/go-versions/blob/main/versions-manifest.json)
