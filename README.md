@@ -14,7 +14,7 @@ This action sets up a go environment for use in actions by:
 - Upgraded from node20 to node24.
   > Make sure your runner is on version v2.327.1 or later to ensure compatibility with this release. [See Release Notes](https://github.com/actions/runner/releases/tag/v2.327.1)
 
-For more detailed release notes,  see the full release notes on the [releases page](https://github.com/actions/setup-go/releases/tag/v6.0.0)
+For more details,  see the full release notes on the [releases page](https://github.com/actions/setup-go/releases/tag/v6.0.0)
 
 # V5
 
