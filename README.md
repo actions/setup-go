@@ -18,7 +18,7 @@ For more details,  see the full release notes on the [releases page](https://git
 
 # V5
 
-Breakimg changes in V5
+The V5 edition of the action offers:
 
 - Upgraded Node.js runtime from node16 to node20
 
