@@ -10,9 +10,36 @@ This action sets up a go environment for use in actions by:
 
 # Breaking changes in V6
 
-- Improve toolchain handling to ensure more reliable and consistent toolchain selection and management.
-- Upgraded from node20 to node24.
-  > Make sure your runner is on version v2.327.1 or later to ensure compatibility with this release. [See Release Notes](https://github.com/actions/runner/releases/tag/v2.327.1)
+## Node Runtime Upgrade
+
+Upgraded from Node 20 to Node 24
+⚠️ Action Required: Ensure your runner is on version v2.327.1 or later for compatibility. [See Release Notes](https://github.com/actions/runner/releases/tag/v2.327.1)
+
+## Enhanced Go Toolchain Management
+
+V6 introduces significant improvements to ensure reliable and consistent Go version selection:
+
+### Toolchain Directive Support
+
+Now correctly interprets both go and toolchain directives from go.mod:
+```
+go 1.21.0           // Minimum required version
+toolchain go1.21.6  // V6 uses this exact version
+```
+###Advanced Version Resolution
+Supports comprehensive version patterns:
+
+Comparison operators: >=1.21.0, <1.22.0
+Semantic versioning: ~1.21.0 (patch updates), ^1.21.0 (minor updates)
+Wildcards: 1.21.x, 1.*
+
+### Intelligent Caching
+
+Cache keys now incorporate toolchain-specific metadata, eliminating version conflicts when switching between Go versions in your workflows.
+
+### Migration Impact
+
+These changes ensure your workflows use the exact Go version your project requires, improving build reproducibility and reducing version-related issues.
 
 For more details,  see the full release notes on the [releases page](https://github.com/actions/setup-go/releases/tag/v6.0.0)
 
