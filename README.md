@@ -26,7 +26,7 @@ Now correctly interprets both go and toolchain directives from go.mod:
 go 1.21.0           // Minimum required version
 toolchain go1.21.6  // V6 uses this exact version
 ```
-###Advanced Version Resolution
+### Advanced Version Resolution
 Supports comprehensive version patterns:
 
 Comparison operators: >=1.21.0, <1.22.0
