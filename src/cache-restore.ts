@@ -12,7 +12,7 @@ export const restoreCache = async (
   versionSpec: string,
   packageManager: string,
   cacheDependencyPath?: string,
-  buildTarget?: string
+  buildTargetArch?: string
 ) => {
   const packageManagerInfo = await getPackageManagerInfo(packageManager);
   const platform = process.env.RUNNER_OS;
@@ -33,7 +33,7 @@ export const restoreCache = async (
 
   const linuxVersion =
     process.env.RUNNER_OS === 'Linux' ? `${process.env.ImageOS}-` : '';
-  const sanitizedBuildTarget = buildTarget?.trim();
+  const sanitizedBuildTarget = buildTargetArch?.trim();
   const targetSegment = sanitizedBuildTarget ? `${sanitizedBuildTarget}-` : '';
   const primaryKey = `setup-go-${platform}-${arch}-${targetSegment}${linuxVersion}go-${versionSpec}-${fileHash}`;
   core.debug(`primary key is ${primaryKey}`);

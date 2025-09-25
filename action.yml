@@ -17,7 +17,7 @@ inputs:
     default: true
   cache-dependency-path:
     description: 'Used to specify the path to a dependency file - go.sum'
-  buildTarget:
+  buildTargetArch:
     description: 'Optional build target architecture (for example arm64 or amd64) used to scope the cache key.'
   architecture:
     description: 'Target architecture for Go to use. Examples: x86, x64. Will use system architecture by default.'

@@ -20,7 +20,7 @@ export async function run() {
     setGoToolchain();
 
     const cache = core.getBooleanInput('cache');
-    const buildTarget = core.getInput('buildTarget');
+    const buildTargetArch = core.getInput('buildTargetArch');
     core.info(`Setup go version spec ${versionSpec}`);
 
     let arch = core.getInput('architecture') as Architecture;
@@ -75,7 +75,7 @@ export async function run() {
           parseGoVersion(goVersion),
           packageManager,
           cacheDependencyPath,
-          buildTarget
+          buildTargetArch
         );
       } catch (error) {
         core.warning(`Restore cache failed: ${(error as Error).message}`);
