@@ -44,7 +44,8 @@ describe('restoreCache', () => {
       await cacheRestore.restoreCache(
         versionSpec,
         packageManager,
-        cacheDependencyPath
+        cacheDependencyPath,
+        undefined
       );
     }).rejects.toThrow(
       'Some specified paths were not resolved, unable to cache dependencies.'
@@ -69,7 +70,8 @@ describe('restoreCache', () => {
     await cacheRestore.restoreCache(
       versionSpec,
       packageManager,
-      cacheDependencyPath
+      cacheDependencyPath,
+      undefined
     );
     expect(infoSpy).toHaveBeenCalledWith(`Cache is not found`);
   });
@@ -92,7 +94,8 @@ describe('restoreCache', () => {
     await cacheRestore.restoreCache(
       versionSpec,
       packageManager,
-      cacheDependencyPath
+      cacheDependencyPath,
+      undefined
     );
     expect(setOutputSpy).toHaveBeenCalledWith('cache-hit', true);
   });
