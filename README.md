@@ -1,4 +1,4 @@
-# Setup-Go
+# setup-go
 
 [![Basic validation](https://github.com/actions/setup-go/actions/workflows/basic-validation.yml/badge.svg)](https://github.com/actions/setup-go/actions/workflows/basic-validation.yml)
 [![Validate 'setup-go'](https://github.com/actions/setup-go/actions/workflows/versions.yml/badge.svg)](https://github.com/actions/setup-go/actions/workflows/versions.yml)
@@ -16,7 +16,7 @@ steps:
   - uses: actions/checkout@v5
   - uses: actions/setup-go@v6
     with:
-      go-version: '1.21'
+      go-version: '1.23'
   - run: go version
 ```
 
@@ -36,18 +36,18 @@ V6 introduces significant improvements for reliable and consistent Go version se
 **Toolchain Directive Support**
 Now correctly interprets both `go` and `toolchain` directives from `go.mod`:
 ```go
-go 1.21.0           // Minimum required version
-toolchain go1.21.6  // V6 uses this exact version
+go 1.23.0           // Minimum required version
+toolchain go1.23.2  // V6 uses this exact version
 ```
 
 **Advanced Version Resolution**
 Supports comprehensive version patterns:
-- Comparison operators: `>=1.21.0`, `<1.22.0`
-- Semantic versioning: `~1.21.0` (patch updates), `^1.21.0` (minor updates)
-- Wildcards: `1.21.x`, `1.*`
+- Comparison operators: `>=1.23.0`, `<1.24.0`
+- Semantic versioning: `~1.23.0` (patch updates), `^1.23.0` (minor updates)
+- Wildcards: `1.23.x`, `1.*`
 
 **Intelligent Caching**
-Cache keys now incorporate toolchain-specific metadata, eliminating version conflicts when switching between Go versions in your workflows.
+Cache keys now incorporate toolchain-specific metadata, eliminating version conflicts when switching between golang versions in your workflows.
 
 For more details, see the [full release notes](https://github.com/actions/setup-go/releases/tag/v6.0.0).
 
@@ -76,7 +76,7 @@ steps:
   - uses: actions/checkout@v5
   - uses: actions/setup-go@v6
     with:
-      go-version: '1.21'
+      go-version: '1.23'
   - run: go run hello.go
 ```
 
@@ -89,7 +89,7 @@ steps:
   - uses: actions/checkout@v5
   - uses: actions/setup-go@v6
     with:
-      go-version: '^1.21.1' # The Go version to download (if necessary) and use.
+      go-version: '^1.23.1' # The Go version to download (if necessary) and use.
   - run: go version
 ```
 
@@ -98,14 +98,14 @@ steps:
   - uses: actions/checkout@v5
   - uses: actions/setup-go@v6
     with:
-      go-version: '>=1.20.0'
+      go-version: '>=1.22.0'
   - run: go version
 ```
 
 > **Important**: Due to YAML parsing behavior, always wrap version numbers in single quotes:
 > ```yaml
-> go-version: '1.20'  # Correct
-> go-version: 1.20    # Incorrect - YAML parser interprets as 1.2
+> go-version: '1.22'  # Correct
+> go-version: 1.22    # Incorrect - YAML parser interprets as 1.2
 > ```
 
 #### Pre-release Versions
@@ -116,7 +116,7 @@ steps:
   - uses: actions/checkout@v5
   - uses: actions/setup-go@v6
     with:
-       go-version: '1.22.0-rc.1' # The Go version to download (if necessary) and use
+       go-version: '1.24.0-rc.1' # The Go version to download (if necessary) and use
   - run: go version
 ```
 
@@ -126,7 +126,7 @@ steps:
   - uses: actions/checkout@v5
   - uses: actions/setup-go@v6
     with:
-      go-version: '1.16.0-beta.1' # The Go version to download (if necessary) and use
+      go-version: '1.23.0-beta.1' # The Go version to download (if necessary) and use
   - run: go version
 ```
 
@@ -146,7 +146,7 @@ steps:
 
 **Previous Stable Release**
 
-If `oldstable` is provided, when current release is 1.19.x, action will resolve version as 1.18.x, where x is the latest patch release.
+If `oldstable` is provided, when current release is 1.23.x, action will resolve version as 1.22.x, where x is the latest patch release.
 ```yaml
 steps:
   - uses: actions/checkout@v5
@@ -199,7 +199,7 @@ steps:
   - uses: actions/checkout@v5
   - uses: actions/setup-go@v6
     with:
-      go-version: '1.21'
+      go-version: '1.23'
       check-latest: true # Always check for the latest patch release
   - run: go version
 ```
@@ -210,7 +210,7 @@ steps:
 
 ### Caching
 
-Caching is enabled by default. The action automatically caches and restores Go modules and build outputs using toolkit/cache with minimal configuration.
+The action has a built-in functionality for caching and restoring go modules and build outputs. It uses [toolkit/cache](https://github.com/actions/toolkit/tree/main/packages/cache) under the hood but requires less configuration settings. Caching is enabled by default. The action automatically caches and restores Go modules and build outputs using toolkit/cache with minimal configuration.
 
 #### Automatic Caching
 
@@ -221,7 +221,7 @@ steps:
   - uses: actions/checkout@v5
   - uses: actions/setup-go@v6
     with:
-      go-version: '1.21'
+      go-version: '1.23'
       # cache: true (default)
   - run: go run hello.go
 ```
@@ -240,7 +240,7 @@ steps:
   - uses: actions/checkout@v5
   - uses: actions/setup-go@v6
     with:
-      go-version: '1.17'
+      go-version: '1.23'
       check-latest: true
       cache-dependency-path: |
         subdir/go.sum
@@ -254,7 +254,7 @@ steps:
   - uses: actions/checkout@v5
   - uses: actions/setup-go@v6
     with:
-      go-version: '1.17'
+      go-version: '1.23'
       cache-dependency-path: "**/*.sum"
   - run: go run hello.go
 ```
@@ -266,7 +266,7 @@ steps:
   - uses: actions/checkout@v5
   - uses: actions/setup-go@v6
     with:
-      go-version: '1.21'
+      go-version: '1.23'
       cache: false
   - run: go run hello.go
 ```
@@ -283,7 +283,7 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        go-version: ['1.20', '1.21', '1.22']
+        go-version: ['1.21', '1.22', '1.23']
     steps:
       - uses: actions/checkout@v5
       - uses: actions/setup-go@v6
@@ -298,11 +298,11 @@ jobs:
 
 | Syntax Type | Example | Description |
 |-------------|---------|-------------|
-| Specific version | `1.21.5` | Exact version |
-| Semantic range | `^1.21.0` | Compatible with 1.21.0 |
-| Comparison operators | `>=1.20.0` | Version 1.20.0 or higher |
-| Wildcards | `1.21.x` | Latest patch of 1.21 |
-| Pre-release | `1.22.0-rc.1` | Release candidate |
+| Specific version | `1.23.2` | Exact version |
+| Semantic range | `^1.23.0` | Compatible with 1.23.0 |
+| Comparison operators | `>=1.22.0` | Version 1.22.0 or higher |
+| Wildcards | `1.23.x` | Latest patch of 1.23 |
+| Pre-release | `1.24.0-rc.1` | Release candidate |
 | Aliases | `stable`, `oldstable` | Latest stable versions |
 
 For more information about semantic versioning, see the [semver documentation](https://semver.org/).
@@ -313,7 +313,7 @@ For more information about semantic versioning, see the [semver documentation](h
 - uses: actions/setup-go@v6
   with:
     # Version or version range of Go to use
-    go-version: '1.21'
+    go-version: '1.23'
     
     # Path to go.mod or go.work file
     go-version-file: 'go.mod'
