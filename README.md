@@ -65,7 +65,7 @@ The action follows this resolution order:
 
 To change the default behavior, use the `check-latest` input.
 
-> **Note**: The setup-go action uses executable binaries built by the Golang team. The action does not build Go from source code.
+> **Note**: The setup-go action uses executable binaries built by the Golang team. The action does not build golang from source code.
 
 ## Usage
 
@@ -134,7 +134,7 @@ steps:
 
 **Stable Release**
 
-If `stable` is provided, action will get the latest stable version from the go-versions repository manifest.
+If `stable` is provided, action will get the latest stable version from the [go-versions](https://github.com/actions/go-versions/blob/main/versions-manifest.json) repository manifest.
 ```yaml
 steps:
   - uses: actions/checkout@v5
@@ -210,7 +210,7 @@ steps:
 
 ### Caching
 
-The action has a built-in functionality for caching and restoring go modules and build outputs. It uses [toolkit/cache](https://github.com/actions/toolkit/tree/main/packages/cache) under the hood but requires less configuration settings. Caching is enabled by default. The action automatically caches and restores Go modules and build outputs using toolkit/cache with minimal configuration.
+The action features integrated caching for Go modules and build outputs. Built on [toolkit/cache](https://github.com/actions/toolkit/tree/main/packages/cache), it simplifies the caching process by requiring fewer configuration options. The cache input is optional, and caching is turned on by default.
 
 #### Automatic Caching
 
@@ -346,12 +346,12 @@ If that fails as well you can get a higher rate limit with generating a personal
 uses: actions/setup-go@v6
 with:
   token: ${{ secrets.GH_DOTCOM_TOKEN }}
-  go-version: '1.18'
+  go-version: '1.23'
 ```
 
 ### Offline Runners
 
-For runners without github.com access, Go versions must be pre-cached in the runner's tool cache. See "Setting up the tool cache on self-hosted runners without internet access".
+For runners without github.com access, Go versions must be pre-cached in the runner's tool cache. See "[Setting up the tool cache on self-hosted runners without internet access](https://docs.github.com/en/enterprise-server@3.2/admin/github-actions/managing-access-to-actions-from-githubcom/setting-up-the-tool-cache-on-self-hosted-runners-without-internet-access)".
 
 ## Recommended Permissions
 
