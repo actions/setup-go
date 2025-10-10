@@ -7,7 +7,10 @@ import * as sys from './system';
 import fs from 'fs';
 import os from 'os';
 import {StableReleaseAlias, isSelfHosted} from './utils';
+import {Architecture} from './types';
 
+export const GOTOOLCHAIN_ENV_VAR = 'GOTOOLCHAIN';
+export const GOTOOLCHAIN_LOCAL_VAL = 'local';
 const MANIFEST_REPO_OWNER = 'actions';
 const MANIFEST_REPO_NAME = 'go-versions';
 const MANIFEST_REPO_BRANCH = 'main';
@@ -39,7 +42,7 @@ export async function getGo(
   versionSpec: string,
   checkLatest: boolean,
   auth: string | undefined,
-  arch = os.arch()
+  arch: Architecture = os.arch() as Architecture
 ) {
   let manifest: tc.IToolRelease[] | undefined;
   const osPlat: string = os.platform();
@@ -151,7 +154,7 @@ async function resolveVersionFromManifest(
   versionSpec: string,
   stable: boolean,
   auth: string | undefined,
-  arch: string,
+  arch: Architecture,
   manifest: tc.IToolRelease[] | undefined
 ): Promise<string | undefined> {
   try {
@@ -353,7 +356,7 @@ export async function getInfoFromManifest(
   versionSpec: string,
   stable: boolean,
   auth: string | undefined,
-  arch = os.arch(),
+  arch: Architecture = os.arch() as Architecture,
   manifest?: tc.IToolRelease[] | undefined
 ): Promise<IGoVersionInfo | null> {
   let info: IGoVersionInfo | null = null;
@@ -379,7 +382,7 @@ export async function getInfoFromManifest(
 
 async function getInfoFromDist(
   versionSpec: string,
-  arch: string
+  arch: Architecture
 ): Promise<IGoVersionInfo | null> {
   const version: IGoVersion | undefined = await findMatch(versionSpec, arch);
   if (!version) {
@@ -398,7 +401,7 @@ async function getInfoFromDist(
 
 export async function findMatch(
   versionSpec: string,
-  arch = os.arch()
+  arch: Architecture = os.arch() as Architecture
 ): Promise<IGoVersion | undefined> {
   const archFilter = sys.getArch(arch);
   const platFilter = sys.getPlatform();
@@ -495,14 +498,30 @@ export function parseGoVersionFile(versionFilePath: string): string {
     path.basename(versionFilePath) === 'go.mod' ||
     path.basename(versionFilePath) === 'go.work'
   ) {
-    const match = contents.match(/^go (\d+(\.\d+)*)/m);
-    return match ? match[1] : '';
+    // for backwards compatibility: use version from go directive if
+    // 'GOTOOLCHAIN' has been explicitly set
+    if (process.env[GOTOOLCHAIN_ENV_VAR] !== GOTOOLCHAIN_LOCAL_VAL) {
+      // toolchain directive: https://go.dev/ref/mod#go-mod-file-toolchain
+      const matchToolchain = contents.match(
+        /^toolchain go(1\.\d+(?:\.\d+|rc\d+)?)/m
+      );
+      if (matchToolchain) {
+        return matchToolchain[1];
+      }
+    }
+
+    // go directive: https://go.dev/ref/mod#go-mod-file-go
+    const matchGo = contents.match(/^go (\d+(\.\d+)*)/m);
+    return matchGo ? matchGo[1] : '';
   }
 
   return contents.trim();
 }
 
-async function resolveStableVersionDist(versionSpec: string, arch: string) {
+async function resolveStableVersionDist(
+  versionSpec: string,
+  arch: Architecture
+) {
   const archFilter = sys.getArch(arch);
   const platFilter = sys.getPlatform();
   const dlUrl = 'https://golang.org/dl/?mode=json&include=all';

@@ -8,6 +8,7 @@ import {isCacheFeatureAvailable} from './cache-utils';
 import cp from 'child_process';
 import fs from 'fs';
 import os from 'os';
+import {Architecture} from './types';
 
 export async function run() {
   try {
@@ -16,14 +17,15 @@ export async function run() {
     // If not supplied then problem matchers will still be setup.  Useful for self-hosted.
     //
     const versionSpec = resolveVersionInput();
+    setGoToolchain();
 
     const cache = core.getBooleanInput('cache');
     core.info(`Setup go version spec ${versionSpec}`);
 
-    let arch = core.getInput('architecture');
+    let arch = core.getInput('architecture') as Architecture;
 
     if (!arch) {
-      arch = os.arch();
+      arch = os.arch() as Architecture;
     }
 
     if (versionSpec) {
@@ -159,4 +161,21 @@ function resolveVersionInput(): string {
   }
 
   return version;
+}
+
+function setGoToolchain() {
+  // docs: https://go.dev/doc/toolchain
+  // "local indicates the bundled Go toolchain (the one that shipped with the go command being run)"
+  // this is so any 'go' command is run with the selected Go version
+  // and doesn't trigger a toolchain download and run commands with that
+  // see e.g. issue #424
+  // and a similar discussion: https://github.com/docker-library/golang/issues/472.
+  // Set the value in process env so any `go` commands run as child-process
+  // don't cause toolchain downloads
+  process.env[installer.GOTOOLCHAIN_ENV_VAR] = installer.GOTOOLCHAIN_LOCAL_VAL;
+  // and in the runner env so e.g. a user running `go mod tidy` won't cause it
+  core.exportVariable(
+    installer.GOTOOLCHAIN_ENV_VAR,
+    installer.GOTOOLCHAIN_LOCAL_VAL
+  );
 }
