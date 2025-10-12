@@ -1090,4 +1090,29 @@ use .
     expect(vars).toStrictEqual({GOTOOLCHAIN: 'local'});
     expect(process.env).toHaveProperty('GOTOOLCHAIN', 'local');
   });
+
+  describe('auto-detect go.mod', () => {
+    it('uses go.mod from workspace root when no inputs provided', async () => {
+      existsSpy.mockImplementation((filePath: string) => {
+        return filePath === 'go.mod';
+      });
+      readFileSpy.mockImplementation(() =>
+        Buffer.from('module test\n\ngo 1.20')
+      );
+
+      await main.run();
+
+      expect(logSpy).toHaveBeenCalledWith('Setup go version spec 1.20');
+    });
+
+    it('uses pre-installed Go when no inputs and no go.mod exists', async () => {
+      existsSpy.mockImplementation(() => false);
+
+      await main.run();
+
+      expect(logSpy).toHaveBeenCalledWith(
+        '[warning]go-version input was not specified. The action will try to use pre-installed version.'
+      );
+    });
+  });
 });
