@@ -187,10 +187,24 @@ from thils file will be:
 
 The version can specify a patch version or omit it altogether (e.g., `go 1.22.0` or `go 1.22`).
 
-If a patch version is specified, that specific patch version will be used.  
+If a patch version is specified, that specific patch version will be used.
 If no patch version is specified, it will search for the latest available patch version in the cache,
 [versions-manifest.json](https://github.com/actions/go-versions/blob/main/versions-manifest.json), and the
 [official Go language website](https://golang.org/dl/?mode=json&include=all), in that order.
+
+### Automatic go.mod detection
+
+**New in v6**: If neither `go-version` nor `go-version-file` is specified, the action will automatically look for a `go.mod` file in the repository root and use the Go version specified in it. This simplifies workflows for projects that already have a `go.mod` file.
+
+```yaml
+steps:
+  - uses: actions/checkout@v5
+  - uses: actions/setup-go@v6
+    # Automatically uses go.mod from repository root
+  - run: go version
+```
+
+### Specifying a custom path
 
 If both the `go-version` and the `go-version-file` inputs are provided then the `go-version` input is used.
 > The action will search for the `go.mod` file relative to the repository root
