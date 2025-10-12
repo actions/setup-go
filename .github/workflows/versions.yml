@@ -142,6 +142,28 @@ jobs:
         run: __tests__/verify-go.sh 1.21
         shell: bash
 
+  auto-detect-go-mod:
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest, macos-13]
+    steps:
+      - uses: actions/checkout@v5
+      - name: Create go.mod in workspace root
+        run: |
+          cat > go.mod << 'EOF'
+          module github.com/actions/setup-go
+
+          go 1.21
+          EOF
+        shell: bash
+      - name: Setup Go with auto-detection
+        uses: ./
+      - name: Verify go version
+        run: __tests__/verify-go.sh 1.21
+        shell: bash
+
   setup-versions-from-manifest:
     runs-on: ${{ matrix.os }}
     strategy:
