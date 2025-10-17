@@ -389,7 +389,7 @@ async function getInfoFromDist(
     return null;
   }
 
-  const downloadUrl = `https://storage.googleapis.com/golang/${version.files[0].filename}`;
+  const downloadUrl = `https://dl.google.com/go/${version.files[0].filename}`;
 
   return <IGoVersionInfo>{
     type: 'dist',
