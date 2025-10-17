@@ -40,7 +40,7 @@ The V3 edition of the action offers:
 The action will first check the local cache for a version match. If a version is not found locally, it will pull it from
 the `main` branch of the [go-versions](https://github.com/actions/go-versions/blob/main/versions-manifest.json)
 repository. On miss or failure, it will fall back to downloading directly
-from [go dist](https://storage.googleapis.com/golang). To change the default behavior, please use
+from [go dist](https://go.dev/dl). To change the default behavior, please use
 the [check-latest input](#check-latest-version).
 
 **Note:** The `setup-go` action uses executable binaries which are built by Golang side. The action does not build
@@ -247,7 +247,7 @@ When dynamically downloading Go distributions, `setup-go` downloads distribution
 
 These calls to `actions/go-versions` are made via unauthenticated requests, which are limited to [60 requests per hour per IP](https://docs.github.com/en/rest/overview/resources-in-the-rest-api#rate-limiting).
 If more requests are made within the time frame, then the action leverages the `raw API` to retrieve the version-manifest. This approach does not impose a rate limit and hence facilitates unrestricted consumption. This is particularly beneficial for GHES runners, which often share the same IP, to avoid the quick exhaustion of the unauthenticated rate limit.
-If that fails as well the action will try to download versions directly from https://storage.googleapis.com/golang.
+If that fails as well the action will try to download versions directly from https://go.dev/dl.
 
 If that fails as well you can get a higher rate limit with [generating a personal access token on github.com](https://github.com/settings/tokens/new) and passing it as the `token` input to the action:
 
