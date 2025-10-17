@@ -70997,7 +70997,7 @@ function getInfoFromDist(versionSpec, arch) {
         if (!version) {
             return null;
         }
-        let downloadUrl = `https://storage.googleapis.com/golang/${version.files[0].filename}`;
+        let downloadUrl = `https://go.dev/dl/${version.files[0].filename}`;
         return {
             type: 'dist',
             downloadUrl: downloadUrl,
