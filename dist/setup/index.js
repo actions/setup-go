@@ -94583,7 +94583,7 @@ function getInfoFromDist(versionSpec, arch) {
         if (!version) {
             return null;
         }
-        const downloadUrl = `https://dl.google.com/go/${version.files[0].filename}`;
+        const downloadUrl = `https://go.dev/dl/${version.files[0].filename}`;
         return {
             type: 'dist',
             downloadUrl: downloadUrl,
