@@ -359,7 +359,7 @@ describe('setup-go', () => {
 
     let expPath = path.win32.join(toolPath, 'bin');
     expect(dlSpy).toHaveBeenCalledWith(
-      'https://storage.googleapis.com/golang/go1.13.1.windows-amd64.zip',
+      'https://go.dev/dl/go1.13.1.windows-amd64.zip',
       'C:\\temp\\go1.13.1.windows-amd64.zip',
       undefined
     );
@@ -913,7 +913,7 @@ use .
         let expectedUrl =
           platform === 'win32'
             ? `https://github.com/actions/go-versions/releases/download/${version}/go-${version}-${platform}-${arch}.${fileExtension}`
-            : `https://storage.googleapis.com/golang/go${version}.${osSpec}-${arch}.${fileExtension}`;
+            : `https://go.dev/dl/go${version}.${osSpec}-${arch}.${fileExtension}`;
 
         // ... but not in the local cache
         findSpy.mockImplementation(() => '');
