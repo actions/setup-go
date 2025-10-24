@@ -513,6 +513,9 @@ export function parseGoVersionFile(versionFilePath: string): string {
     // go directive: https://go.dev/ref/mod#go-mod-file-go
     const matchGo = contents.match(/^go (\d+(\.\d+)*)/m);
     return matchGo ? matchGo[1] : '';
+  } else if (path.basename(versionFilePath) === '.tool-versions') {
+    const match = contents.match(/^golang\s+([^\n#]+)/m);
+    return match ? match[1].trim() : '';
   }
 
   return contents.trim();

@@ -178,7 +178,7 @@ steps:
 
 ## Getting go version from the go.mod file
 
-The `go-version-file` input accepts a path to a `go.mod` file or a `go.work`
+The `go-version-file` input accepts a path to a `go.mod` file, `.tool-versions` file or a `go.work`
 file that contains the version of Go to be used by a project. The version taken
 from thils file will be:
 
@@ -203,6 +203,15 @@ steps:
       go-version-file: 'path/to/go.mod'
   - run: go version
 ```
+```yaml
+steps:
+  - uses: actions/checkout@v5
+  - uses: actions/setup-go@v6
+    with:
+      go-version-file: '.tool-versions'
+  - run: go version
+```
+> The [.tool-versions file](https://asdf-vm.com/manage/configuration.html#tool-versions) supports version specifications in accordance with asdf standards, adhering to Semantic Versioning ([semver](https://semver.org)).
 
 ## Matrix testing
 
