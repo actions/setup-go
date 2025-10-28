@@ -868,6 +868,9 @@ use .
 
 `;
 
+    const toolVersionsContents = `golang 1.23
+`;
+
     it('reads version from go.mod', async () => {
       inputs['go-version-file'] = 'go.mod';
       existsSpy.mockImplementation(() => true);
@@ -890,6 +893,18 @@ use .
       expect(logSpy).toHaveBeenCalledWith('Setup go version spec 1.19');
       expect(logSpy).toHaveBeenCalledWith('Attempting to download 1.19...');
       expect(logSpy).toHaveBeenCalledWith('matching 1.19...');
+    });
+
+    it('reads version from .tool-versions', async () => {
+      inputs['go-version-file'] = '.tool-versions';
+      existsSpy.mockImplementation(() => true);
+      readFileSpy.mockImplementation(() => Buffer.from(toolVersionsContents));
+
+      await main.run();
+
+      expect(logSpy).toHaveBeenCalledWith('Setup go version spec 1.23');
+      expect(logSpy).toHaveBeenCalledWith('Attempting to download 1.23...');
+      expect(logSpy).toHaveBeenCalledWith('matching 1.23...');
     });
 
     it('reads version from .go-version', async () => {

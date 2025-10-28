@@ -18,7 +18,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-latest, windows-latest, macos-latest, macos-13]
+        os: [ubuntu-latest, windows-latest, macos-latest, macos-latest-large]
     steps:
       - uses: actions/checkout@v5
       - name: Setup Go Stable
@@ -33,7 +33,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-latest, windows-latest, macos-latest, macos-13]
+        os: [ubuntu-latest, windows-latest, macos-latest, macos-latest-large]
     steps:
       - uses: actions/checkout@v5
       - name: Setup Go oldStable
@@ -48,13 +48,13 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-latest, windows-latest, macos-latest, macos-13]
+        os: [ubuntu-latest, windows-latest, macos-latest, macos-latest-large]
         version: [stable, oldstable]
         architecture: [x64, x32]
         exclude:
           - os: macos-latest
             architecture: x32
-          - os: macos-13
+          - os: macos-latest-large
             architecture: x32
     steps:
       - uses: actions/checkout@v5
@@ -72,7 +72,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [macos-latest, windows-latest, ubuntu-latest, macos-13]
+        os: [macos-latest, windows-latest, ubuntu-latest, macos-latest-large]
         go: [1.21.13, 1.22.8, 1.23.2]
         include:
           - os: windows-latest
@@ -98,7 +98,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-latest, windows-latest, macos-latest, macos-13]
+        os: [ubuntu-latest, windows-latest, macos-latest, macos-latest-large]
         go-version: ['1.20', '1.21', '1.22', '1.23']
     steps:
       - uses: actions/checkout@v5
@@ -115,7 +115,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-latest, windows-latest, macos-latest, macos-13]
+        os: [ubuntu-latest, windows-latest, macos-latest, macos-latest-large]
     steps:
       - uses: actions/checkout@v5
       - name: Setup Go and check latest
@@ -131,7 +131,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-latest, windows-latest, macos-latest, macos-13]
+        os: [ubuntu-latest, windows-latest, macos-latest, macos-latest-large]
     steps:
       - uses: actions/checkout@v5
       - name: Setup Go and check latest
@@ -142,12 +142,28 @@ jobs:
         run: __tests__/verify-go.sh 1.21
         shell: bash
 
+  go-version-file-with-tool-versions:
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest, macos-latest-large]
+    steps:
+      - uses: actions/checkout@v5
+      - name: Setup Go and check latest
+        uses: ./
+        with:
+          go-version-file: __tests__/data/.tool-versions
+      - name: verify go
+        run: __tests__/verify-go.sh 1.23.2
+        shell: bash
+
   setup-versions-from-manifest:
     runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
       matrix:
-        os: [macos-latest, windows-latest, ubuntu-latest, macos-13]
+        os: [macos-latest, windows-latest, ubuntu-latest, macos-latest-large]
         go: [1.20.14, 1.21.10, 1.22.8, 1.23.2]
     steps:
       - name: Checkout
@@ -167,7 +183,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [windows-latest, ubuntu-latest, macos-13]
+        os: [windows-latest, ubuntu-latest, macos-latest-large]
         go: [1.11.12]
     steps:
       - name: Checkout
@@ -187,7 +203,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-latest, windows-latest, macos-latest, macos-13]
+        os: [ubuntu-latest, windows-latest, macos-latest, macos-latest-large]
         go-version: [1.20.14, 1.21, 1.22, 1.23]
         include:
           - os: macos-latest
@@ -196,7 +212,7 @@ jobs:
             architecture: x64
           - os: windows-latest
             architecture: x64
-          - os: macos-13
+          - os: macos-latest-large
             architecture: x64
     steps:
       - uses: actions/checkout@v5
