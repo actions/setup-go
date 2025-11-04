@@ -146,7 +146,7 @@ steps:
 
 **Previous Stable Release**
 
-If `oldstable` is provided, when current release is 1.23.x, action will resolve version as 1.22.x, where x is the latest patch release.
+If `oldstable` is provided, when the current release is 1.23.x, the action will resolve version as 1.22.x, where x is the latest patch release.
 ```yaml
 steps:
   - uses: actions/checkout@v5
@@ -160,7 +160,7 @@ steps:
 
 ### Version from go.mod File
 
-The action can automatically detect the Go version from your project's `go.mod` or `go.work` file:
+The action can automatically detect the Go version from your project's `go.mod`, `go.work`, `.go-version`, or `.tool-versions` file:
 
 ```yaml
 steps:
@@ -176,23 +176,50 @@ steps:
 2. Falls back to the `go` directive version
 3. If no patch version is specified, uses the latest available patch
 
-> **Note**: If both `go-version` and `go-version-file` are provided, `go-version` takes precedence.
 
-The action will search for the `go.mod` file relative to the repository root:
+### Version from .go-version or .tool-versions Files
+
+The action also supports reading the Go version from `.go-version` or [`.tool-versions`](https://asdf-vm.com/manage/configuration.html#tool-versions) files:
+
+**Using .go-version file:**
+```yaml
+steps:
+  - uses: actions/checkout@v5
+  - uses: actions/setup-go@v6
+    with:
+      go-version-file: '.go-version'
+  - run: go version
+```
+
+**Using .tool-versions file:**
+```yaml
+steps:
+  - uses: actions/checkout@v5
+  - uses: actions/setup-go@v6
+    with:
+      go-version-file: '.tool-versions'
+  - run: go version
+```
+
+The action will search for these files relative to the repository root. You can also specify a custom path:
 
 ```yaml
 steps:
   - uses: actions/checkout@v5
   - uses: actions/setup-go@v6
     with:
-      go-version-file: 'path/to/go.mod'
+      go-version-file: 'path/to/.go-version'
   - run: go version
 ```
+These files support either major and minor (e.g., 1.18) or major, minor and patch (e.g., 1.18.7) version formats. If the file contains only major and minor versions, the action will search for the latest available patch version.
+
+> **Note**: If both `go-version` and `go-version-file` are provided, `go-version` takes precedence.
+
 
 ### Check Latest Version
 
 The check-latest flag defaults to false for stability. This ensures your workflow uses a specific, predictable Go version.
-When check-latest: true: The action verifies if your cached Go version is the latest available. If not, it downloads and uses the newest version.
+When `check-latest: true`, the action verifies if your cached Go version is the latest available. If not, it downloads and uses the newest version.
 
 ```yaml
 steps:
@@ -214,7 +241,7 @@ The action features integrated caching for Go modules and build outputs. Built o
 
 #### Automatic Caching
 
-Default behavior: Searches for go.sum in the repository root and uses its hash for the cache key.
+Default behavior: Searches for `go.sum` in the repository root and uses its hash for the cache key.
 
 ```yaml
 steps:
@@ -315,7 +342,7 @@ For more information about semantic versioning, see the [semver documentation](h
     # Version or version range of Go to use
     go-version: '1.23'
     
-    # Path to go.mod or go.work file
+    # Path to go.mod, go.work, .go-version, or .tool-versions file
     go-version-file: 'go.mod'
     
     # Check for latest version
@@ -336,7 +363,7 @@ For more information about semantic versioning, see the [semver documentation](h
 
 ## Using setup-go on GHES
 
-setup-go comes pre-installed on GHES when Actions is enabled. For dynamic Go version downloads, the action fetches distributions from actions/go-versions on github.com (external to your appliance).
+setup-go comes pre-installed on GHES when Actions is enabled. For dynamic Go version downloads, the action fetches distributions from the [go-versions repository](https://github.com/actions/go-versions/) on github.com (external to your appliance).
 
 These calls to `actions/go-versions` are made via unauthenticated requests, which are limited to 60 requests per hour per IP. If more requests are made within the time frame, then the action leverages the raw API to retrieve the version-manifest. This approach does not impose a rate limit and hence facilitates unrestricted consumption. This is particularly beneficial for GHES runners, which often share the same IP, to avoid the quick exhaustion of the unauthenticated rate limit. If that fails as well the action will try to download versions directly from [go.dev](https://storage.googleapis.com/golang).
 
