@@ -389,7 +389,7 @@ describe('setup-go', () => {
 
     const expPath = path.win32.join(toolPath, 'bin');
     expect(dlSpy).toHaveBeenCalledWith(
-      'https://storage.googleapis.com/golang/go1.13.1.windows-amd64.zip',
+      'https://go.dev/dl/go1.13.1.windows-amd64.zip',
       'C:\\temp\\go1.13.1.windows-amd64.zip',
       undefined
     );
@@ -868,6 +868,9 @@ use .
 
 `;
 
+    const toolVersionsContents = `golang 1.23
+`;
+
     it('reads version from go.mod', async () => {
       inputs['go-version-file'] = 'go.mod';
       existsSpy.mockImplementation(() => true);
@@ -890,6 +893,18 @@ use .
       expect(logSpy).toHaveBeenCalledWith('Setup go version spec 1.19');
       expect(logSpy).toHaveBeenCalledWith('Attempting to download 1.19...');
       expect(logSpy).toHaveBeenCalledWith('matching 1.19...');
+    });
+
+    it('reads version from .tool-versions', async () => {
+      inputs['go-version-file'] = '.tool-versions';
+      existsSpy.mockImplementation(() => true);
+      readFileSpy.mockImplementation(() => Buffer.from(toolVersionsContents));
+
+      await main.run();
+
+      expect(logSpy).toHaveBeenCalledWith('Setup go version spec 1.23');
+      expect(logSpy).toHaveBeenCalledWith('Attempting to download 1.23...');
+      expect(logSpy).toHaveBeenCalledWith('matching 1.23...');
     });
 
     it('reads version from .go-version', async () => {
@@ -946,7 +961,7 @@ use .
         const expectedUrl =
           platform === 'win32'
             ? `https://github.com/actions/go-versions/releases/download/${version}/go-${version}-${platform}-${arch}.${fileExtension}`
-            : `https://storage.googleapis.com/golang/go${version}.${osSpec}-${arch}.${fileExtension}`;
+            : `https://go.dev/dl/go${version}.${osSpec}-${arch}.${fileExtension}`;
 
         // ... but not in the local cache
         findSpy.mockImplementation(() => '');
