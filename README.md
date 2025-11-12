@@ -158,9 +158,15 @@ steps:
 
 > **Note**: Using aliases is equivalent to using the corresponding minor release with `check-latest: true`
 
-### Version from go.mod File
+### go-version-file
 
-The action can automatically detect the Go version from your project's `go.mod`, `go.work`, `.go-version`, or `.tool-versions` file:
+The action can automatically detect the Go version from various project files using the `go-version-file` input. This parameter supports `go.mod`, `go.work`, `.go-version`, and `.tool-versions` files.
+
+> **Note**: If both `go-version` and `go-version-file` are provided, `go-version` takes precedence.
+
+#### go.mod File
+
+Automatically detect the Go version from your project's `go.mod` file:
 
 ```yaml
 steps:
@@ -176,12 +182,23 @@ steps:
 2. Falls back to the `go` directive version
 3. If no patch version is specified, uses the latest available patch
 
+#### go.work File
 
-### Version from .go-version or .tool-versions Files
+Use the Go version specified in your `go.work` file:
 
-The action also supports reading the Go version from `.go-version` or [`.tool-versions`](https://asdf-vm.com/manage/configuration.html#tool-versions) files:
+```yaml
+steps:
+  - uses: actions/checkout@v5
+  - uses: actions/setup-go@v6
+    with:
+      go-version-file: 'go.work'
+  - run: go version
+```
 
-**Using .go-version file:**
+#### .go-version File
+
+Read the Go version from a `.go-version` file:
+
 ```yaml
 steps:
   - uses: actions/checkout@v5
@@ -191,7 +208,10 @@ steps:
   - run: go version
 ```
 
-**Using .tool-versions file:**
+#### .tool-versions File
+
+Use the Go version from an [`.tool-versions`](https://asdf-vm.com/manage/configuration.html#tool-versions) file:
+
 ```yaml
 steps:
   - uses: actions/checkout@v5
@@ -201,7 +221,9 @@ steps:
   - run: go version
 ```
 
-The action will search for these files relative to the repository root. You can also specify a custom path:
+#### Custom File Paths
+
+The action searches for version files relative to the repository root by default. You can specify a custom path:
 
 ```yaml
 steps:
@@ -211,10 +233,10 @@ steps:
       go-version-file: 'path/to/.go-version'
   - run: go version
 ```
-These files support either major and minor (e.g., 1.18) or major, minor and patch (e.g., 1.18.7) version formats. If the file contains only major and minor versions, the action will search for the latest available patch version.
 
-> **Note**: If both `go-version` and `go-version-file` are provided, `go-version` takes precedence.
-
+**Supported Version Formats:**
+- Major and minor only: `1.25` (action will use the latest patch version, e.g., `1.25.4`)
+- Major, minor, and patch: `1.25.4` (exact version)
 
 ### Check Latest Version
 
