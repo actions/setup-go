@@ -40,14 +40,8 @@ go 1.23.0           // Minimum required version
 toolchain go1.23.2  // V6 uses this exact version
 ```
 
-**Advanced Version Resolution**
-Supports comprehensive version patterns:
-- Comparison operators: `>=1.23.0`, `<1.24.0`
-- Semantic versioning: `~1.23.0` (patch updates), `^1.23.0` (minor updates)
-- Wildcards: `1.23.x`, `1.*`
-
 **Intelligent Caching**
-Cache keys now incorporate toolchain-specific metadata, eliminating version conflicts when switching between golang versions in your workflows.
+Cache keys now incorporate the `toolchain` directive version from `go.mod`, eliminating cache conflicts when switching between different toolchain versions within the same Go minor release.
 
 For more details, see the [full release notes](https://github.com/actions/setup-go/releases/tag/v6.0.0).
 
@@ -347,12 +341,16 @@ jobs:
 
 | Syntax Type | Example | Description |
 |-------------|---------|-------------|
-| Specific version | `1.23.2` | Exact version |
-| Semantic range | `^1.23.0` | Compatible with 1.23.0 |
-| Comparison operators | `>=1.22.0` | Version 1.22.0 or higher |
-| Wildcards | `1.23.x` | Latest patch of 1.23 |
-| Pre-release | `1.24.0-rc.1` | Release candidate |
-| Aliases | `stable`, `oldstable` | Latest stable versions |
+| Specific version | `1.23.2` | Installs this exact version |
+| Semantic range (caret) | `^1.23.0` | Allows newer minor/patch versions (1.24.x, 1.25.x, etc.) |
+| Semantic range (tilde) | `~1.23.0` | Allows newer patch versions only (1.23.1, 1.23.2, etc.) |
+| Comparison (gte) | `>=1.22.0` | Any version equal to or newer than specified |
+| Comparison (lt) | `<1.24.0` | Any version older than specified |
+| Comparison range | `>=1.22.0 <1.24.0` | Any version within the specified range |
+| Wildcard (patch) | `1.23.x` | Latest patch version of the specified minor release |
+| Wildcard (minor) | `1.*` | Latest available version in the major version |
+| Pre-release | `1.24.0-rc.1` | Beta/RC versions for testing upcoming releases |
+| Aliases | `stable`, `oldstable` | Latest stable or previous stable release |
 
 For more information about semantic versioning, see the [semver documentation](https://semver.org/).
 
