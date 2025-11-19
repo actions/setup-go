@@ -55,7 +55,7 @@ For more details, see the [full release notes](https://github.com/actions/setup-
 The action follows this resolution order:
 1. **Local cache** - Checks for a cached version match
 2. **go-versions repository** - Pulls from the main branch of the [go-versions repository](https://github.com/actions/go-versions/blob/main/versions-manifest.json)
-3. **Direct download** - Falls back to downloading directly from [go.dev](https://storage.googleapis.com/golang)
+3. **Direct download** - Falls back to downloading directly from [go.dev](https://go.dev/dl)
 
 To change the default behavior, use the `check-latest` input.
 
@@ -387,7 +387,7 @@ For more information about semantic versioning, see the [semver documentation](h
 
 setup-go comes pre-installed on GHES when Actions is enabled. For dynamic Go version downloads, the action fetches distributions from the [go-versions repository](https://github.com/actions/go-versions/) on github.com (external to your appliance).
 
-These calls to `actions/go-versions` are made via unauthenticated requests, which are limited to 60 requests per hour per IP. If more requests are made within the time frame, then the action leverages the raw API to retrieve the version-manifest. This approach does not impose a rate limit and hence facilitates unrestricted consumption. This is particularly beneficial for GHES runners, which often share the same IP, to avoid the quick exhaustion of the unauthenticated rate limit. If that fails as well the action will try to download versions directly from [go.dev](https://storage.googleapis.com/golang).
+These calls to `actions/go-versions` are made via unauthenticated requests, which are limited to 60 requests per hour per IP. If more requests are made within the time frame, then the action leverages the raw API to retrieve the version-manifest. This approach does not impose a rate limit and hence facilitates unrestricted consumption. This is particularly beneficial for GHES runners, which often share the same IP, to avoid the quick exhaustion of the unauthenticated rate limit. If that fails as well the action will try to download versions directly from [go.dev](https://go.dev/dl).
 
 If that fails as well you can get a higher rate limit with generating a personal access token on github.com and passing it as the token input to the action:
 
