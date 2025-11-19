@@ -339,6 +339,8 @@ jobs:
 
 ### Supported Version Syntax
 
+The `go-version` input supports the following syntax:
+
 | Syntax Type | Example | Description |
 |-------------|---------|-------------|
 | Specific version | `1.23.2` | Installs this exact version |
