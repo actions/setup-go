@@ -19,7 +19,7 @@ jobs:
         cache: [false, true]
         go: [1.20.1]
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v6
 
       - name: 'Setup ${{ matrix.cache }}, cache: ${{ matrix.go }}'
         uses: ./
@@ -88,7 +88,7 @@ jobs:
       matrix:
         cache: [false, true]
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v6
 
       - name: 'Setup default go, cache: ${{ matrix.cache }}'
         uses: ./
@@ -121,7 +121,7 @@ jobs:
         cache: [false]
         go: [1.20.1]
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v6
 
       - name: 'Setup ${{ matrix.go }}, cache: ${{ matrix.cache }}'
         uses: ./
