@@ -19,6 +19,9 @@ inputs:
     description: 'Used to specify the path to a dependency file - go.sum'
   architecture:
     description: 'Target architecture for Go to use. Examples: x86, x64. Will use system architecture by default.'
+  go-download-site:
+    description: 'Base URL for downloading Go distributions. Useful for GitHub Enterprise or when using a proxy/mirror. Defaults to https://github.com'
+    default: 'https://github.com'
 outputs:
   go-version:
     description: 'The installed Go version. Useful when given a version range as input.'
