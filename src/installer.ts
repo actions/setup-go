@@ -252,7 +252,7 @@ async function getInfoFromDist(
     return null;
   }
 
-  let downloadUrl: string = `https://storage.googleapis.com/golang/${version.files[0].filename}`;
+  let downloadUrl: string = `https://go.dev/dl/${version.files[0].filename}`;
 
   return <IGoVersionInfo>{
     type: 'dist',
