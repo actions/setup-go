@@ -32,7 +32,7 @@ The V3 edition of the action offers:
 The action will first check the local cache for a version match. If a version is not found locally, it will pull it from
 the `main` branch of the [go-versions](https://github.com/actions/go-versions/blob/main/versions-manifest.json)
 repository. On miss or failure, it will fall back to downloading directly
-from [go dist](https://storage.googleapis.com/golang). To change the default behavior, please use
+from [go dist](https://go.dev/dl). To change the default behavior, please use
 the [check-latest input](#check-latest-version).
 
 **Note:** The `setup-go` action uses executable binaries which are built by Golang side. The action does not build
@@ -234,7 +234,7 @@ which are limited
 to [60 requests per hour per IP](https://docs.github.com/en/rest/overview/resources-in-the-rest-api#rate-limiting). If
 more requests are made within the time frame, then you will start to see rate-limit errors during downloading that looks
 like: `##[error]API rate limit exceeded for...`. After that error the action will try to download versions directly
-from https://storage.googleapis.com/golang, but it also can have rate limit so it's better to put token.
+from https://go.dev/dl, but it also can have rate limit so it's better to put token.
 
 To get a higher rate limit, you
 can [generate a personal access token on github.com](https://github.com/settings/tokens/new) and pass it as the `token`
