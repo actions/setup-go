@@ -15,6 +15,9 @@ inputs:
   cache:
     description: Used to specify whether caching is needed. Set to true, if you'd like to enable caching.
     default: true
+  restore-only:
+    description: Do not save the cache. Only applies if cache is enabled.
+    default: false
   cache-dependency-path:
     description: 'Used to specify the path to a dependency file - go.sum'
   architecture:
