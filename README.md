@@ -353,6 +353,7 @@ The `go-version` input supports the following syntax:
 | Wildcard (minor) | `1.*` | Latest available version in the major version |
 | Pre-release | `1.24.0-rc.1` | Beta/RC versions for testing upcoming releases |
 | Aliases | `stable`, `oldstable` | Latest stable or previous stable release |
+| Empty string | `''` | No version specified; relies on `go-version-file` when provided |
 
 For more information about semantic versioning, see the [semver documentation](https://semver.org/).
 
@@ -381,6 +382,26 @@ For more information about semantic versioning, see the [semver documentation](h
     
     # Architecture to install (auto-detected if not specified)
     architecture: 'x64'
+```
+
+### Matrix Testing with go-version-file fallback
+
+You can combine go-version with go-version-file in a matrix strategy to test across latest supported Go versions, and the minimal version specified in `go.mod` of your project.
+
+```yaml
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        go-version: ['stable', 'oldstable', '']  # empty string to fall back on go-version-file
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-go@v6
+        with:
+          go-version: ${{ matrix.go-version }}
+          go-version-file: "go.mod" # this one is only used when go-version is not specified.
+      - run: go test ./...
 ```
 
 ## Using setup-go on GHES
