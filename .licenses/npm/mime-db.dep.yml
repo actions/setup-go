@@ -3,7 +3,7 @@ name: mime-db
 version: 1.52.0
 type: npm
 summary: Media Type Database
-homepage: 
+homepage:
 license: mit
 licenses:
 - sources: LICENSE
