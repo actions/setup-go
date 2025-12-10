@@ -3,7 +3,7 @@ name: sax
 version: 1.3.0
 type: npm
 summary: An evented streaming XML parser in JavaScript
-homepage:
+homepage: 
 license: isc
 licenses:
 - sources: LICENSE
