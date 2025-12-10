@@ -94437,7 +94437,7 @@ function getGo(versionSpec_1, checkLatest_1, auth_1) {
             core.info('Falling back to download directly from Go');
         }
         //
-        // Download from storage.googleapis.com
+        // Download from https://go.dev/dl
         //
         if (!downloadPath) {
             info = yield getInfoFromDist(versionSpec, arch);
