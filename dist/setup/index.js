@@ -90609,7 +90609,7 @@ function getGo(versionSpec, checkLatest, auth, arch = os_1.default.arch()) {
             core.info('Falling back to download directly from Go');
         }
         //
-        // Download from storage.googleapis.com
+        // Download from https://go.dev/dl
         //
         if (!downloadPath) {
             info = yield getInfoFromDist(versionSpec, arch);

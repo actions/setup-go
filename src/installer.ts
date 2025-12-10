@@ -121,7 +121,7 @@ export async function getGo(
   }
 
   //
-  // Download from storage.googleapis.com
+  // Download from https://go.dev/dl
   //
   if (!downloadPath) {
     info = await getInfoFromDist(versionSpec, arch);
