@@ -158,6 +158,22 @@ jobs:
         run: __tests__/verify-go.sh 1.23.2
         shell: bash
 
+  go-version-file-with-go-version:
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest, macos-latest-large]
+    steps:
+      - uses: actions/checkout@v5
+      - name: Setup Go from .go-version file
+        uses: ./
+        with:
+          go-version-file: __tests__/data/.go-version
+      - name: verify go
+        run: __tests__/verify-go.sh 1.22.4
+        shell: bash
+
   setup-versions-from-manifest:
     runs-on: ${{ matrix.os }}
     strategy:
