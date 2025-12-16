@@ -360,14 +360,10 @@ jobs:
             $arch = "${{ runner.arch }}".ToLower()
             echo "ARCH=$arch" | Out-File $env:GITHUB_ENV -Append
         # Sets CACHE_OS_SUFFIX per platform
-        - name: Set cache OS suffix (Linux/macOS)
-          if: runner.os != 'Windows'
+        - name: Set cache OS suffix for Linux
+          if: runner.os == 'Linux'
           shell: bash
           run: echo "CACHE_OS_SUFFIX=$ImageOS-" >> $GITHUB_ENV
-        - name: Set cache OS suffix (Windows)
-          if: runner.os == 'Windows'
-          shell: pwsh
-          run: echo "CACHE_OS_SUFFIX=" >> $GITHUB_ENV
                 
         - name: Restore Go cache
           id: go-cache
