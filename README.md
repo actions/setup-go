@@ -321,74 +321,68 @@ steps:
 ```yaml
 # In some workflows, you may want to restore a cache without saving it. This can help reduce cache writes and storage usage in workflows that only need to read from cache
 jobs:
-  build:
-    runs-on: ${{ matrix.os }}
-    strategy:
-      matrix:
-        os: [ubuntu-latest, macos-latest, windows-latest]
+    build:
+      runs-on: ${{ matrix.os }}
+      strategy:
+        matrix:
+          os: [ubuntu-latest, macos-latest, windows-latest]
 
+      steps:
+        - uses: actions/checkout@v6
 
-    steps:
-      - uses: actions/checkout@v5
+        - name: Setup Go
+          id: setup-go
+          uses: actions/setup-go@v6
+          with:
+            go-version: '1.24.10'
+            cache: false
+        # Capture Go cache locations
+        - name: Set Go cache variables (Linux/macOS)
+          if: runner.os != 'Windows'
+          run: |
+            echo "GO_MOD_CACHE=$(go env GOMODCACHE)" >> $GITHUB_ENV
+            echo "GO_BUILD_CACHE=$(go env GOCACHE)" >> $GITHUB_ENV
+        - name: Set Go cache variables (Windows)
+          if: runner.os == 'Windows'
+          shell: pwsh
+          run: |
+            echo "GO_MOD_CACHE=$(go env GOMODCACHE)" | Out-File $env:GITHUB_ENV -Append
+            echo "GO_BUILD_CACHE=$(go env GOCACHE)"   | Out-File $env:GITHUB_ENV -Append
+        # Normalize runner.arch to lowercase to ensure consistent cache keys
+        - name: Normalize runner architecture (Linux/macOS)
+          if: runner.os != 'Windows'
+          shell: bash
+          run: echo "ARCH=$(echo '${{ runner.arch }}' | tr '[:upper:]' '[:lower:]')" >> $GITHUB_ENV
+        - name: Normalize runner architecture (Windows)
+          if: runner.os == 'Windows'
+          shell: pwsh
+          run: |
+            $arch = "${{ runner.arch }}".ToLower()
+            echo "ARCH=$arch" | Out-File $env:GITHUB_ENV -Append
+        # Sets CACHE_OS_SUFFIX per platform
+        - name: Set cache OS suffix (Linux/macOS)
+          if: runner.os != 'Windows'
+          shell: bash
+          run: echo "CACHE_OS_SUFFIX=$ImageOS-" >> $GITHUB_ENV
+        - name: Set cache OS suffix (Windows)
+          if: runner.os == 'Windows'
+          shell: pwsh
+          run: echo "CACHE_OS_SUFFIX=" >> $GITHUB_ENV
+                
+        - name: Restore Go cache
+          id: go-cache
+          uses: actions/cache/restore@v5
+          with:
+            path: |
+              ${{ env.GO_MOD_CACHE }}
+              ${{ env.GO_BUILD_CACHE }}
+            key: setup-go-${{ runner.os }}-${{ env.ARCH }}-${{ env.CACHE_OS_SUFFIX }}go-${{ steps.setup-go.outputs.go-version }}-${{ hashFiles('**/go.sum') }}
 
-      - name: Setup Go
-        id: setup-go
-        uses: actions/setup-go@v6
-        with:
-          go-version: '1.24.10'
-          cache: false
+        - name: Download modules
+          run: go mod download
 
-      # Capture Go cache locations
-      - name: Set Go cache variables (Linux/macOS)
-        if: runner.os != 'Windows'
-        run: |
-          echo "GO_MOD_CACHE=$(go env GOMODCACHE)" >> $GITHUB_ENV
-          echo "GO_BUILD_CACHE=$(go env GOCACHE)" >> $GITHUB_ENV
-
-      - name: Set Go cache variables (Windows)
-        if: runner.os == 'Windows'
-        shell: pwsh
-        run: |
-          echo "GO_MOD_CACHE=$(go env GOMODCACHE)" | Out-File $env:GITHUB_ENV -Append
-          echo "GO_BUILD_CACHE=$(go env GOCACHE)"   | Out-File $env:GITHUB_ENV -Append
-
-      # runner.arch casing differs across platforms (e.g. X64 vs x64).
-      # Normalizing it avoids cache key mismatches.
-      - name: Normalize runner architecture (Linux/macOS)
-        if: runner.os != 'Windows'
-        shell: bash
-        run: echo "ARCH=$(echo '${{ runner.arch }}' | tr '[:upper:]' '[:lower:]')" >> $GITHUB_ENV
-
-      - name: Normalize runner architecture (Windows)
-        if: runner.os == 'Windows'
-        shell: pwsh
-        run: |
-          $arch = "${{ runner.arch }}".ToLower()
-          echo "ARCH=$arch" | Out-File $env:GITHUB_ENV -Append
-
-      # Always define CACHE_OS_SUFFIX so it is safe to use in cache keys
-      - name: Set cache OS suffix
-        shell: bash
-        run: |
-          echo "CACHE_OS_SUFFIX=" >> $GITHUB_ENV
-          if [ "${{ runner.os }}" = "Linux" ]; then
-            echo "CACHE_OS_SUFFIX=$ImageOS-" >> $GITHUB_ENV
-          fi
-
-      - name: Restore Go cache
-        id: go-cache
-        uses: actions/cache/restore@v4
-        with:
-          path: |
-            ${{ env.GO_MOD_CACHE }}
-            ${{ env.GO_BUILD_CACHE }}
-          key: setup-go-${{ runner.os }}-${{ env.ARCH }}-${{ env.CACHE_OS_SUFFIX }}go-${{ steps.setup-go.outputs.go-version }}-${{ hashFiles('**/go.sum') }}
-
-      - name: Download modules
-        run: go mod download
-
-      - name: Build
-        run: go build ./...
+        - name: Build
+          run: go build ./...
 ```
 
 > If there are several builds on the same repo it might make sense to create a cache in one build and use it in the
