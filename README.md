@@ -326,10 +326,8 @@ jobs:
       strategy:
         matrix:
           os: [ubuntu-latest, macos-latest, windows-latest]
-
       steps:
         - uses: actions/checkout@v6
-
         - name: Setup Go
           id: setup-go
           uses: actions/setup-go@v6
@@ -359,12 +357,10 @@ jobs:
           run: |
             $arch = "${{ runner.arch }}".ToLower()
             echo "ARCH=$arch" | Out-File $env:GITHUB_ENV -Append
-        # Sets CACHE_OS_SUFFIX per platform
         - name: Set cache OS suffix for Linux
           if: runner.os == 'Linux'
           shell: bash
-          run: echo "CACHE_OS_SUFFIX=$ImageOS-" >> $GITHUB_ENV
-                
+          run: echo "CACHE_OS_SUFFIX=$ImageOS-" >> $GITHUB_ENV    
         - name: Restore Go cache
           id: go-cache
           uses: actions/cache/restore@v5
@@ -373,14 +369,11 @@ jobs:
               ${{ env.GO_MOD_CACHE }}
               ${{ env.GO_BUILD_CACHE }}
             key: setup-go-${{ runner.os }}-${{ env.ARCH }}-${{ env.CACHE_OS_SUFFIX }}go-${{ steps.setup-go.outputs.go-version }}-${{ hashFiles('**/go.sum') }}
-
         - name: Download modules
           run: go mod download
-
         - name: Build
           run: go build ./...
 ```
-
 > If there are several builds on the same repo it might make sense to create a cache in one build and use it in the
 others. The action [actions/cache/restore](https://github.com/actions/cache/tree/main/restore#only-restore-cache)
 should be used in this case.
