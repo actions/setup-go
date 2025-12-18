@@ -1,6 +1,6 @@
 {
   "name": "setup-go",
-  "version": "6.0.0",
+  "version": "6.0.1",
   "private": true,
   "description": "setup go action",
   "main": "lib/setup-go.js",
@@ -28,7 +28,7 @@
   "author": "GitHub",
   "license": "MIT",
   "dependencies": {
-    "@actions/cache": "^4.0.3",
+    "@actions/cache": "^5.0.1",
     "@actions/core": "^1.11.1",
     "@actions/exec": "^1.1.1",
     "@actions/glob": "^0.5.0",
