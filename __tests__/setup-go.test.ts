@@ -252,17 +252,58 @@ describe('setup-go', () => {
     expect(fileName).toBe('go1.13.7.windows-386.zip');
   });
 
-  it('finds unstable pre-release version', async () => {
+  it('finds unstable release candidate', async () => {
     os.platform = 'linux';
     os.arch = 'x64';
 
-    // spec: 1.14, stable=false => go1.14rc1
+    // spec: 1.14.0-rc.1, stable=false => go1.14rc1
     const match: im.IGoVersion | undefined = await im.findMatch('1.14.0-rc.1');
     expect(match).toBeDefined();
     const version: string = match ? match.version : '';
     expect(version).toBe('go1.14rc1');
     const fileName = match ? match.files[0].filename : '';
     expect(fileName).toBe('go1.14rc1.linux-amd64.tar.gz');
+  });
+
+  it('finds unstable beta version', async () => {
+    os.platform = 'linux';
+    os.arch = 'x64';
+
+    // spec: 1.18.0-beta.2, stable=false => go1.18beta2
+    const match: im.IGoVersion | undefined = await im.findMatch(
+      '1.18.0-beta.2'
+    );
+    expect(match).toBeDefined();
+    const version: string = match ? match.version : '';
+    expect(version).toBe('go1.18beta2');
+    const fileName = match ? match.files[0].filename : '';
+    expect(fileName).toBe('go1.18beta2.linux-amd64.tar.gz');
+  });
+
+  it('finds unstable release candidate (go version format)', async () => {
+    os.platform = 'linux';
+    os.arch = 'x64';
+
+    // spec: 1.14rc1, stable=false => go1.14rc1
+    const match: im.IGoVersion | undefined = await im.findMatch('1.14rc1');
+    expect(match).toBeDefined();
+    const version: string = match ? match.version : '';
+    expect(version).toBe('go1.14rc1');
+    const fileName = match ? match.files[0].filename : '';
+    expect(fileName).toBe('go1.14rc1.linux-amd64.tar.gz');
+  });
+
+  it('finds unstable beta version (go version format)', async () => {
+    os.platform = 'linux';
+    os.arch = 'x64';
+
+    // spec: 1.18beta2, stable=false => go1.18beta2
+    const match: im.IGoVersion | undefined = await im.findMatch('1.18beta2');
+    expect(match).toBeDefined();
+    const version: string = match ? match.version : '';
+    expect(version).toBe('go1.18beta2');
+    const fileName = match ? match.files[0].filename : '';
+    expect(fileName).toBe('go1.18beta2.linux-amd64.tar.gz');
   });
 
   it('evaluates to stable with input as true', async () => {
