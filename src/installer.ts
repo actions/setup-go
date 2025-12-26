@@ -417,13 +417,15 @@ export async function findMatch(
     throw new Error(`golang download url did not return results`);
   }
 
+  const normalizedVersionSpec = normalizeVersionSpec(versionSpec);
+
   let goFile: IGoVersionFile | undefined;
   for (let i = 0; i < candidates.length; i++) {
     const candidate: IGoVersion = candidates[i];
     const version = makeSemver(candidate.version);
 
-    core.debug(`check ${version} satisfies ${versionSpec}`);
-    if (semver.satisfies(version, versionSpec)) {
+    core.debug(`check ${version} satisfies ${normalizedVersionSpec}`);
+    if (semver.satisfies(version, normalizedVersionSpec)) {
       goFile = candidate.files.find(file => {
         core.debug(
           `${file.arch}===${archFilter} && ${file.os}===${platFilter}`
@@ -457,6 +459,30 @@ export async function getVersionsDist(
     maxRedirects: 3
   });
   return (await http.getJson<IGoVersion[]>(dlUrl)).result;
+}
+
+//
+// Normalize user-provided version spec for semver matching
+// Converts Go-style prerelease versions while preserving range semantics
+// 1.13 => 1.13 (preserved for range matching)
+// 1.14rc1 => 1.14.0-rc.1
+// ^1.14rc1 => ^1.14.0-rc.1
+// ~1.14beta1 => ~1.14.0-beta.1
+export function normalizeVersionSpec(versionSpec: string): string {
+  const rangePrefix = versionSpec.match(/^[~^]/)?.[0] || '';
+  const version = versionSpec.replace(/^[~^]/, '');
+
+  // Only convert if it has Go-style prerelease (rc/beta without hyphen prefix)
+  const hasGoStylePrerelease =
+    (version.includes('rc') || version.includes('beta')) &&
+    !version.includes('-rc.') &&
+    !version.includes('-beta.');
+
+  if (!hasGoStylePrerelease) {
+    return versionSpec;
+  }
+
+  return rangePrefix + makeSemver(version);
 }
 
 //

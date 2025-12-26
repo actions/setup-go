@@ -94474,6 +94474,7 @@ exports.getManifest = getManifest;
 exports.getInfoFromManifest = getInfoFromManifest;
 exports.findMatch = findMatch;
 exports.getVersionsDist = getVersionsDist;
+exports.normalizeVersionSpec = normalizeVersionSpec;
 exports.makeSemver = makeSemver;
 exports.parseGoVersionFile = parseGoVersionFile;
 exports.resolveStableVersionInput = resolveStableVersionInput;
@@ -94758,12 +94759,13 @@ function findMatch(versionSpec_1) {
         if (!candidates) {
             throw new Error(`golang download url did not return results`);
         }
+        const normalizedVersionSpec = normalizeVersionSpec(versionSpec);
         let goFile;
         for (let i = 0; i < candidates.length; i++) {
             const candidate = candidates[i];
             const version = makeSemver(candidate.version);
-            core.debug(`check ${version} satisfies ${versionSpec}`);
-            if (semver.satisfies(version, versionSpec)) {
+            core.debug(`check ${version} satisfies ${normalizedVersionSpec}`);
+            if (semver.satisfies(version, normalizedVersionSpec)) {
                 goFile = candidate.files.find(file => {
                     core.debug(`${file.arch}===${archFilter} && ${file.os}===${platFilter}`);
                     return file.arch === archFilter && file.os === platFilter;
@@ -94792,6 +94794,26 @@ function getVersionsDist(dlUrl) {
         });
         return (yield http.getJson(dlUrl)).result;
     });
+}
+//
+// Normalize user-provided version spec for semver matching
+// Converts Go-style prerelease versions while preserving range semantics
+// 1.13 => 1.13 (preserved for range matching)
+// 1.14rc1 => 1.14.0-rc.1
+// ^1.14rc1 => ^1.14.0-rc.1
+// ~1.14beta1 => ~1.14.0-beta.1
+function normalizeVersionSpec(versionSpec) {
+    var _a;
+    const rangePrefix = ((_a = versionSpec.match(/^[~^]/)) === null || _a === void 0 ? void 0 : _a[0]) || '';
+    const version = versionSpec.replace(/^[~^]/, '');
+    // Only convert if it has Go-style prerelease (rc/beta without hyphen prefix)
+    const hasGoStylePrerelease = (version.includes('rc') || version.includes('beta')) &&
+        !version.includes('-rc.') &&
+        !version.includes('-beta.');
+    if (!hasGoStylePrerelease) {
+        return versionSpec;
+    }
+    return rangePrefix + makeSemver(version);
 }
 //
 // Convert the go version syntax into semver for semver matching
