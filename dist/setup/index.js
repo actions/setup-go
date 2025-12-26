@@ -94801,16 +94801,14 @@ function getVersionsDist(dlUrl) {
 // 1.13 => 1.13 (preserved for range matching)
 // 1.14rc1 => 1.14.0-rc.1
 // ^1.14rc1 => ^1.14.0-rc.1
-// ~1.14beta1 => ~1.14.0-beta.1
+// >=1.14beta1 => >=1.14.0-beta.1
 function normalizeVersionSpec(versionSpec) {
-    var _a;
-    const rangePrefix = ((_a = versionSpec.match(/^[~^]/)) === null || _a === void 0 ? void 0 : _a[0]) || '';
-    const version = versionSpec.replace(/^[~^]/, '');
-    // Only convert if it has Go-style prerelease (rc/beta without hyphen prefix)
-    const hasGoStylePrerelease = (version.includes('rc') || version.includes('beta')) &&
-        !version.includes('-rc.') &&
-        !version.includes('-beta.');
-    if (!hasGoStylePrerelease) {
+    // Match semver range prefixes: ^, ~, >, >=, <, <=, =
+    const rangePrefixMatch = versionSpec.match(/^([~^]|[<>]=?|=)/);
+    const rangePrefix = (rangePrefixMatch === null || rangePrefixMatch === void 0 ? void 0 : rangePrefixMatch[0]) || '';
+    const version = versionSpec.slice(rangePrefix.length);
+    // Only convert if it has Go-style prerelease (e.g., rc1, beta1)
+    if (!/(?:rc|beta)\d+/.test(version)) {
         return versionSpec;
     }
     return rangePrefix + makeSemver(version);

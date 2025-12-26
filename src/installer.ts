@@ -467,18 +467,15 @@ export async function getVersionsDist(
 // 1.13 => 1.13 (preserved for range matching)
 // 1.14rc1 => 1.14.0-rc.1
 // ^1.14rc1 => ^1.14.0-rc.1
-// ~1.14beta1 => ~1.14.0-beta.1
+// >=1.14beta1 => >=1.14.0-beta.1
 export function normalizeVersionSpec(versionSpec: string): string {
-  const rangePrefix = versionSpec.match(/^[~^]/)?.[0] || '';
-  const version = versionSpec.replace(/^[~^]/, '');
+  // Match semver range prefixes: ^, ~, >, >=, <, <=, =
+  const rangePrefixMatch = versionSpec.match(/^([~^]|[<>]=?|=)/);
+  const rangePrefix = rangePrefixMatch?.[0] || '';
+  const version = versionSpec.slice(rangePrefix.length);
 
-  // Only convert if it has Go-style prerelease (rc/beta without hyphen prefix)
-  const hasGoStylePrerelease =
-    (version.includes('rc') || version.includes('beta')) &&
-    !version.includes('-rc.') &&
-    !version.includes('-beta.');
-
-  if (!hasGoStylePrerelease) {
+  // Only convert if it has Go-style prerelease (e.g., rc1, beta1)
+  if (!/(?:rc|beta)\d+/.test(version)) {
     return versionSpec;
   }
 
