@@ -20,7 +20,7 @@ jobs:
       matrix:
         os: [ubuntu-latest, windows-latest, macos-latest, macos-latest-large]
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v6
       - name: Setup Go Stable
         uses: ./
         with:
@@ -35,7 +35,7 @@ jobs:
       matrix:
         os: [ubuntu-latest, windows-latest, macos-latest, macos-latest-large]
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v6
       - name: Setup Go oldStable
         uses: ./
         with:
@@ -57,7 +57,7 @@ jobs:
           - os: macos-latest-large
             architecture: x32
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v6
       - name: Setup Go ${{ matrix.version }} ${{ matrix.architecture }}
         uses: ./
         with:
@@ -82,7 +82,7 @@ jobs:
             go: 1.23.2
     steps:
       - name: Checkout
-        uses: actions/checkout@v5
+        uses: actions/checkout@v6
 
       - name: setup-go ${{ matrix.go }}
         uses: ./
@@ -101,7 +101,7 @@ jobs:
         os: [ubuntu-latest, windows-latest, macos-latest, macos-latest-large]
         go-version: ['1.20', '1.21', '1.22', '1.23']
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v6
       - name: Setup Go and check latest
         uses: ./
         with:
@@ -117,7 +117,7 @@ jobs:
       matrix:
         os: [ubuntu-latest, windows-latest, macos-latest, macos-latest-large]
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v6
       - name: Setup Go and check latest
         uses: ./
         with:
@@ -133,7 +133,7 @@ jobs:
       matrix:
         os: [ubuntu-latest, windows-latest, macos-latest, macos-latest-large]
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v6
       - name: Setup Go and check latest
         uses: ./
         with:
@@ -149,7 +149,7 @@ jobs:
       matrix:
         os: [ubuntu-latest, windows-latest, macos-latest, macos-latest-large]
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v6
       - name: Setup Go and check latest
         uses: ./
         with:
@@ -165,7 +165,7 @@ jobs:
       matrix:
         os: [ubuntu-latest, windows-latest, macos-latest, macos-latest-large]
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v6
       - name: Setup Go from .go-version file
         uses: ./
         with:
@@ -183,7 +183,7 @@ jobs:
         go: [1.20.14, 1.21.10, 1.22.8, 1.23.2]
     steps:
       - name: Checkout
-        uses: actions/checkout@v5
+        uses: actions/checkout@v6
 
       - name: setup-go ${{ matrix.go }}
         uses: ./
@@ -203,7 +203,7 @@ jobs:
         go: [1.11.12]
     steps:
       - name: Checkout
-        uses: actions/checkout@v5
+        uses: actions/checkout@v6
 
       - name: setup-go ${{ matrix.go }}
         uses: ./
@@ -231,7 +231,7 @@ jobs:
           - os: macos-latest-large
             architecture: x64
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v6
       - name: Setup Go and check latest
         uses: ./
         with:
