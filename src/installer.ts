@@ -42,7 +42,8 @@ export async function getGo(
   versionSpec: string,
   checkLatest: boolean,
   auth: string | undefined,
-  arch: Architecture = os.arch() as Architecture
+  arch: Architecture = os.arch() as Architecture,
+  goDownloadSite: string = 'https://github.com'
 ) {
   let manifest: tc.IToolRelease[] | undefined;
   const osPlat: string = os.platform();
@@ -80,7 +81,8 @@ export async function getGo(
       true,
       auth,
       arch,
-      manifest
+      manifest,
+      goDownloadSite
     );
     if (resolvedVersion) {
       versionSpec = resolvedVersion;
@@ -105,7 +107,7 @@ export async function getGo(
   // Try download from internal distribution (popular versions only)
   //
   try {
-    info = await getInfoFromManifest(versionSpec, true, auth, arch, manifest);
+    info = await getInfoFromManifest(versionSpec, true, auth, arch, manifest, goDownloadSite);
     if (info) {
       downloadPath = await installGoVersion(info, auth, arch);
     } else {
@@ -155,7 +157,8 @@ async function resolveVersionFromManifest(
   stable: boolean,
   auth: string | undefined,
   arch: Architecture,
-  manifest: tc.IToolRelease[] | undefined
+  manifest: tc.IToolRelease[] | undefined,
+  goDownloadSite: string = 'https://github.com'
 ): Promise<string | undefined> {
   try {
     const info = await getInfoFromManifest(
@@ -163,7 +166,8 @@ async function resolveVersionFromManifest(
       stable,
       auth,
       arch,
-      manifest
+      manifest,
+      goDownloadSite
     );
     return info?.resolvedVersion;
   } catch (err) {
@@ -357,7 +361,8 @@ export async function getInfoFromManifest(
   stable: boolean,
   auth: string | undefined,
   arch: Architecture = os.arch() as Architecture,
-  manifest?: tc.IToolRelease[] | undefined
+  manifest?: tc.IToolRelease[] | undefined,
+  goDownloadSite: string = 'https://github.com'
 ): Promise<IGoVersionInfo | null> {
   let info: IGoVersionInfo | null = null;
   if (!manifest) {
@@ -373,7 +378,8 @@ export async function getInfoFromManifest(
     info = <IGoVersionInfo>{};
     info.type = 'manifest';
     info.resolvedVersion = rel.version;
-    info.downloadUrl = rel.files[0].download_url;
+    // Replace the default github.com URL with the custom download site
+    info.downloadUrl = rel.files[0].download_url.replace('https://github.com', goDownloadSite);
     info.fileName = rel.files[0].filename;
   }
 

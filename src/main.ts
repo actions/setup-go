@@ -33,12 +33,14 @@ export async function run() {
       const auth = !token ? undefined : `token ${token}`;
 
       const checkLatest = core.getBooleanInput('check-latest');
+      const goDownloadSite = core.getInput('go-download-site') || 'https://github.com';
 
       const installDir = await installer.getGo(
         versionSpec,
         checkLatest,
         auth,
-        arch
+        arch,
+        goDownloadSite
       );
 
       const installDirVersion = path.basename(path.dirname(installDir));
