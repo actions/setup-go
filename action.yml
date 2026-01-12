@@ -16,7 +16,7 @@ inputs:
     description: Used to specify whether caching is needed. Set to true, if you'd like to enable caching.
     default: true
   cache-dependency-path:
-    description: 'Used to specify the path to a dependency file - go.sum'
+    description: 'Used to specify the path to a dependency file (e.g., go.mod, go.sum)'
   architecture:
     description: 'Target architecture for Go to use. Examples: x86, x64. Will use system architecture by default.'
 outputs:

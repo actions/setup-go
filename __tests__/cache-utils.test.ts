@@ -47,7 +47,7 @@ describe('getPackageManagerInfo', () => {
     //Arrange
     const packageManagerName = 'default';
     const expectedResult = {
-      dependencyFilePattern: 'go.sum',
+      dependencyFilePattern: 'go.mod',
       cacheFolderCommandList: ['go env GOMODCACHE', 'go env GOCACHE']
     };
 
@@ -73,7 +73,7 @@ describe('getCacheDirectoryPath', () => {
   const getExecOutputSpy = jest.spyOn(exec, 'getExecOutput');
 
   const validPackageManager: PackageManagerInfo = {
-    dependencyFilePattern: 'go.sum',
+    dependencyFilePattern: 'go.mod',
     cacheFolderCommandList: ['go env GOMODCACHE', 'go env GOCACHE']
   };
 
