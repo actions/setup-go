@@ -49364,8 +49364,8 @@ const findDependencyFile = (packageManager) => {
     const dependencyFile = packageManager.dependencyFilePattern;
     const workspace = process.env.GITHUB_WORKSPACE;
     const rootContent = fs_1.default.readdirSync(workspace);
-    const goSumFileExists = rootContent.includes(dependencyFile);
-    if (!goSumFileExists) {
+    const goModFileExists = rootContent.includes(dependencyFile);
+    if (!goModFileExists) {
         throw new Error(`Dependencies file is not found in ${workspace}. Supported file pattern: ${dependencyFile}`);
     }
     return path_1.default.join(workspace, dependencyFile);
@@ -50182,7 +50182,7 @@ Object.defineProperty(exports, "__esModule", ({ value: true }));
 exports.supportedPackageManagers = void 0;
 exports.supportedPackageManagers = {
     default: {
-        dependencyFilePattern: 'go.sum',
+        dependencyFilePattern: 'go.mod',
         cacheFolderCommandList: ['go env GOMODCACHE', 'go env GOCACHE']
     }
 };
