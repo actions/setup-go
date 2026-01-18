@@ -1,0 +1,136 @@
+name: Validate Windows installation
+
+on:
+  push:
+    branches:
+      - main
+    paths-ignore:
+      - '**.md'
+  pull_request:
+    paths-ignore:
+      - '**.md'
+
+jobs:
+  create-link-if-not-default:
+    runs-on: windows-latest
+    name: 'Validate if symlink is created'
+    strategy:
+      matrix:
+        cache: [false, true]
+        go: [1.20.1]
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: 'Setup ${{ matrix.cache }}, cache: ${{ matrix.go }}'
+        uses: ./
+        with:
+          go-version: ${{ matrix.go }}
+          cache: ${{ matrix.cache }}
+
+      - name: 'Drive C: should have zero size link'
+        run: |
+          du -m -s 'C:\hostedtoolcache\windows\go\${{ matrix.go }}\x64'
+          # make sure drive c: contains only a link
+          size=$(du -m -s 'C:\hostedtoolcache\windows\go\${{ matrix.go }}\x64'|cut -f1 -d$'\t')
+          if [ $size -ne 0 ];then
+            echo 'Size of the link created on drive c: must be 0'
+            exit 1
+          fi
+        shell: bash
+
+      # Drive D: is small, take care the action does not eat up the space
+      - name: 'Drive D: space usage should be below 1G'
+        run: |
+          du -m -s 'D:\hostedtoolcache\windows\go\${{ matrix.go }}\x64'
+          size=$(du -m -s 'D:\hostedtoolcache\windows\go\${{ matrix.go }}\x64'|cut -f1 -d$'\t')
+          # make sure archive does not take lot of space
+          if [ $size -gt 999 ];then
+            echo 'Size of installed on drive d: go is too big';
+            exit 1
+          fi
+        shell: bash
+
+      # make sure the Go installation has not been changed to the end user
+      - name: Test paths and environments
+        run: |
+          echo $PATH
+          which go
+          go version
+          go env
+          if [ $(which go) != '/c/hostedtoolcache/windows/go/${{ matrix.go }}/x64/bin/go' ];then
+            echo 'which go should return "/c/hostedtoolcache/windows/go/${{ matrix.go }}/x64/bin/go"'
+            exit 1
+          fi
+          if [ $(go env GOROOT) != 'C:\hostedtoolcache\windows\go\${{ matrix.go }}\x64' ];then
+            echo 'go env GOROOT should return "C:\hostedtoolcache\windows\go\${{ matrix.go }}\x64"'
+            exit 1
+          fi
+        shell: bash
+
+  find-default-go:
+    name: 'Find default go version'
+    runs-on: windows-latest
+    outputs:
+      version: ${{ steps.goversion.outputs.version }}
+    steps:
+      - run: |
+          version=`go env GOVERSION|sed s/^go//`
+          echo "default go version: $version"
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+        id: goversion
+        shell: bash
+
+  dont-create-link-if-default:
+    name: 'Validate if symlink is not created for default go'
+    runs-on: windows-latest
+    needs: find-default-go
+    strategy:
+      matrix:
+        cache: [false, true]
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: 'Setup default go, cache: ${{ matrix.cache }}'
+        uses: ./
+        with:
+          go-version: ${{ needs.find-default-go.outputs.version }}
+          cache: ${{ matrix.cache }}
+
+      - name: 'Drive C: should have Go installation, cache: ${{ matrix.cache}}'
+        run: |
+          size=$(du -m -s 'C:\hostedtoolcache\windows\go\${{ needs.find-default-go.outputs.version }}\x64'|cut -f1 -d$'\t')
+          if [ $size -eq 0 ];then
+            echo 'Size of the hosted go installed on drive c: must be above zero'
+            exit 1
+          fi
+        shell: bash
+
+      - name: 'Drive D: should not have Go installation, cache: ${{ matrix.cache }}'
+        run: |
+          if [ -e 'D:\hostedtoolcache\windows\go\${{ needs.find-default-go.outputs.version }}\x64' ];then
+            echo 'D:\hostedtoolcache\windows\go\${{ needs.find-default-go.outputs.version }}\x64 should not exist for hosted version of go';
+            exit 1
+          fi
+        shell: bash
+
+  hostedtoolcache:
+    name: 'Validate if hostedtoolcache works as expected'
+    runs-on: windows-latest
+    strategy:
+      matrix:
+        cache: [false]
+        go: [1.20.1]
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: 'Setup ${{ matrix.go }}, cache: ${{ matrix.cache }}'
+        uses: ./
+        with:
+          go-version: ${{ matrix.go }}
+          cache: ${{ matrix.cache }}
+
+      - name: 'Setup ${{ matrix.go }}, cache: ${{ matrix.cache }} (from hostedtoolcache)'
+        uses: ./
+        with:
+          go-version: ${{ matrix.go }}
+          cache: ${{ matrix.cache }}
