@@ -24,24 +24,18 @@ steps:
 
 ### V6 Changes
 
-#### Node Runtime Upgrade
+**Node Runtime Upgrade**
 - **Upgraded from Node 20 to Node 24**
 - ⚠️ **Action Required**: Ensure your runner is on version v2.327.1 or later for compatibility
 - See [Release Notes](https://github.com/actions/runner/releases/tag/v2.327.1) for more details
 
-#### Enhanced Go Toolchain Management
+**Enhanced Go Toolchain Management**
 
-V6 introduces significant improvements for reliable and consistent Go version selection:
+V6 introduces significant improvements for reliable and consistent Go version selection. Supports both `go` and `toolchain` directives in `go.mod`. If the `toolchain` directive is present, its version is used; otherwise, the action falls back to the go directive.
+   
+**Cache Key Update**
 
-**Toolchain Directive Support**
-Now correctly interprets both `go` and `toolchain` directives from `go.mod`:
-```go
-go 1.23.0           // Minimum required version
-toolchain go1.23.2  // V6 uses this exact version
-```
-
-**Intelligent Caching**
-Cache keys now incorporate the `toolchain` directive version from `go.mod`, eliminating cache conflicts when switching between different toolchain versions within the same Go minor release.
+By default, caching for Go modules now relies on `go.mod`. To use `go.sum`, configure the `cache-dependency-path` input.
 
 For more details, see the [full release notes](https://github.com/actions/setup-go/releases/tag/v6.0.0).
 
@@ -257,7 +251,7 @@ The action features integrated caching for Go modules and build outputs. Built o
 
 #### Automatic Caching
 
-Default behavior: Searches for `go.sum` in the repository root and uses its hash for the cache key.
+Default behavior: Searches for `go.mod` in the repository root and uses its hash for the cache key.
 
 ```yaml
 steps:
@@ -368,7 +362,7 @@ jobs:
             path: |
               ${{ env.GO_MOD_CACHE }}
               ${{ env.GO_BUILD_CACHE }}
-            key: setup-go-${{ runner.os }}-${{ env.ARCH }}-${{ env.CACHE_OS_SUFFIX }}go-${{ steps.setup-go.outputs.go-version }}-${{ hashFiles('**/go.sum') }}
+            key: setup-go-${{ runner.os }}-${{ env.ARCH }}-${{ env.CACHE_OS_SUFFIX }}go-${{ steps.setup-go.outputs.go-version }}-${{ hashFiles('**/go.mod') }}
         - name: Download modules
           run: go mod download
         - name: Build
