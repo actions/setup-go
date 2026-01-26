@@ -265,6 +265,33 @@ describe('setup-go', () => {
     expect(fileName).toBe('go1.14rc1.linux-amd64.tar.gz');
   });
 
+  it('finds unstable pre-release version using Go-style version format', async () => {
+    os.platform = 'linux';
+    os.arch = 'x64';
+
+    // User specifies "1.14rc1" (Go-style) instead of "1.14.0-rc.1" (semver-style)
+    // This should match go1.14rc1
+    const match: im.IGoVersion | undefined = await im.findMatch('1.14rc1');
+    expect(match).toBeDefined();
+    const version: string = match ? match.version : '';
+    expect(version).toBe('go1.14rc1');
+    const fileName = match ? match.files[0].filename : '';
+    expect(fileName).toBe('go1.14rc1.linux-amd64.tar.gz');
+  });
+
+  it('finds latest version matching caret range with Go-style prerelease', async () => {
+    os.platform = 'linux';
+    os.arch = 'x64';
+
+    // spec: ^1.13beta1 should match go1.13.7 (latest 1.13.x)
+    const match: im.IGoVersion | undefined = await im.findMatch('^1.13beta1');
+    expect(match).toBeDefined();
+    const version: string = match ? match.version : '';
+    expect(version).toBe('go1.13.7');
+    const fileName = match ? match.files[0].filename : '';
+    expect(fileName).toBe('go1.13.7.linux-amd64.tar.gz');
+  });
+
   it('evaluates to stable with input as true', async () => {
     inputs['go-version'] = '1.13.0';
     inputs.stable = 'true';
@@ -681,6 +708,41 @@ describe('setup-go', () => {
 
   it('does not convert exact versions', async () => {
     expect(im.makeSemver('1.13.1')).toBe('1.13.1');
+  });
+
+  describe('normalizeVersionSpec', () => {
+    it('converts Go-style prerelease to semver format', () => {
+      expect(im.normalizeVersionSpec('1.14rc1')).toBe('1.14.0-rc.1');
+      expect(im.normalizeVersionSpec('1.14beta1')).toBe('1.14.0-beta.1');
+      expect(im.normalizeVersionSpec('1.21rc2')).toBe('1.21.0-rc.2');
+    });
+
+    it('preserves range prefixes when converting', () => {
+      expect(im.normalizeVersionSpec('^1.14rc1')).toBe('^1.14.0-rc.1');
+      expect(im.normalizeVersionSpec('~1.14beta1')).toBe('~1.14.0-beta.1');
+      expect(im.normalizeVersionSpec('>=1.14rc1')).toBe('>=1.14.0-rc.1');
+      expect(im.normalizeVersionSpec('>1.14rc1')).toBe('>1.14.0-rc.1');
+      expect(im.normalizeVersionSpec('<=1.14rc1')).toBe('<=1.14.0-rc.1');
+      expect(im.normalizeVersionSpec('<1.14rc1')).toBe('<1.14.0-rc.1');
+      expect(im.normalizeVersionSpec('=1.14rc1')).toBe('=1.14.0-rc.1');
+    });
+
+    it('preserves versions without Go-style prerelease', () => {
+      expect(im.normalizeVersionSpec('1.13')).toBe('1.13');
+      expect(im.normalizeVersionSpec('1.13.7')).toBe('1.13.7');
+      expect(im.normalizeVersionSpec('^1.13.6')).toBe('^1.13.6');
+      expect(im.normalizeVersionSpec('>=1.13')).toBe('>=1.13');
+    });
+
+    it('preserves already valid semver prerelease format', () => {
+      expect(im.normalizeVersionSpec('1.14.0-rc.1')).toBe('1.14.0-rc.1');
+      expect(im.normalizeVersionSpec('^1.14.0-beta.1')).toBe('^1.14.0-beta.1');
+    });
+
+    it('does not match false positives like "traced"', () => {
+      // "traced" contains "rc" but should not be treated as prerelease
+      expect(im.normalizeVersionSpec('1.13traced')).toBe('1.13traced');
+    });
   });
 
   describe('check-latest flag', () => {
