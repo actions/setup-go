@@ -666,6 +666,16 @@ describe('setup-go', () => {
     expect(annotation.message).toBe('undefined: fmt.Printl');
   });
 
+  it('matches test output without a column', async () => {
+    const line = '/path/to/main_test.go:13: expected true but got false';
+    const annotation = testMatch(line);
+    expect(annotation).toBeDefined();
+    expect(annotation.line).toBe(13);
+    expect(annotation.column).toBe(NaN);
+    expect(annotation.file).toBe('/path/to/main_test.go');
+    expect(annotation.message).toBe('expected true but got false');
+  });
+
   // 1.13.1 => 1.13.1
   // 1.13 => 1.13.0
   // 1.10beta1 => 1.10.0-beta.1, 1.10rc1 => 1.10.0-rc.1
