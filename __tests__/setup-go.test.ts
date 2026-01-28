@@ -544,7 +544,7 @@ describe('setup-go', () => {
     expect(added).toBeFalsy();
   });
 
-  it('adds bin if dir not exists', async () => {
+  it('adds bin if dir does not exist', async () => {
     whichSpy.mockImplementation(async () => {
       return '/usr/local/go/bin/go';
     });
