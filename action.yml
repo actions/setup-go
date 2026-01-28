@@ -14,7 +14,7 @@ inputs:
     default: ${{ github.server_url == 'https://github.com' && github.token || '' }}
   cache:
     description: Used to specify whether caching is needed. Set to true, if you'd like to enable caching.
-    default: true
+    default: 'true'
   cache-dependency-path:
     description: 'Used to specify the path to a dependency file (e.g., go.mod, go.sum)'
   architecture:
