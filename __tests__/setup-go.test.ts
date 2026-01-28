@@ -756,7 +756,7 @@ describe('setup-go', () => {
       );
     });
 
-    it('fallback to dist if version is not found in manifest', async () => {
+    it('fall back to dist if version is not found in manifest', async () => {
       os.platform = 'linux';
       os.arch = 'x64';
 
@@ -793,7 +793,7 @@ describe('setup-go', () => {
       expect(cnSpy).toHaveBeenCalledWith(`::add-path::${expPath}${osm.EOL}`);
     });
 
-    it('fallback to dist if manifest is not available', async () => {
+    it('fall back to dist if manifest is not available', async () => {
       os.platform = 'linux';
       os.arch = 'x64';
 
