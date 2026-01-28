@@ -8,7 +8,7 @@ inputs:
     description: 'Path to the go.mod, go.work, .go-version, or .tool-versions file.'
   check-latest:
     description: 'Set this option to true if you want the action to always check for the latest available version that satisfies the version spec'
-    default: false
+    default: 'false'
   token:
     description: Used to pull Go distributions from go-versions. Since there's a default, this is typically not supplied by the user. When running this action on github.com, the default value is sufficient. When running on GHES, you can pass a personal access token for github.com if you are experiencing rate limiting.
     default: ${{ github.server_url == 'https://github.com' && github.token || '' }}
