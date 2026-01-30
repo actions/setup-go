@@ -437,7 +437,79 @@ For more information about semantic versioning, see the [semver documentation](h
     
     # Architecture to install (auto-detected if not specified)
     architecture: 'x64'
+    
+    # Base URL for downloading Go distributions (default: https://github.com)
+    go-download-site: 'https://github.com'
+
+## Using Custom Download Sites
+
+For environments with restricted internet access or when using internal mirrors/proxies, you can configure the action to download Go distributions from a custom location using the `go-download-site` input.
+
+### Use Cases
+
+- **GitHub Enterprise Server** - Access Go distributions through your internal server
+- **Corporate Proxies** - Route downloads through approved proxy servers
+- **Artifact Repositories** - Use internal artifact management systems (Artifactory, Nexus, etc.)
+- **Air-Gapped Environments** - Download from pre-populated internal mirrors
+
+### Configuration
+
+```yaml
+steps:
+  - uses: actions/checkout@v5
+  - uses: actions/setup-go@v6
+    with:
+      go-version: '1.21'
+      go-download-site: 'https://internal-artifactory.company.com/github-proxy'
+  - run: go version
 ```
+
+**How it works:**
+
+The action will replace the default `https://github.com` base URL with your custom download site. For example:
+
+- **Default URL:**
+  ```
+  https://github.com/actions/go-versions/releases/download/1.21.13-10277905115/go-1.21.13-linux-x64.tar.gz
+  ```
+
+- **Custom URL (with `go-download-site: 'https://internal-artifactory.company.com/github-proxy'`):**
+  ```
+  https://internal-artifactory.company.com/github-proxy/actions/go-versions/releases/download/1.21.13-10277905115/go-1.21.13-linux-x64.tar.gz
+  ```
+
+### Requirements
+
+Your custom download site must:
+1. Mirror the same directory structure as GitHub's go-versions repository
+2. Host the pre-built Go distribution archives
+3. Be accessible from your runners
+
+### Example: Using with JFrog Artifactory
+
+```yaml
+steps:
+  - uses: actions/checkout@v5
+  - uses: actions/setup-go@v6
+    with:
+      go-version: '1.23'
+      go-download-site: 'https://artifactory.internal.company.com/artifactory/github-mirror'
+  - run: go version
+```
+
+### Example: Using with GitHub Enterprise Server Proxy
+
+```yaml
+steps:
+  - uses: actions/checkout@v5
+  - uses: actions/setup-go@v6
+    with:
+      go-version: '1.22'
+      go-download-site: 'https://ghes.company.com/github-com-proxy'
+  - run: go version
+```
+
+> **Note:** The `go-download-site` parameter only affects downloads from the go-versions repository. Direct downloads from go.dev (fallback mechanism) are not affected by this setting.
 
 ## Using setup-go on GHES
 
