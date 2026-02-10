@@ -50215,15 +50215,23 @@ function getPlatform() {
 }
 function getArch(arch) {
     // 'arm', 'arm64', 'ia32', 'mips', 'mipsel', 'ppc', 'ppc64', 's390', 's390x', 'x32', and 'x64'.
-    // wants amd64, 386, arm64, armv61, ppc641e, s390x
+    // wants amd64, 386, arm64, armv6l, ppc64le, s390x
     // currently not supported by runner but future proofed mapping
     switch (arch) {
         case 'x64':
             arch = 'amd64';
             break;
-        // case 'ppc':
-        //   arch = 'ppc64';
-        //   break;
+        // In case of ppc64, further distinction is needed to determine the endianness
+        // of the host as it can either be ppc64(Big Endian) or ppc64le (Little Endian) to download
+        // the correct bundle.
+        case 'ppc64':
+            if (os_1.default.endianness() === 'LE') {
+                arch = 'ppc64le';
+            }
+            else {
+                arch = 'ppc64';
+            }
+            break;
         case 'x32':
             arch = '386';
             break;
