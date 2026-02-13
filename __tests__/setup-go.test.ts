@@ -129,8 +129,9 @@ describe('setup-go', () => {
   });
 
   afterEach(() => {
-    // clear out env var set during 'run'
+    // clear out env vars set during 'run'
     delete process.env[im.GOTOOLCHAIN_ENV_VAR];
+    delete process.env['GO_DOWNLOAD_BASE_URL'];
 
     //jest.resetAllMocks();
     jest.clearAllMocks();
@@ -1272,8 +1273,6 @@ use .
         `Using custom Go download base URL: ${customBaseUrl}`
       );
       expect(logSpy).toHaveBeenCalledWith('Install from custom download URL');
-
-      delete process.env['GO_DOWNLOAD_BASE_URL'];
     });
 
     it('input takes precedence over environment variable', async () => {
@@ -1302,8 +1301,6 @@ use .
       expect(logSpy).toHaveBeenCalledWith(
         `Acquiring go1.13.1 from ${inputUrl}/go1.13.1.linux-amd64.tar.gz`
       );
-
-      delete process.env['GO_DOWNLOAD_BASE_URL'];
     });
 
     it('errors when stable alias is used with custom URL', async () => {

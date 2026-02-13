@@ -55,7 +55,7 @@ See [action.yml](action.yml).
     # Architecture to install (auto-detected if not specified)
     architecture: 'x64'
     
-    # Custom base URL for Go downloads (e.g., for mirrors or Microsoft Go)
+    # Custom base URL for Go downloads (e.g., for mirrors)
     go-download-base-url: ''
 ```
 <!-- end usage -->

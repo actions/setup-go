@@ -10,9 +10,6 @@ on:
     paths-ignore:
       - '**.md'
 
-env:
-  MICROSOFT_GO_BASE_URL: 'https://aka.ms/golang/release/latest'
-
 jobs:
   microsoft-basic:
     name: 'Microsoft build of Go ${{ matrix.go-version }} on ${{ matrix.os }}'
@@ -29,7 +26,7 @@ jobs:
         uses: ./
         with:
           go-version: ${{ matrix.go-version }}
-          go-download-base-url: ${{ env.MICROSOFT_GO_BASE_URL }}
+          go-download-base-url: 'https://aka.ms/golang/release/latest'
           cache: false
 
       - name: Verify Go installation
@@ -104,7 +101,7 @@ jobs:
         uses: ./
         with:
           go-version: '1.25'
-          go-download-base-url: ${{ env.MICROSOFT_GO_BASE_URL }}
+          go-download-base-url: 'https://aka.ms/golang/release/latest'
           architecture: ${{ matrix.architecture }}
           cache: false
 
@@ -125,7 +122,7 @@ jobs:
         uses: ./
         with:
           go-version: '1.25'
-          go-download-base-url: ${{ env.MICROSOFT_GO_BASE_URL }}
+          go-download-base-url: 'https://aka.ms/golang/release/latest'
           cache: true
 
       - name: Verify Go installation
