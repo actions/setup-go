@@ -12,6 +12,7 @@
   - [Restore-only caches](advanced-usage.md#restore-only-caches)
   - [Parallel builds](advanced-usage.md#parallel-builds)
 - [Outputs](advanced-usage.md#outputs)
+- [Custom download URL](advanced-usage.md#custom-download-url)
 - [Using `setup-go` on GHES](advanced-usage.md#using-setup-go-on-ghes)
 
 ## Using the `go-version` input
@@ -416,6 +417,40 @@ jobs:
           cache: true
       - run: echo "Was the Go cache restored? ${{ steps.go124.outputs.cache-hit }}" # true if cache-hit occurred
 ```
+
+## Custom download URL
+
+The `go-download-base-url` input lets you download Go from a mirror or alternative source instead of the default `https://go.dev/dl`. This can also be set via the `GO_DOWNLOAD_BASE_URL` environment variable; the input takes precedence over the environment variable.
+
+When a custom base URL is provided, the action skips the `actions/go-versions` manifest lookup and downloads directly from the specified URL.
+
+**Using the [Microsoft build of Go](https://github.com/nicholasgasior/microsoft-go):**
+
+```yaml
+steps:
+  - uses: actions/checkout@v6
+  - uses: actions/setup-go@v6
+    with:
+      go-version: '1.25'
+      go-download-base-url: 'https://aka.ms/golang/release/latest'
+  - run: go version
+```
+
+**Using an environment variable:**
+
+```yaml
+env:
+  GO_DOWNLOAD_BASE_URL: 'https://aka.ms/golang/release/latest'
+
+steps:
+  - uses: actions/checkout@v6
+  - uses: actions/setup-go@v6
+    with:
+      go-version: '1.25'
+  - run: go version
+```
+
+> **Note:** Version range syntax (`^1.25`, `~1.24`) and aliases (`stable`, `oldstable`) are not supported with custom download URLs. Use specific versions (e.g., `1.25` or `1.25.0`) instead.
 
 ## Using `setup-go` on GHES
 
