@@ -34,11 +34,21 @@ export async function run() {
 
       const checkLatest = core.getBooleanInput('check-latest');
 
+      const goDownloadBaseUrl =
+        core.getInput('go-download-base-url') ||
+        process.env['GO_DOWNLOAD_BASE_URL'] ||
+        undefined;
+
+      if (goDownloadBaseUrl) {
+        core.info(`Using custom Go download base URL: ${goDownloadBaseUrl}`);
+      }
+
       const installDir = await installer.getGo(
         versionSpec,
         checkLatest,
         auth,
-        arch
+        arch,
+        goDownloadBaseUrl
       );
 
       const installDirVersion = path.basename(path.dirname(installDir));

@@ -15,6 +15,8 @@ const MANIFEST_REPO_OWNER = 'actions';
 const MANIFEST_REPO_NAME = 'go-versions';
 const MANIFEST_REPO_BRANCH = 'main';
 const MANIFEST_URL = `https://raw.githubusercontent.com/${MANIFEST_REPO_OWNER}/${MANIFEST_REPO_NAME}/${MANIFEST_REPO_BRANCH}/versions-manifest.json`;
+const DEFAULT_GO_DOWNLOAD_BASE_URL = 'https://go.dev/dl';
+const DEFAULT_GO_VERSIONS_URL = 'https://golang.org/dl/?mode=json&include=all';
 
 type InstallationType = 'dist' | 'manifest';
 
@@ -42,15 +44,23 @@ export async function getGo(
   versionSpec: string,
   checkLatest: boolean,
   auth: string | undefined,
-  arch: Architecture = os.arch() as Architecture
+  arch: Architecture = os.arch() as Architecture,
+  goDownloadBaseUrl?: string
 ) {
   let manifest: tc.IToolRelease[] | undefined;
   const osPlat: string = os.platform();
+  const customBaseUrl = goDownloadBaseUrl?.replace(/\/+$/, '');
 
   if (
     versionSpec === StableReleaseAlias.Stable ||
     versionSpec === StableReleaseAlias.OldStable
   ) {
+    if (customBaseUrl) {
+      throw new Error(
+        `Version aliases '${versionSpec}' are not supported with a custom download base URL. Please specify an exact Go version.`
+      );
+    }
+
     manifest = await getManifest(auth);
     let stableVersion = await resolveStableVersionInput(
       versionSpec,
@@ -74,24 +84,36 @@ export async function getGo(
   }
 
   if (checkLatest) {
-    core.info('Attempting to resolve the latest version from the manifest...');
-    const resolvedVersion = await resolveVersionFromManifest(
-      versionSpec,
-      true,
-      auth,
-      arch,
-      manifest
-    );
-    if (resolvedVersion) {
-      versionSpec = resolvedVersion;
-      core.info(`Resolved as '${versionSpec}'`);
+    if (customBaseUrl) {
+      core.info(
+        'check-latest is not supported with a custom download base URL. Using the provided version spec directly.'
+      );
     } else {
-      core.info(`Failed to resolve version ${versionSpec} from manifest`);
+      core.info(
+        'Attempting to resolve the latest version from the manifest...'
+      );
+      const resolvedVersion = await resolveVersionFromManifest(
+        versionSpec,
+        true,
+        auth,
+        arch,
+        manifest
+      );
+      if (resolvedVersion) {
+        versionSpec = resolvedVersion;
+        core.info(`Resolved as '${versionSpec}'`);
+      } else {
+        core.info(`Failed to resolve version ${versionSpec} from manifest`);
+      }
     }
   }
 
+  // Use a distinct tool cache name for custom downloads to avoid
+  // colliding with the runner's pre-installed Go
+  const toolCacheName = customBaseUrl ? 'go-custom' : 'go';
+
   // check cache
-  const toolPath = tc.find('go', versionSpec, arch);
+  const toolPath = tc.find(toolCacheName, versionSpec, arch);
   // If not found in cache, download
   if (toolPath) {
     core.info(`Found in cache @ ${toolPath}`);
@@ -101,49 +123,84 @@ export async function getGo(
   let downloadPath = '';
   let info: IGoVersionInfo | null = null;
 
-  //
-  // Try download from internal distribution (popular versions only)
-  //
-  try {
-    info = await getInfoFromManifest(versionSpec, true, auth, arch, manifest);
-    if (info) {
-      downloadPath = await installGoVersion(info, auth, arch);
-    } else {
+  if (customBaseUrl) {
+    //
+    // Download from custom base URL
+    //
+    core.info(`Using custom download base URL: ${customBaseUrl}`);
+    try {
+      info = await getInfoFromDist(versionSpec, arch, customBaseUrl);
+    } catch {
       core.info(
-        'Not found in manifest.  Falling back to download directly from Go'
+        'Version listing not available from custom URL. Constructing download URL directly.'
       );
     }
-  } catch (err) {
-    if (
-      err instanceof tc.HTTPError &&
-      (err.httpStatusCode === 403 || err.httpStatusCode === 429)
-    ) {
-      core.info(
-        `Received HTTP status code ${err.httpStatusCode}.  This usually indicates the rate limit has been exceeded`
-      );
-    } else {
-      core.info((err as Error).message);
-    }
-    core.debug((err as Error).stack ?? '');
-    core.info('Falling back to download directly from Go');
-  }
-
-  //
-  // Download from storage.googleapis.com
-  //
-  if (!downloadPath) {
-    info = await getInfoFromDist(versionSpec, arch);
     if (!info) {
-      throw new Error(
-        `Unable to find Go version '${versionSpec}' for platform ${osPlat} and architecture ${arch}.`
-      );
+      info = getInfoFromDirectDownload(versionSpec, arch, customBaseUrl);
     }
 
     try {
-      core.info('Install from dist');
-      downloadPath = await installGoVersion(info, undefined, arch);
+      core.info('Install from custom download URL');
+      downloadPath = await installGoVersion(
+        info,
+        undefined,
+        arch,
+        toolCacheName
+      );
     } catch (err) {
       throw new Error(`Failed to download version ${versionSpec}: ${err}`);
+    }
+  } else {
+    //
+    // Try download from internal distribution (popular versions only)
+    //
+    try {
+      info = await getInfoFromManifest(
+        versionSpec,
+        true,
+        auth,
+        arch,
+        manifest
+      );
+      if (info) {
+        downloadPath = await installGoVersion(info, auth, arch);
+      } else {
+        core.info(
+          'Not found in manifest.  Falling back to download directly from Go'
+        );
+      }
+    } catch (err) {
+      if (
+        err instanceof tc.HTTPError &&
+        (err.httpStatusCode === 403 || err.httpStatusCode === 429)
+      ) {
+        core.info(
+          `Received HTTP status code ${err.httpStatusCode}.  This usually indicates the rate limit has been exceeded`
+        );
+      } else {
+        core.info((err as Error).message);
+      }
+      core.debug((err as Error).stack ?? '');
+      core.info('Falling back to download directly from Go');
+    }
+
+    //
+    // Download from storage.googleapis.com
+    //
+    if (!downloadPath) {
+      info = await getInfoFromDist(versionSpec, arch);
+      if (!info) {
+        throw new Error(
+          `Unable to find Go version '${versionSpec}' for platform ${osPlat} and architecture ${arch}.`
+        );
+      }
+
+      try {
+        core.info('Install from dist');
+        downloadPath = await installGoVersion(info, undefined, arch);
+      } catch (err) {
+        throw new Error(`Failed to download version ${versionSpec}: ${err}`);
+      }
     }
   }
 
@@ -227,20 +284,21 @@ async function cacheWindowsDir(
 async function addExecutablesToToolCache(
   extPath: string,
   info: IGoVersionInfo,
-  arch: string
+  arch: string,
+  toolName: string = 'go'
 ): Promise<string> {
-  const tool = 'go';
   const version = makeSemver(info.resolvedVersion);
   return (
-    (await cacheWindowsDir(extPath, tool, version, arch)) ||
-    (await tc.cacheDir(extPath, tool, version, arch))
+    (await cacheWindowsDir(extPath, toolName, version, arch)) ||
+    (await tc.cacheDir(extPath, toolName, version, arch))
   );
 }
 
 async function installGoVersion(
   info: IGoVersionInfo,
   auth: string | undefined,
-  arch: string
+  arch: string,
+  toolName: string = 'go'
 ): Promise<string> {
   core.info(`Acquiring ${info.resolvedVersion} from ${info.downloadUrl}`);
 
@@ -259,7 +317,12 @@ async function installGoVersion(
   }
 
   core.info('Adding to the cache ...');
-  const toolCacheDir = await addExecutablesToToolCache(extPath, info, arch);
+  const toolCacheDir = await addExecutablesToToolCache(
+    extPath,
+    info,
+    arch,
+    toolName
+  );
   core.info(`Successfully cached go to ${toolCacheDir}`);
 
   return toolCacheDir;
@@ -382,14 +445,20 @@ export async function getInfoFromManifest(
 
 async function getInfoFromDist(
   versionSpec: string,
-  arch: Architecture
+  arch: Architecture,
+  goDownloadBaseUrl?: string
 ): Promise<IGoVersionInfo | null> {
-  const version: IGoVersion | undefined = await findMatch(versionSpec, arch);
+  const version: IGoVersion | undefined = await findMatch(
+    versionSpec,
+    arch,
+    goDownloadBaseUrl
+  );
   if (!version) {
     return null;
   }
 
-  const downloadUrl = `https://go.dev/dl/${version.files[0].filename}`;
+  const baseUrl = goDownloadBaseUrl || DEFAULT_GO_DOWNLOAD_BASE_URL;
+  const downloadUrl = `${baseUrl}/${version.files[0].filename}`;
 
   return <IGoVersionInfo>{
     type: 'dist',
@@ -399,9 +468,37 @@ async function getInfoFromDist(
   };
 }
 
+export function getInfoFromDirectDownload(
+  versionSpec: string,
+  arch: Architecture,
+  goDownloadBaseUrl: string
+): IGoVersionInfo {
+  const archStr = sys.getArch(arch);
+  const platStr = sys.getPlatform();
+  const extension = platStr === 'windows' ? 'zip' : 'tar.gz';
+  // Ensure version has the 'go' prefix for the filename
+  const goVersion = versionSpec.startsWith('go')
+    ? versionSpec
+    : `go${versionSpec}`;
+  const fileName = `${goVersion}.${platStr}-${archStr}.${extension}`;
+  const downloadUrl = `${goDownloadBaseUrl}/${fileName}`;
+
+  core.info(
+    `Constructed direct download URL: ${downloadUrl}`
+  );
+
+  return <IGoVersionInfo>{
+    type: 'dist',
+    downloadUrl: downloadUrl,
+    resolvedVersion: versionSpec.replace(/^go/, ''),
+    fileName: fileName
+  };
+}
+
 export async function findMatch(
   versionSpec: string,
-  arch: Architecture = os.arch() as Architecture
+  arch: Architecture = os.arch() as Architecture,
+  goDownloadBaseUrl?: string
 ): Promise<IGoVersion | undefined> {
   const archFilter = sys.getArch(arch);
   const platFilter = sys.getPlatform();
@@ -409,7 +506,9 @@ export async function findMatch(
   let result: IGoVersion | undefined;
   let match: IGoVersion | undefined;
 
-  const dlUrl = 'https://golang.org/dl/?mode=json&include=all';
+  const dlUrl = goDownloadBaseUrl
+    ? `${goDownloadBaseUrl}/?mode=json&include=all`
+    : DEFAULT_GO_VERSIONS_URL;
   const candidates: IGoVersion[] | null = await module.exports.getVersionsDist(
     dlUrl
   );
@@ -527,7 +626,7 @@ async function resolveStableVersionDist(
 ) {
   const archFilter = sys.getArch(arch);
   const platFilter = sys.getPlatform();
-  const dlUrl = 'https://golang.org/dl/?mode=json&include=all';
+  const dlUrl = DEFAULT_GO_VERSIONS_URL;
   const candidates: IGoVersion[] | null = await module.exports.getVersionsDist(
     dlUrl
   );
