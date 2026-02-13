@@ -155,13 +155,7 @@ export async function getGo(
     // Try download from internal distribution (popular versions only)
     //
     try {
-      info = await getInfoFromManifest(
-        versionSpec,
-        true,
-        auth,
-        arch,
-        manifest
-      );
+      info = await getInfoFromManifest(versionSpec, true, auth, arch, manifest);
       if (info) {
         downloadPath = await installGoVersion(info, auth, arch);
       } else {
@@ -483,9 +477,7 @@ export function getInfoFromDirectDownload(
   const fileName = `${goVersion}.${platStr}-${archStr}.${extension}`;
   const downloadUrl = `${goDownloadBaseUrl}/${fileName}`;
 
-  core.info(
-    `Constructed direct download URL: ${downloadUrl}`
-  );
+  core.info(`Constructed direct download URL: ${downloadUrl}`);
 
   return <IGoVersionInfo>{
     type: 'dist',

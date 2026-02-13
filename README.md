@@ -228,7 +228,7 @@ steps:
 
 ### Custom Download Base URL
 
-You can specify a custom base URL for downloading Go distributions. This is useful for organizations that mirror Go distributions or use custom Go builds like [Microsoft Go](https://github.com/microsoft/go).
+You can specify a custom base URL for downloading Go distributions. This is useful for organizations that mirror Go distributions or use custom Go builds like [Microsoft build of Go](https://github.com/microsoft/go).
 
 **Microsoft build of Go Example:**
 
@@ -483,7 +483,7 @@ For more information about semantic versioning, see the [semver documentation](h
     # Architecture to install (auto-detected if not specified)
     architecture: 'x64'
     
-    # Custom base URL for Go downloads (e.g., for mirrors or Microsoft Go)
+    # Custom base URL for Go downloads (e.g., for mirrors)
     go-download-base-url: ''
 ```
 
