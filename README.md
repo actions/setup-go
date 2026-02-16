@@ -267,12 +267,12 @@ steps:
 
 For advanced scenarios, use `cache-dependency-path` to specify:
 - **Multiple dependency files**: When your project has dependencies in different directories
-- **Custom locations**: When your `go.sum` files are not in the repository root
+- **Custom locations**: When your `go.mod` files are not in the repository root
 - **Monorepos**: When managing multiple Go modules in a single repository
 - **Glob patterns**: For flexible file matching
 
 ```yaml
-# Example: Monorepo with multiple go.sum files
+# Example: Monorepo with multiple go.mod files
 steps:
   - uses: actions/checkout@v6
   - uses: actions/setup-go@v6
@@ -280,19 +280,19 @@ steps:
       go-version: '1.23'
       check-latest: true
       cache-dependency-path: |
-        subdir/go.sum
-        tools/go.sum
+        subdir/go.mod
+        tools/go.mod
   - run: go run hello.go
 ```
 
 ```yaml
-# Example: Using glob patterns to match all go.sum files
+# Example: Using glob patterns to match all go.mod files
 steps:
   - uses: actions/checkout@v6
   - uses: actions/setup-go@v6
     with:
       go-version: '1.23'
-      cache-dependency-path: "**/*.sum"
+      cache-dependency-path: "**/*.mod"
   - run: go run hello.go
 ```
 
@@ -433,7 +433,7 @@ For more information about semantic versioning, see the [semver documentation](h
     cache: true
     
     # Path to dependency files for caching
-    cache-dependency-path: 'go.sum'
+    cache-dependency-path: 'go.mod'
     
     # Architecture to install (auto-detected if not specified)
     architecture: 'x64'
