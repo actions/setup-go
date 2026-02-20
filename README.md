@@ -226,6 +226,51 @@ steps:
 - Major and minor only: `1.25` (action will use the latest patch version, e.g., `1.25.4`)
 - Major, minor, and patch: `1.25.4` (exact version)
 
+### Custom Download Base URL
+
+You can specify a custom base URL for downloading Go distributions. This is useful for organizations that mirror Go distributions or use custom Go builds like [Microsoft build of Go](https://github.com/microsoft/go).
+
+**Microsoft build of Go Example:**
+
+```yaml
+steps:
+  - uses: actions/checkout@v6
+  - uses: actions/setup-go@v6
+    with:
+      go-version: '1.25'
+      go-download-base-url: 'https://aka.ms/golang/release/latest'
+  - run: go version
+```
+
+**Custom Mirror Example:**
+
+```yaml
+steps:
+  - uses: actions/checkout@v6
+  - uses: actions/setup-go@v6
+    with:
+      go-version: '1.23'
+      go-download-base-url: 'https://my-mirror.example.com/golang'
+  - run: go version
+```
+
+When a custom base URL is set, the action skips the GitHub-hosted manifest and downloads directly from the specified URL. If the URL serves a Go version listing API (compatible with `go.dev/dl/?mode=json&include=all`), the action will use it for version resolution. Otherwise, it constructs the download URL directly from the version, platform, and architecture.
+
+You can also set the URL via the `GO_DOWNLOAD_BASE_URL` environment variable. The input takes precedence over the environment variable.
+
+```yaml
+steps:
+  - uses: actions/checkout@v6
+  - uses: actions/setup-go@v6
+    with:
+      go-version: '1.25'
+    env:
+      GO_DOWNLOAD_BASE_URL: 'https://aka.ms/golang/release/latest'
+  - run: go version
+```
+
+> **Note**: The `stable` and `oldstable` version aliases are not supported with custom download base URLs. Please specify an exact Go version instead.
+
 ### Check Latest Version
 
 The check-latest flag defaults to false for stability. This ensures your workflow uses a specific, predictable Go version.
@@ -437,6 +482,9 @@ For more information about semantic versioning, see the [semver documentation](h
     
     # Architecture to install (auto-detected if not specified)
     architecture: 'x64'
+    
+    # Custom base URL for Go downloads (e.g., for mirrors)
+    go-download-base-url: ''
 ```
 
 ## Using setup-go on GHES

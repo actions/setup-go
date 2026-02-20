@@ -19,6 +19,8 @@ inputs:
     description: 'Used to specify the path to a dependency file (e.g., go.mod, go.sum)'
   architecture:
     description: 'Target architecture for Go to use. Examples: x86, x64. Will use system architecture by default.'
+  go-download-base-url:
+    description: 'Custom base URL for downloading Go distributions. Use this to download Go from a mirror or custom source. Defaults to "https://go.dev/dl". Can also be set via the GO_DOWNLOAD_BASE_URL environment variable. The input takes precedence over the environment variable.'
 outputs:
   go-version:
     description: 'The installed Go version. Useful when given a version range as input.'
