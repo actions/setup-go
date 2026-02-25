@@ -55,7 +55,7 @@ steps:
   - uses: actions/checkout@v6
   - uses: actions/setup-go@v6
     with:
-       go-version: '1.25.0-rc.2'
+      go-version: '1.25.0-rc.2'
   - run: go version
 ```
 
@@ -302,14 +302,15 @@ Besides dependencies, the action can also cache build outputs (the [`GOCACHE`](h
 > **Note:** Including patterns like `**/*.go` can create new caches on many commits, increasing cache storage and potentially slowing workflows due to more frequent uploads/downloads.
 
 ```yaml
-- uses: actions/checkout@v6
-- uses: actions/setup-go@v6
-  with:
-    go-version: '1.25'
-    cache-dependency-path: |
-      go.sum
-      **/*.go
-- run: go run hello.go
+steps:
+  - uses: actions/checkout@v6
+  - uses: actions/setup-go@v6
+    with:
+      go-version: "1.25"
+      cache-dependency-path: |
+        go.sum
+        **/*.go
+  - run: go run hello.go
 ```
 
 ### Restore-only caches
