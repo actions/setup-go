@@ -1,16 +1,16 @@
 # Advanced Usage
 - [Using the go-version input](advanced-usage.md#using-the-go-version-input)
-    - [Specifying a go version](advanced-usage.md#specifying-a-go-version)
-    - [Matrix testing](advanced-usage.md#matrix-testing)
+  - [Specifying a go version](advanced-usage.md#specifying-a-go-version)
+  - [Matrix testing](advanced-usage.md#matrix-testing)
 - [Using the go-version-file input](advanced-usage.md#using-the-go-version-file-input)
 - [Check latest version](advanced-usage.md#check-latest-version)
 - [Caching](advanced-usage.md#caching)
-    - [Caching in monorepos](advanced-usage.md#caching-in-monorepos)
-    - [Caching in multi-module repositories](advanced-usage.md#caching-in-multi-module-repositories)
-    - [Multi-target builds](advanced-usage.md#multi-target-builds)
-    - [Cache invalidation on source changes](advanced-usage.md#cache-invalidation-on-source-changes)
-    - [Restore-only caches](advanced-usage.md#restore-only-caches)
-    - [Parallel builds](advanced-usage.md#parallel-builds)
+  - [Caching in monorepos](advanced-usage.md#caching-in-monorepos)
+  - [Caching in multi-module repositories](advanced-usage.md#caching-in-multi-module-repositories)
+  - [Multi-target builds](advanced-usage.md#multi-target-builds)
+  - [Cache invalidation on source changes](advanced-usage.md#cache-invalidation-on-source-changes)
+  - [Restore-only caches](advanced-usage.md#restore-only-caches)
+  - [Parallel builds](advanced-usage.md#parallel-builds)
 - [Outputs](advanced-usage.md#outputs)
 - [Using `setup-go` on GHES](advanced-usage.md#using-setup-go-on-ghes)
 
@@ -172,7 +172,7 @@ steps:
   - uses: actions/checkout@v6
   - uses: actions/setup-go@v6
     with:
-      go-version-file: 'path/to/go.mod'  # Read Go version from a file go.mod
+      go-version-file: 'path/to/go.mod'  # Read Go version from go.mod
   - run: go version
 ```
 
@@ -186,29 +186,29 @@ steps:
 
 ```yaml
 steps:
- - uses: actions/checkout@v6
- - uses: actions/setup-go@v6
-   with:
-    go-version-file: '.go-version' # Read Go version from a file .go-version
-- run: go version
+  - uses: actions/checkout@v6
+  - uses: actions/setup-go@v6
+    with:
+      go-version-file: '.go-version' # Read Go version from .go-version
+  - run: go version
 ```
 
 ```yaml
 steps:
- - uses: actions/checkout@v6
- - uses: actions/setup-go@v6
-   with:
-     go-version-file: '.tool-versions' # Read Go version from a file .tool-versions
-- run: go version
+  - uses: actions/checkout@v6
+  - uses: actions/setup-go@v6
+    with:
+      go-version-file: '.tool-versions' # Read Go version from .tool-versions
+  - run: go version
 ```
 
 ```yaml
 steps:
-- uses: actions/checkout@v6
-- uses: actions/setup-go@v6
-  with:
-     go-version-file: 'go.work' # Read Go version from a file go.work file
-- run: go version
+  - uses: actions/checkout@v6
+  - uses: actions/setup-go@v6
+    with:
+      go-version-file: 'go.work' # Read Go version from go.work
+  - run: go version
 ```
 
 ## Check latest version
@@ -306,7 +306,7 @@ steps:
   - uses: actions/checkout@v6
   - uses: actions/setup-go@v6
     with:
-      go-version: "1.25"
+      go-version: '1.25'
       cache-dependency-path: |
         go.sum
         **/*.go
