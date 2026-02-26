@@ -424,7 +424,10 @@ export async function findMatch(
     const version = makeSemver(candidate.version);
 
     core.debug(`check ${version} satisfies ${versionSpec}`);
-    if (semver.satisfies(version, versionSpec)) {
+    if (
+      candidate.version.replace(/^go/, '') === versionSpec ||
+      semver.satisfies(version, versionSpec)
+    ) {
       goFile = candidate.files.find(file => {
         core.debug(
           `${file.arch}===${archFilter} && ${file.os}===${platFilter}`
@@ -512,7 +515,7 @@ export function parseGoVersionFile(versionFilePath: string): string {
     }
 
     // go directive: https://go.dev/ref/mod#go-mod-file-go
-    const matchGo = contents.match(/^go (\d+(\.\d+)*)/m);
+    const matchGo = contents.match(/^go (\d+(\.\d+)*(?:\.\d+|(beta|rc)\d+)?)/m);
     return matchGo ? matchGo[1] : '';
   } else if (path.basename(versionFilePath) === '.tool-versions') {
     const match = contents.match(/^golang\s+([^\n#]+)/m);
