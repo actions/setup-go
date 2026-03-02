@@ -92,7 +92,7 @@ describe('setup-go', () => {
     getManifestSpy = jest.spyOn(tc, 'getManifestFromRepo');
     getAllVersionsSpy = jest.spyOn(im, 'getManifest');
 
-    // httm
+    // httpm
     httpmGetJsonSpy = jest.spyOn(httpm.HttpClient.prototype, 'getJson');
 
     // io
@@ -146,7 +146,7 @@ describe('setup-go', () => {
     expect(main.parseGoVersion(goVersionOutput)).toBe('1.16.6');
   });
 
-  it('can find 1.9.7 from manifest on osx', async () => {
+  it('can find 1.9.7 from manifest on macOS', async () => {
     os.platform = 'darwin';
     os.arch = 'x64';
 
@@ -544,7 +544,7 @@ describe('setup-go', () => {
     expect(added).toBeFalsy();
   });
 
-  it('adds bin if dir not exists', async () => {
+  it('adds bin if dir does not exist', async () => {
     whichSpy.mockImplementation(async () => {
       return '/usr/local/go/bin/go';
     });
@@ -756,7 +756,7 @@ describe('setup-go', () => {
       );
     });
 
-    it('fallback to dist if version is not found in manifest', async () => {
+    it('fall back to dist if version is not found in manifest', async () => {
       os.platform = 'linux';
       os.arch = 'x64';
 
@@ -793,7 +793,7 @@ describe('setup-go', () => {
       expect(cnSpy).toHaveBeenCalledWith(`::add-path::${expPath}${osm.EOL}`);
     });
 
-    it('fallback to dist if manifest is not available', async () => {
+    it('fall back to dist if manifest is not available', async () => {
       os.platform = 'linux';
       os.arch = 'x64';
 
