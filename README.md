@@ -1,3 +1,5 @@
+cbowREADME.md
+
 # setup-go
 
 [![Basic validation](https://github.com/actions/setup-go/actions/workflows/basic-validation.yml/badge.svg)](https://github.com/actions/setup-go/actions/workflows/basic-validation.yml)
