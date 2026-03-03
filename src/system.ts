@@ -1,4 +1,5 @@
-let os = require('os');
+import os from 'os';
+import {Architecture} from './types';
 
 export function getPlatform(): string {
   // darwin and linux match already
@@ -15,9 +16,8 @@ export function getPlatform(): string {
   return plat;
 }
 
-export function getArch(): string {
+export function getArch(arch: Architecture): string {
   // 'arm', 'arm64', 'ia32', 'mips', 'mipsel', 'ppc', 'ppc64', 's390', 's390x', 'x32', and 'x64'.
-  let arch: string = os.arch();
 
   // wants amd64, 386, arm64, armv61, ppc641e, s390x
   // currently not supported by runner but future proofed mapping
@@ -30,6 +30,9 @@ export function getArch(): string {
     //   break;
     case 'x32':
       arch = '386';
+      break;
+    case 'arm':
+      arch = 'armv6l';
       break;
   }
 

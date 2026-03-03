@@ -1,51 +1,241 @@
-name: go-versions
+name: Validate 'setup-go'
+
 on:
-    push:
-      branches:
-        - master
-      paths-ignore:
-        - '**.md'
-    pull_request:
-      paths-ignore:
-        - '**.md'
+  push:
+    branches:
+      - main
+    paths-ignore:
+      - '**.md'
+  pull_request:
+    paths-ignore:
+      - '**.md'
+  schedule:
+    - cron: 0 0 * * *
+
 jobs:
-  run:
-    name: Go
-    runs-on: ${{ matrix.operating-system }}
+  stable:
+    runs-on: ${{ matrix.os }}
     strategy:
+      fail-fast: false
       matrix:
-        operating-system: [ubuntu-latest, windows-latest, macos-latest]
+        os: [ubuntu-latest, windows-latest, macos-latest, macos-latest-large]
     steps:
-    - name: Checkout
-      uses: actions/checkout@v2
+      - uses: actions/checkout@v6
+      - name: Setup Go Stable
+        uses: ./
+        with:
+          go-version: stable
+      - name: Verify Go
+        run: go version
 
-    - name: setup-go ^1.13.6
-      uses: ./
-      with:
-        go-version: ^1.13.6
+  oldstable:
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest, macos-latest-large]
+    steps:
+      - uses: actions/checkout@v6
+      - name: Setup Go oldStable
+        uses: ./
+        with:
+          go-version: oldstable
+      - name: Verify Go
+        run: go version
 
-    - name: validate version 
-      run: go version | grep "go1."
+  aliases-arch:
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest, macos-latest-large]
+        version: [stable, oldstable]
+        architecture: [x64, x32]
+        exclude:
+          - os: macos-latest
+            architecture: x32
+          - os: macos-latest-large
+            architecture: x32
+    steps:
+      - uses: actions/checkout@v6
+      - name: Setup Go ${{ matrix.version }} ${{ matrix.architecture }}
+        uses: ./
+        with:
+          go-version: ${{ matrix.version }}
+          architecture: ${{ matrix.architecture }}
+      - name: Verify Go
+        run: go version
 
-    - name: setup-go 1.13
-      uses: ./
-      with:
-        go-version: 1.13
+  local-cache:
+    name: Setup local-cache version
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [macos-latest, windows-latest, ubuntu-latest, macos-latest-large]
+        go: [1.21.13, 1.22.8, 1.23.2]
+        include:
+          - os: windows-latest
+            go: 1.20.14
+        exclude:
+          - os: windows-latest
+            go: 1.23.2
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
 
-    - name: validate version 
-      run: go version | grep "go1.13."      
+      - name: setup-go ${{ matrix.go }}
+        uses: ./
+        with:
+          go-version: ${{ matrix.go }}
 
-    - name: setup-go 1.12.9
-      uses: ./
-      with:
-        go-version: 1.12.9
+      - name: verify go
+        run: __tests__/verify-go.sh ${{ matrix.go }}
+        shell: bash
 
-    - name: validate version 
-      run: go version | grep "go1.12.9"
+  check-latest:
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest, macos-latest-large]
+        go-version: ['1.20', '1.21', '1.22', '1.23']
+    steps:
+      - uses: actions/checkout@v6
+      - name: Setup Go and check latest
+        uses: ./
+        with:
+          go-version: ${{ matrix.go-version }}
+          check-latest: true
+      - name: Verify Go
+        run: go version
 
-    - name: dump env
-      shell: bash
-      run: |
-        echo $PATH
-        echo go versions in tool cache: 
-        echo $(ls $RUNNER_TOOL_CACHE/go)       
+  go-version-file:
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest, macos-latest-large]
+    steps:
+      - uses: actions/checkout@v6
+      - name: Setup Go and check latest
+        uses: ./
+        with:
+          go-version-file: __tests__/data/go.mod
+      - name: verify go
+        run: __tests__/verify-go.sh 1.20.14
+        shell: bash
+
+  go-version-file-with-gowork:
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest, macos-latest-large]
+    steps:
+      - uses: actions/checkout@v6
+      - name: Setup Go and check latest
+        uses: ./
+        with:
+          go-version-file: __tests__/data/go.work
+      - name: verify go
+        run: __tests__/verify-go.sh 1.21
+        shell: bash
+
+  go-version-file-with-tool-versions:
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest, macos-latest-large]
+    steps:
+      - uses: actions/checkout@v6
+      - name: Setup Go and check latest
+        uses: ./
+        with:
+          go-version-file: __tests__/data/.tool-versions
+      - name: verify go
+        run: __tests__/verify-go.sh 1.23.2
+        shell: bash
+
+  go-version-file-with-go-version:
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest, macos-latest-large]
+    steps:
+      - uses: actions/checkout@v6
+      - name: Setup Go from .go-version file
+        uses: ./
+        with:
+          go-version-file: __tests__/data/.go-version
+      - name: verify go
+        run: __tests__/verify-go.sh 1.22.4
+        shell: bash
+
+  setup-versions-from-manifest:
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [macos-latest, windows-latest, ubuntu-latest, macos-latest-large]
+        go: [1.20.14, 1.21.10, 1.22.8, 1.23.2]
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: setup-go ${{ matrix.go }}
+        uses: ./
+        with:
+          go-version: ${{ matrix.go }}
+
+      - name: verify go
+        run: __tests__/verify-go.sh ${{ matrix.go }}
+        shell: bash
+
+  setup-versions-from-dist:
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [windows-latest, ubuntu-latest, macos-latest-large]
+        go: [1.11.12]
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: setup-go ${{ matrix.go }}
+        uses: ./
+        with:
+          go-version: ${{ matrix.go }}
+
+      - name: verify go
+        run: __tests__/verify-go.sh ${{ matrix.go }}
+        shell: bash
+
+  architecture:
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest, macos-latest-large]
+        go-version: [1.20.14, 1.21, 1.22, 1.23]
+        include:
+          - os: macos-latest
+            architecture: arm64
+          - os: ubuntu-latest
+            architecture: x64
+          - os: windows-latest
+            architecture: x64
+          - os: macos-latest-large
+            architecture: x64
+    steps:
+      - uses: actions/checkout@v6
+      - name: Setup Go and check latest
+        uses: ./
+        with:
+          go-version: ${{ matrix.go-version }}
+          architecture: ${{ matrix.architecture }}
+      - name: Verify Go
+        run: go version
