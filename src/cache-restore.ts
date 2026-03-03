@@ -35,6 +35,20 @@ export const restoreCache = async (
   const primaryKey = `setup-go-${platform}-${arch}-${linuxVersion}go-${versionSpec}-${fileHash}`;
   core.debug(`primary key is ${primaryKey}`);
 
+  // Check if this key was already processed in a previous invocation
+  const existingKeys = getExistingPrimaryKeys();
+  if (existingKeys.includes(primaryKey)) {
+    core.info(
+      `Cache key ${primaryKey} already processed in this job, skipping restore`
+    );
+    core.setOutput(Outputs.CacheHit, true);
+    return;
+  }
+
+  // Save state for post step - accumulate keys for multiple invocations
+  addPrimaryKey(primaryKey);
+
+  // Legacy single-key state (for backward compatibility)
   core.saveState(State.CachePrimaryKey, primaryKey);
 
   const cacheKey = await cache.restoreCache(cachePaths, primaryKey);
@@ -46,6 +60,10 @@ export const restoreCache = async (
     return;
   }
 
+  // Save matched key state - accumulate for multiple invocations
+  addMatchedKey(cacheKey);
+
+  // Legacy single-key state (for backward compatibility)
   core.saveState(State.CacheMatchedKey, cacheKey);
   core.info(`Cache restored from key: ${cacheKey}`);
 };
@@ -64,3 +82,40 @@ const findDependencyFile = (packageManager: PackageManagerInfo) => {
 
   return path.join(workspace, dependencyFile);
 };
+
+// Helper functions for managing multiple cache keys
+function getExistingPrimaryKeys(): string[] {
+  try {
+    const keysJson = core.getState(State.CachePrimaryKeys);
+    if (!keysJson) return [];
+    return JSON.parse(keysJson) as string[];
+  } catch {
+    return [];
+  }
+}
+
+function addPrimaryKey(key: string): void {
+  const existingKeys = getExistingPrimaryKeys();
+  if (!existingKeys.includes(key)) {
+    existingKeys.push(key);
+    core.saveState(State.CachePrimaryKeys, JSON.stringify(existingKeys));
+  }
+}
+
+function getExistingMatchedKeys(): string[] {
+  try {
+    const keysJson = core.getState(State.CacheMatchedKeys);
+    if (!keysJson) return [];
+    return JSON.parse(keysJson) as string[];
+  } catch {
+    return [];
+  }
+}
+
+function addMatchedKey(key: string): void {
+  const existingKeys = getExistingMatchedKeys();
+  if (!existingKeys.includes(key)) {
+    existingKeys.push(key);
+    core.saveState(State.CacheMatchedKeys, JSON.stringify(existingKeys));
+  }
+}

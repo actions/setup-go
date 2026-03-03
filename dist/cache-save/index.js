@@ -71570,8 +71570,6 @@ function run(earlyExit) {
 }
 const cachePackages = () => __awaiter(void 0, void 0, void 0, function* () {
     const packageManager = 'default';
-    const state = core.getState(constants_1.State.CacheMatchedKey);
-    const primaryKey = core.getState(constants_1.State.CachePrimaryKey);
     const packageManagerInfo = yield (0, cache_utils_1.getPackageManagerInfo)(packageManager);
     const cachePaths = yield (0, cache_utils_1.getCacheDirectoryPath)(packageManagerInfo);
     const nonExistingPaths = cachePaths.filter(cachePath => !fs_1.default.existsSync(cachePath));
@@ -71582,20 +71580,96 @@ const cachePackages = () => __awaiter(void 0, void 0, void 0, function* () {
     if (nonExistingPaths.length) {
         logWarning(`Cache folder path is retrieved but doesn't exist on disk: ${nonExistingPaths.join(', ')}`);
     }
-    if (!primaryKey) {
-        core.info('Primary key was not generated. Please check the log messages above for more errors or information');
+    // Get all primary keys and matched keys from multiple invocations
+    const primaryKeys = getPrimaryKeys();
+    const matchedKeys = getMatchedKeys();
+    if (primaryKeys.length === 0) {
+        // Fallback to legacy single-key behavior
+        const primaryKey = core.getState(constants_1.State.CachePrimaryKey);
+        const matchedKey = core.getState(constants_1.State.CacheMatchedKey);
+        if (primaryKey) {
+            yield saveSingleCache(cachePaths, primaryKey, matchedKey);
+        }
+        else {
+            core.info('Primary key was not generated. Please check the log messages above for more errors or information');
+        }
         return;
     }
-    if (primaryKey === state) {
-        core.info(`Cache hit occurred on the primary key ${primaryKey}, not saving cache.`);
-        return;
+    // Process each primary key from multiple invocations
+    let savedCount = 0;
+    let skippedCount = 0;
+    for (let i = 0; i < primaryKeys.length; i++) {
+        const primaryKey = primaryKeys[i];
+        const matchedKey = matchedKeys[i] || '';
+        if (primaryKey === matchedKey) {
+            core.info(`Cache hit occurred on the primary key ${primaryKey}, not saving cache.`);
+            skippedCount++;
+            continue;
+        }
+        try {
+            const cacheId = yield cache.saveCache(cachePaths, primaryKey);
+            if (cacheId === -1) {
+                core.info(`Cache save returned -1 for key: ${primaryKey}`);
+                continue;
+            }
+            core.info(`Cache saved with the key: ${primaryKey}`);
+            savedCount++;
+        }
+        catch (error) {
+            // If save fails (e.g., cache already exists), log and continue
+            const errorMessage = error instanceof Error ? error.message : String(error);
+            if (errorMessage.includes('Cache already exists')) {
+                core.info(`Cache already exists for key: ${primaryKey}`);
+                skippedCount++;
+            }
+            else {
+                logWarning(`Failed to save cache for key ${primaryKey}: ${errorMessage}`);
+            }
+        }
     }
-    const cacheId = yield cache.saveCache(cachePaths, primaryKey);
-    if (cacheId === -1) {
-        return;
+    if (savedCount > 0 || skippedCount > 0) {
+        core.info(`Cache save complete. Saved: ${savedCount}, Skipped (already cached): ${skippedCount}`);
     }
-    core.info(`Cache saved with the key: ${primaryKey}`);
 });
+function saveSingleCache(cachePaths, primaryKey, matchedKey) {
+    return __awaiter(this, void 0, void 0, function* () {
+        if (!primaryKey) {
+            core.info('Primary key was not generated. Please check the log messages above for more errors or information');
+            return;
+        }
+        if (primaryKey === matchedKey) {
+            core.info(`Cache hit occurred on the primary key ${primaryKey}, not saving cache.`);
+            return;
+        }
+        const cacheId = yield cache.saveCache(cachePaths, primaryKey);
+        if (cacheId === -1) {
+            return;
+        }
+        core.info(`Cache saved with the key: ${primaryKey}`);
+    });
+}
+function getPrimaryKeys() {
+    try {
+        const keysJson = core.getState(constants_1.State.CachePrimaryKeys);
+        if (!keysJson)
+            return [];
+        return JSON.parse(keysJson);
+    }
+    catch (_a) {
+        return [];
+    }
+}
+function getMatchedKeys() {
+    try {
+        const keysJson = core.getState(constants_1.State.CacheMatchedKeys);
+        if (!keysJson)
+            return [];
+        return JSON.parse(keysJson);
+    }
+    catch (_a) {
+        return [];
+    }
+}
 function logWarning(message) {
     const warningPrefix = '[warning]';
     core.info(`${warningPrefix}${message}`);
@@ -71731,6 +71805,9 @@ var State;
 (function (State) {
     State["CachePrimaryKey"] = "CACHE_KEY";
     State["CacheMatchedKey"] = "CACHE_RESULT";
+    // For multiple invocations support - stores JSON arrays of keys
+    State["CachePrimaryKeys"] = "CACHE_KEYS";
+    State["CacheMatchedKeys"] = "CACHE_RESULTS";
 })(State || (exports.State = State = {}));
 var Outputs;
 (function (Outputs) {
