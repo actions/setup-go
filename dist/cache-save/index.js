@@ -71548,6 +71548,11 @@ process.on('uncaughtException', e => {
 function run(earlyExit) {
     return __awaiter(this, void 0, void 0, function* () {
         try {
+            const cacheWriteEnabled = core.getInput('cache-write');
+            if (cacheWriteEnabled === 'false') {
+                core.info('Cache write is disabled (read-only mode). Skipping cache save.');
+                return;
+            }
             const cacheInput = core.getBooleanInput('cache');
             if (cacheInput) {
                 yield cachePackages();
