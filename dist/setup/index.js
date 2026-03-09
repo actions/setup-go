@@ -49577,6 +49577,7 @@ const path = __importStar(__nccwpck_require__(16928));
 const semver = __importStar(__nccwpck_require__(62088));
 const httpm = __importStar(__nccwpck_require__(54844));
 const sys = __importStar(__nccwpck_require__(57666));
+const child_process_1 = __importDefault(__nccwpck_require__(35317));
 const fs_1 = __importDefault(__nccwpck_require__(79896));
 const os_1 = __importDefault(__nccwpck_require__(70857));
 const utils_1 = __nccwpck_require__(71798);
@@ -49644,7 +49645,6 @@ function getGo(versionSpec_1, checkLatest_1, auth_1) {
             //
             // Download from custom base URL
             //
-            core.info(`Using custom download base URL: ${customBaseUrl}`);
             try {
                 info = yield getInfoFromDist(versionSpec, arch, customBaseUrl);
             }
@@ -49656,10 +49656,16 @@ function getGo(versionSpec_1, checkLatest_1, auth_1) {
             }
             try {
                 core.info('Install from custom download URL');
-                downloadPath = yield installGoVersion(info, undefined, arch, toolCacheName);
+                downloadPath = yield installGoVersion(info, auth, arch, toolCacheName);
             }
             catch (err) {
-                throw new Error(`Failed to download version ${versionSpec}: ${err}`);
+                const downloadUrl = (info === null || info === void 0 ? void 0 : info.downloadUrl) || customBaseUrl;
+                if (err instanceof tc.HTTPError && err.httpStatusCode === 404) {
+                    throw new Error(`The requested Go version ${versionSpec} is not available for platform ${osPlat}/${arch}. ` +
+                        `Download URL returned HTTP 404: ${downloadUrl}`);
+                }
+                throw new Error(`Failed to download Go ${versionSpec} for platform ${osPlat}/${arch} ` +
+                    `from ${downloadUrl}: ${err}`);
             }
         }
         else {
@@ -49774,11 +49780,32 @@ function installGoVersion(info_1, auth_1, arch_1) {
         if (info.type === 'dist') {
             extPath = path.join(extPath, 'go');
         }
+        // For custom downloads, detect the actual installed version so the cache
+        // key reflects the real patch level (e.g. input "1.20" may install 1.20.14).
+        if (toolName !== 'go') {
+            const actualVersion = detectInstalledGoVersion(extPath);
+            if (actualVersion && actualVersion !== info.resolvedVersion) {
+                core.info(`Requested version '${info.resolvedVersion}' resolved to installed version '${actualVersion}'`);
+                info.resolvedVersion = actualVersion;
+            }
+        }
         core.info('Adding to the cache ...');
         const toolCacheDir = yield addExecutablesToToolCache(extPath, info, arch, toolName);
         core.info(`Successfully cached go to ${toolCacheDir}`);
         return toolCacheDir;
     });
+}
+function detectInstalledGoVersion(goDir) {
+    try {
+        const goBin = path.join(goDir, 'bin', os_1.default.platform() === 'win32' ? 'go.exe' : 'go');
+        const output = child_process_1.default.execFileSync(goBin, ['version'], { encoding: 'utf8' });
+        const match = output.match(/go version go(\S+)/);
+        return match ? match[1] : null;
+    }
+    catch (err) {
+        core.debug(`Failed to detect installed Go version: ${err.message}`);
+        return null;
+    }
 }
 function extractGoArchive(archivePath) {
     return __awaiter(this, void 0, void 0, function* () {
@@ -49881,6 +49908,11 @@ function getInfoFromDist(versionSpec, arch, goDownloadBaseUrl) {
     });
 }
 function getInfoFromDirectDownload(versionSpec, arch, goDownloadBaseUrl) {
+    // Reject version specs that can't map to an artifact filename
+    if (/[~^>=<|*x]/.test(versionSpec)) {
+        throw new Error(`Version range '${versionSpec}' is not supported with a custom download base URL ` +
+            `when version listing is unavailable. Please specify an exact version (e.g., '1.25.0').`);
+    }
     const archStr = sys.getArch(arch);
     const platStr = sys.getPlatform();
     const extension = platStr === 'windows' ? 'zip' : 'tar.gz';

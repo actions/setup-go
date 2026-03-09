@@ -223,6 +223,8 @@ want the most up-to-date Go version to always be used. It supports major (e.g., 
 
 > Setting `check-latest` to `true` has performance implications as downloading Go versions is slower than using cached
 > versions.
+>
+> `check-latest` is ignored when `go-download-base-url` is set. See [Custom download URL](#custom-download-url) for details.
 
 ```yaml
 steps:
@@ -450,7 +452,24 @@ steps:
   - run: go version
 ```
 
-> **Note:** Version range syntax (`^1.25`, `~1.24`) and aliases (`stable`, `oldstable`) are not supported with custom download URLs. Use specific versions (e.g., `1.25` or `1.25.0`) instead.
+> **Note:** Version range syntax (`^1.25`, `~1.24`, `>=1.25.0`) and aliases (`stable`, `oldstable`) are not supported with custom download URLs. Use exact versions such as `1.25`, `1.25.0`, or `1.25.0-1` (for sources that use revision numbers). If the custom server provides a version listing endpoint (`/?mode=json&include=all`), semver ranges will work; otherwise only exact versions are accepted.
+
+> **Note:** The `check-latest` option is ignored when a custom download base URL is set. The action cannot query the custom server for the latest version, so it uses the version you specify directly. If you provide a partial version like `1.25`, the server determines which patch release to serve.
+
+**Authenticated downloads:**
+
+If your custom download source requires authentication, the `token` input is forwarded as an `Authorization` header. For example, to download from a private mirror:
+
+```yaml
+steps:
+  - uses: actions/checkout@v6
+  - uses: actions/setup-go@v6
+    with:
+      go-version: '1.25'
+      go-download-base-url: 'https://private-mirror.example.com/golang'
+      token: ${{ secrets.MIRROR_TOKEN }}
+  - run: go version
+```
 
 ## Using `setup-go` on GHES
 

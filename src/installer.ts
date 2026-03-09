@@ -4,6 +4,7 @@ import * as path from 'path';
 import * as semver from 'semver';
 import * as httpm from '@actions/http-client';
 import * as sys from './system';
+import cp from 'child_process';
 import fs from 'fs';
 import os from 'os';
 import {StableReleaseAlias, isSelfHosted} from './utils';
@@ -129,7 +130,6 @@ export async function getGo(
     //
     // Download from custom base URL
     //
-    core.info(`Using custom download base URL: ${customBaseUrl}`);
     try {
       info = await getInfoFromDist(versionSpec, arch, customBaseUrl);
     } catch {
@@ -145,12 +145,22 @@ export async function getGo(
       core.info('Install from custom download URL');
       downloadPath = await installGoVersion(
         info,
-        undefined,
+        auth,
         arch,
         toolCacheName
       );
     } catch (err) {
-      throw new Error(`Failed to download version ${versionSpec}: ${err}`);
+      const downloadUrl = info?.downloadUrl || customBaseUrl;
+      if (err instanceof tc.HTTPError && err.httpStatusCode === 404) {
+        throw new Error(
+          `The requested Go version ${versionSpec} is not available for platform ${osPlat}/${arch}. ` +
+            `Download URL returned HTTP 404: ${downloadUrl}`
+        );
+      }
+      throw new Error(
+        `Failed to download Go ${versionSpec} for platform ${osPlat}/${arch} ` +
+          `from ${downloadUrl}: ${err}`
+      );
     }
   } else {
     //
@@ -312,6 +322,18 @@ async function installGoVersion(
     extPath = path.join(extPath, 'go');
   }
 
+  // For custom downloads, detect the actual installed version so the cache
+  // key reflects the real patch level (e.g. input "1.20" may install 1.20.14).
+  if (toolName !== 'go') {
+    const actualVersion = detectInstalledGoVersion(extPath);
+    if (actualVersion && actualVersion !== info.resolvedVersion) {
+      core.info(
+        `Requested version '${info.resolvedVersion}' resolved to installed version '${actualVersion}'`
+      );
+      info.resolvedVersion = actualVersion;
+    }
+  }
+
   core.info('Adding to the cache ...');
   const toolCacheDir = await addExecutablesToToolCache(
     extPath,
@@ -322,6 +344,24 @@ async function installGoVersion(
   core.info(`Successfully cached go to ${toolCacheDir}`);
 
   return toolCacheDir;
+}
+
+function detectInstalledGoVersion(goDir: string): string | null {
+  try {
+    const goBin = path.join(
+      goDir,
+      'bin',
+      os.platform() === 'win32' ? 'go.exe' : 'go'
+    );
+    const output = cp.execFileSync(goBin, ['version'], {encoding: 'utf8'});
+    const match = output.match(/go version go(\S+)/);
+    return match ? match[1] : null;
+  } catch (err) {
+    core.debug(
+      `Failed to detect installed Go version: ${(err as Error).message}`
+    );
+    return null;
+  }
 }
 
 export async function extractGoArchive(archivePath: string): Promise<string> {
@@ -469,6 +509,14 @@ export function getInfoFromDirectDownload(
   arch: Architecture,
   goDownloadBaseUrl: string
 ): IGoVersionInfo {
+  // Reject version specs that can't map to an artifact filename
+  if (/[~^>=<|*x]/.test(versionSpec)) {
+    throw new Error(
+      `Version range '${versionSpec}' is not supported with a custom download base URL ` +
+        `when version listing is unavailable. Please specify an exact version (e.g., '1.25.0').`
+    );
+  }
+
   const archStr = sys.getArch(arch);
   const platStr = sys.getPlatform();
   const extension = platStr === 'windows' ? 'zip' : 'tar.gz';
