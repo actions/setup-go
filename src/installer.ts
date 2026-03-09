@@ -17,7 +17,6 @@ const MANIFEST_REPO_NAME = 'go-versions';
 const MANIFEST_REPO_BRANCH = 'main';
 const MANIFEST_URL = `https://raw.githubusercontent.com/${MANIFEST_REPO_OWNER}/${MANIFEST_REPO_NAME}/${MANIFEST_REPO_BRANCH}/versions-manifest.json`;
 const DEFAULT_GO_DOWNLOAD_BASE_URL = 'https://go.dev/dl';
-const DEFAULT_GO_VERSIONS_URL = 'https://golang.org/dl/?mode=json&include=all';
 
 type InstallationType = 'dist' | 'manifest';
 
@@ -143,12 +142,7 @@ export async function getGo(
 
     try {
       core.info('Install from custom download URL');
-      downloadPath = await installGoVersion(
-        info,
-        auth,
-        arch,
-        toolCacheName
-      );
+      downloadPath = await installGoVersion(info, auth, arch, toolCacheName);
     } catch (err) {
       const downloadUrl = info?.downloadUrl || customBaseUrl;
       if (err instanceof tc.HTTPError && err.httpStatusCode === 404) {
@@ -484,11 +478,7 @@ async function getInfoFromDist(
   arch: Architecture,
   goDownloadBaseUrl?: string
 ): Promise<IGoVersionInfo | null> {
-  const version: IGoVersion | undefined = await findMatch(
-    versionSpec,
-    arch,
-    goDownloadBaseUrl
-  );
+  const version: IGoVersion | undefined = await findMatch(versionSpec, arch);
   if (!version) {
     return null;
   }
@@ -539,8 +529,7 @@ export function getInfoFromDirectDownload(
 
 export async function findMatch(
   versionSpec: string,
-  arch: Architecture = os.arch() as Architecture,
-  goDownloadBaseUrl?: string
+  arch: Architecture = os.arch() as Architecture
 ): Promise<IGoVersion | undefined> {
   const archFilter = sys.getArch(arch);
   const platFilter = sys.getPlatform();
@@ -548,9 +537,6 @@ export async function findMatch(
   let result: IGoVersion | undefined;
   let match: IGoVersion | undefined;
 
-  const dlUrl = goDownloadBaseUrl
-    ? `${goDownloadBaseUrl}/?mode=json&include=all`
-    : DEFAULT_GO_VERSIONS_URL;
   const candidates: IGoVersion[] | null = await module.exports.getVersionsDist(
     GOLANG_DOWNLOAD_URL
   );
@@ -668,7 +654,6 @@ async function resolveStableVersionDist(
 ) {
   const archFilter = sys.getArch(arch);
   const platFilter = sys.getPlatform();
-  const dlUrl = DEFAULT_GO_VERSIONS_URL;
   const candidates: IGoVersion[] | null = await module.exports.getVersionsDist(
     GOLANG_DOWNLOAD_URL
   );

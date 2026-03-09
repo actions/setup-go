@@ -1465,9 +1465,7 @@ use .
           'The requested Go version 1.25.0 is not available for platform linux/arm64'
         )
       );
-      expect(cnSpy).toHaveBeenCalledWith(
-        expect.stringContaining('HTTP 404')
-      );
+      expect(cnSpy).toHaveBeenCalledWith(expect.stringContaining('HTTP 404'));
     });
 
     it('shows clear error with platform/arch and URL on download failure', async () => {
