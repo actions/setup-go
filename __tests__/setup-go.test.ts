@@ -1421,7 +1421,8 @@ use .
       // Mock the installed Go binary reporting a different patch version
       execFileSpy.mockImplementation(() => 'go version go1.20.14 linux/amd64');
 
-      const toolPath = path.normalize('/cache/go-custom/1.20.14/x64');
+      const expectedToolName = im.customToolCacheName(customBaseUrl);
+      const toolPath = path.normalize(`/cache/${expectedToolName}/1.20.14/x64`);
       cacheSpy.mockImplementation(async () => toolPath);
 
       await main.run();
@@ -1432,7 +1433,7 @@ use .
       // Cache key should use actual version, not the input spec
       expect(cacheSpy).toHaveBeenCalledWith(
         expect.any(String),
-        'go-custom',
+        expectedToolName,
         '1.20.14',
         'x64'
       );
@@ -1558,7 +1559,8 @@ use .
       findSpy.mockImplementation(() => '');
       dlSpy.mockImplementation(async () => '/some/temp/path');
       extractTarSpy.mockImplementation(async () => '/some/other/temp/path');
-      const toolPath = path.normalize('/cache/go-custom/1.25.0/x64');
+      const expectedToolName = im.customToolCacheName(customBaseUrl);
+      const toolPath = path.normalize(`/cache/${expectedToolName}/1.25.0/x64`);
       cacheSpy.mockImplementation(async () => toolPath);
 
       await main.run();

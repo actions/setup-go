@@ -4,6 +4,7 @@ import * as path from 'path';
 import * as semver from 'semver';
 import * as httpm from '@actions/http-client';
 import * as sys from './system';
+import crypto from 'crypto';
 import cp from 'child_process';
 import fs from 'fs';
 import os from 'os';
@@ -112,7 +113,9 @@ export async function getGo(
 
   // Use a distinct tool cache name for custom downloads to avoid
   // colliding with the runner's pre-installed Go
-  const toolCacheName = customBaseUrl ? 'go-custom' : 'go';
+  const toolCacheName = customBaseUrl
+    ? customToolCacheName(customBaseUrl)
+    : 'go';
 
   // check cache
   const toolPath = tc.find(toolCacheName, versionSpec, arch);
@@ -292,6 +295,11 @@ async function addExecutablesToToolCache(
     (await cacheWindowsDir(extPath, toolName, version, arch)) ||
     (await tc.cacheDir(extPath, toolName, version, arch))
   );
+}
+
+export function customToolCacheName(baseUrl: string): string {
+  const hash = crypto.createHash('sha256').update(baseUrl).digest('hex');
+  return `go-${hash.substring(0, 8)}`;
 }
 
 async function installGoVersion(
