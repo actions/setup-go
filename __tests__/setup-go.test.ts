@@ -1141,7 +1141,7 @@ use .
       expect(cnSpy).toHaveBeenCalledWith(`::add-path::${expPath}${osm.EOL}`);
     });
 
-    it('falls back to direct download when version listing is unavailable', async () => {
+    it('skips version listing for known direct-download URL (aka.ms)', async () => {
       os.platform = 'linux';
       os.arch = 'x64';
 
@@ -1150,11 +1150,6 @@ use .
 
       inputs['go-version'] = versionSpec;
       inputs['go-download-base-url'] = customBaseUrl;
-
-      // Simulate JSON API not being available (like aka.ms)
-      getSpy.mockImplementationOnce(() => {
-        throw new Error('Not a JSON endpoint');
-      });
 
       findSpy.mockImplementation(() => '');
       dlSpy.mockImplementation(async () => '/some/temp/path');
@@ -1166,17 +1161,18 @@ use .
 
       const expPath = path.join(toolPath, 'bin');
       expect(logSpy).toHaveBeenCalledWith(
-        'Version listing not available from custom URL. Constructing download URL directly.'
+        'Skipping version listing for known direct-download URL. Constructing download URL directly.'
       );
       expect(logSpy).toHaveBeenCalledWith(
         `Constructed direct download URL: ${customBaseUrl}/go1.25.0.linux-amd64.tar.gz`
       );
       expect(logSpy).toHaveBeenCalledWith('Install from custom download URL');
+      expect(getSpy).not.toHaveBeenCalled();
       expect(dlSpy).toHaveBeenCalled();
       expect(cnSpy).toHaveBeenCalledWith(`::add-path::${expPath}${osm.EOL}`);
     });
 
-    it('constructs correct direct download URL for windows', async () => {
+    it('constructs correct direct download URL for windows (aka.ms)', async () => {
       os.platform = 'win32';
       os.arch = 'x64';
 
@@ -1187,11 +1183,6 @@ use .
       inputs['go-download-base-url'] = customBaseUrl;
       process.env['RUNNER_TEMP'] = 'C:\\temp\\';
 
-      // Simulate JSON API not being available
-      getSpy.mockImplementationOnce(() => {
-        throw new Error('Not a JSON endpoint');
-      });
-
       findSpy.mockImplementation(() => '');
       dlSpy.mockImplementation(async () => 'C:\\temp\\some\\path');
       extractZipSpy.mockImplementation(() => 'C:\\temp\\some\\other\\path');
@@ -1200,6 +1191,7 @@ use .
 
       await main.run();
 
+      expect(getSpy).not.toHaveBeenCalled();
       expect(dlSpy).toHaveBeenCalledWith(
         `${customBaseUrl}/go1.25.0.windows-amd64.zip`,
         'C:\\temp\\go1.25.0.windows-amd64.zip',
@@ -1408,11 +1400,6 @@ use .
 
       inputs['go-version'] = versionSpec;
       inputs['go-download-base-url'] = customBaseUrl;
-
-      // Simulate JSON API not being available (like aka.ms)
-      getSpy.mockImplementationOnce(() => {
-        throw new Error('Not a JSON endpoint');
-      });
 
       findSpy.mockImplementation(() => '');
       dlSpy.mockImplementation(async () => '/some/temp/path');

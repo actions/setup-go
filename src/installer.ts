@@ -23,6 +23,11 @@ type InstallationType = 'dist' | 'manifest';
 
 const GOLANG_DOWNLOAD_URL = 'https://go.dev/dl/?mode=json&include=all';
 
+// Base URLs known to not serve a version listing JSON endpoint.
+// For these URLs we skip the getInfoFromDist() call entirely and construct
+// the download URL directly, avoiding a guaranteed-404 HTTP request.
+const NO_VERSION_LISTING_BASE_URLS = ['https://aka.ms/golang/release/latest'];
+
 export interface IGoVersionFile {
   filename: string;
   // darwin, linux, windows
@@ -132,15 +137,26 @@ export async function getGo(
     //
     // Download from custom base URL
     //
-    try {
-      info = await getInfoFromDist(versionSpec, arch, customBaseUrl);
-    } catch {
+    const skipVersionListing = NO_VERSION_LISTING_BASE_URLS.some(
+      url => customBaseUrl.toLowerCase() === url.toLowerCase()
+    );
+
+    if (skipVersionListing) {
       core.info(
-        'Version listing not available from custom URL. Constructing download URL directly.'
+        'Skipping version listing for known direct-download URL. Constructing download URL directly.'
       );
-    }
-    if (!info) {
       info = getInfoFromDirectDownload(versionSpec, arch, customBaseUrl);
+    } else {
+      try {
+        info = await getInfoFromDist(versionSpec, arch, customBaseUrl);
+      } catch {
+        core.info(
+          'Version listing not available from custom URL. Constructing download URL directly.'
+        );
+      }
+      if (!info) {
+        info = getInfoFromDirectDownload(versionSpec, arch, customBaseUrl);
+      }
     }
 
     try {
