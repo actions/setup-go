@@ -54,6 +54,9 @@ See [action.yml](action.yml).
     
     # Architecture to install (auto-detected if not specified)
     architecture: 'x64'
+    
+    # Custom base URL for Go downloads (e.g., for mirrors)
+    go-download-base-url: ''
 ```
 <!-- end usage -->
 
@@ -130,6 +133,7 @@ For examples of using `cache-dependency-path`, see the [Caching](docs/advanced-u
 - [Check latest version](docs/advanced-usage.md#check-latest-version)
 - [Caching](docs/advanced-usage.md#caching)
 - [Outputs](docs/advanced-usage.md#outputs)
+- [Custom download URL](docs/advanced-usage.md#custom-download-url)
 - [Using `setup-go` on GHES](docs/advanced-usage.md#using-setup-go-on-ghes)
 
 ## License
