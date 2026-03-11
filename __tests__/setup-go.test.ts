@@ -1136,6 +1136,10 @@ use .
         `Using custom Go download base URL: ${customBaseUrl}`
       );
       expect(logSpy).toHaveBeenCalledWith('Install from custom download URL');
+      // Version listing should use custom base URL, not go.dev
+      expect(getSpy).toHaveBeenCalledWith(
+        `${customBaseUrl}/?mode=json&include=all`
+      );
       expect(dlSpy).toHaveBeenCalled();
       expect(extractTarSpy).toHaveBeenCalled();
       expect(cnSpy).toHaveBeenCalledWith(`::add-path::${expPath}${osm.EOL}`);

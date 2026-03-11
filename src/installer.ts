@@ -502,7 +502,14 @@ async function getInfoFromDist(
   arch: Architecture,
   goDownloadBaseUrl?: string
 ): Promise<IGoVersionInfo | null> {
-  const version: IGoVersion | undefined = await findMatch(versionSpec, arch);
+  const dlUrl = goDownloadBaseUrl
+    ? `${goDownloadBaseUrl}/?mode=json&include=all`
+    : GOLANG_DOWNLOAD_URL;
+  const version: IGoVersion | undefined = await findMatch(
+    versionSpec,
+    arch,
+    dlUrl
+  );
   if (!version) {
     return null;
   }
@@ -553,7 +560,8 @@ export function getInfoFromDirectDownload(
 
 export async function findMatch(
   versionSpec: string,
-  arch: Architecture = os.arch() as Architecture
+  arch: Architecture = os.arch() as Architecture,
+  dlUrl: string = GOLANG_DOWNLOAD_URL
 ): Promise<IGoVersion | undefined> {
   const archFilter = sys.getArch(arch);
   const platFilter = sys.getPlatform();
@@ -562,7 +570,7 @@ export async function findMatch(
   let match: IGoVersion | undefined;
 
   const candidates: IGoVersion[] | null = await module.exports.getVersionsDist(
-    GOLANG_DOWNLOAD_URL
+    dlUrl
   );
   if (!candidates) {
     throw new Error(`golang download url did not return results`);
