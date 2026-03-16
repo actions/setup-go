@@ -12,6 +12,7 @@
   - [Restore-only caches](advanced-usage.md#restore-only-caches)
   - [Parallel builds](advanced-usage.md#parallel-builds)
 - [Outputs](advanced-usage.md#outputs)
+- [Custom download URL](advanced-usage.md#custom-download-url)
 - [Using `setup-go` on GHES](advanced-usage.md#using-setup-go-on-ghes)
 
 ## Using the `go-version` input
@@ -222,6 +223,8 @@ want the most up-to-date Go version to always be used. It supports major (e.g., 
 
 > Setting `check-latest` to `true` has performance implications as downloading Go versions is slower than using cached
 > versions.
+>
+> `check-latest` is ignored when `go-download-base-url` is set. See [Custom download URL](#custom-download-url) for details.
 
 ```yaml
 steps:
@@ -415,6 +418,57 @@ jobs:
           go-version: '1.24'
           cache: true
       - run: echo "Was the Go cache restored? ${{ steps.go124.outputs.cache-hit }}" # true if cache-hit occurred
+```
+
+## Custom download URL
+
+The `go-download-base-url` input lets you download Go from a mirror or alternative source instead of the default `https://go.dev/dl`. This can also be set via the `GO_DOWNLOAD_BASE_URL` environment variable; the input takes precedence over the environment variable.
+
+When a custom base URL is provided, the action skips the `actions/go-versions` manifest lookup and downloads directly from the specified URL.
+
+**Using the [Microsoft build of Go](https://github.com/nicholasgasior/microsoft-go):**
+
+```yaml
+steps:
+  - uses: actions/checkout@v6
+  - uses: actions/setup-go@v6
+    with:
+      go-version: '1.25'
+      go-download-base-url: 'https://aka.ms/golang/release/latest'
+  - run: go version
+```
+
+**Using an environment variable:**
+
+```yaml
+env:
+  GO_DOWNLOAD_BASE_URL: 'https://aka.ms/golang/release/latest'
+
+steps:
+  - uses: actions/checkout@v6
+  - uses: actions/setup-go@v6
+    with:
+      go-version: '1.25'
+  - run: go version
+```
+
+> **Note:** Version range syntax (`^1.25`, `~1.24`, `>=1.25.0`) and aliases (`stable`, `oldstable`) are not supported with custom download URLs. Use exact versions such as `1.25`, `1.25.0`, or `1.25.0-1` (for sources that use revision numbers). If the custom server provides a version listing endpoint (`/?mode=json&include=all`), semver ranges will work; otherwise only exact versions are accepted.
+
+> **Note:** The `check-latest` option is ignored when a custom download base URL is set. The action cannot query the custom server for the latest version, so it uses the version you specify directly. If you provide a partial version like `1.25`, the server determines which patch release to serve.
+
+**Authenticated downloads:**
+
+If your custom download source requires authentication, the `token` input is forwarded as an `Authorization` header. For example, to download from a private mirror:
+
+```yaml
+steps:
+  - uses: actions/checkout@v6
+  - uses: actions/setup-go@v6
+    with:
+      go-version: '1.25'
+      go-download-base-url: 'https://private-mirror.example.com/golang'
+      token: ${{ secrets.MIRROR_TOKEN }}
+  - run: go version
 ```
 
 ## Using `setup-go` on GHES
