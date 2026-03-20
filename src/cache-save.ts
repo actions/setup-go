@@ -18,6 +18,14 @@ process.on('uncaughtException', e => {
 
 export async function run(earlyExit?: boolean) {
   try {
+    const cacheWriteEnabled = core.getInput('cache-write');
+    if (cacheWriteEnabled === 'false') {
+      core.info(
+        'Cache write is disabled (read-only mode). Skipping cache save.'
+      );
+      return;
+    }
+
     const cacheInput = core.getBooleanInput('cache');
     if (cacheInput) {
       await cachePackages();

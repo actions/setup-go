@@ -17,6 +17,9 @@ inputs:
     default: true
   cache-dependency-path:
     description: 'Used to specify the path to a dependency file (e.g., go.mod, go.sum)'
+  cache-write:
+    description: 'Whether to save the cache at the end of the workflow. Set to false for cache read-only mode, useful for preventing cache poisoning from untrusted PR builds.'
+    default: true
   architecture:
     description: 'Target architecture for Go to use. Examples: x86, x64. Will use system architecture by default.'
   go-download-base-url:
