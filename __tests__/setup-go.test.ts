@@ -1060,6 +1060,12 @@ use .
           desc: 'from toolchain directive'
         },
         {
+          goVersionfile: 'golangci-lint.mod',
+          fileContents: Buffer.from(buildGoMod(placeholderVersion, version)),
+          expected_version: version,
+          desc: 'from toolchain directive in non-standard .mod file'
+        },
+        {
           goVersionfile: 'go.mod',
           fileContents: Buffer.from(buildGoMod(placeholderVersion, version)),
           gotoolchain_env: 'local',
@@ -1072,6 +1078,13 @@ use .
           gotoolchain_env: 'local',
           expected_version: placeholderVersion,
           desc: 'from go directive when GOTOOLCHAIN is local'
+        },
+        {
+          goVersionfile: 'golangci-lint.mod',
+          fileContents: Buffer.from(buildGoMod(placeholderVersion, version)),
+          gotoolchain_env: 'local',
+          expected_version: placeholderVersion,
+          desc: 'from go directive in non-standard .mod file when GOTOOLCHAIN is local'
         }
       ].forEach(test => {
         it(`reads version (${version}) in ${test.goVersionfile} ${test.desc}`, async () => {

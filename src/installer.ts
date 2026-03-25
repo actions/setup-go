@@ -654,7 +654,7 @@ export function parseGoVersionFile(versionFilePath: string): string {
   const contents = fs.readFileSync(versionFilePath).toString();
 
   if (
-    path.basename(versionFilePath) === 'go.mod' ||
+    versionFilePath.endsWith('.mod') ||
     path.basename(versionFilePath) === 'go.work'
   ) {
     // for backwards compatibility: use version from go directive if
