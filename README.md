@@ -102,18 +102,6 @@ For details on Semantic Versioning, see [the semver package documentation](https
 >
 > The recommendation is based on the YAML parser's behavior, which interprets non-wrapped values as numbers and, in the case of version `1.20`, trims it down to `1.2`, which may not be very obvious.
 
-### Automatic go.mod detection
-
-**New in v6**: If neither `go-version` nor `go-version-file` is specified, the action will automatically look for a `go.mod` file in the repository root and use the Go version specified in it. This simplifies workflows for projects that already have a `go.mod` file.
-
-```yaml
-steps:
-  - uses: actions/checkout@v6
-  - uses: actions/setup-go@v6
-    # Automatically uses go.mod from repository root
-  - run: go version
-```
-
 For more usage examples, please refer to the section: [Using go-version input](docs/advanced-usage.md#using-the-go-version-input) of the [Advanced usage](docs/advanced-usage.md) guide.
 
 ## Recommended permissions
