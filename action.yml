@@ -5,7 +5,7 @@ inputs:
   go-version:
     description: 'The Go version to download (if necessary) and use. Supports semver spec and ranges. Be sure to enclose this option in single quotation marks.'
   go-version-file:
-    description: 'Path to the go.mod or go.work file. If not specified, the action will automatically use go.mod from the workspace root if it exists.'
+    description: 'Path to the go.mod, go.work, .go-version, or .tool-versions file. If not specified, the action will automatically use go.mod from the workspace root if it exists.'
   check-latest:
     description: 'Set this option to true if you want the action to always check for the latest available version that satisfies the version spec'
     default: false
@@ -16,16 +16,18 @@ inputs:
     description: Used to specify whether caching is needed. Set to true, if you'd like to enable caching.
     default: true
   cache-dependency-path:
-    description: 'Used to specify the path to a dependency file - go.sum'
+    description: 'Used to specify the path to a dependency file (e.g., go.mod, go.sum)'
   architecture:
     description: 'Target architecture for Go to use. Examples: x86, x64. Will use system architecture by default.'
+  go-download-base-url:
+    description: 'Custom base URL for downloading Go distributions. Use this to download Go from a mirror or custom source. Defaults to "https://go.dev/dl". Can also be set via the GO_DOWNLOAD_BASE_URL environment variable. The input takes precedence over the environment variable.'
 outputs:
   go-version:
     description: 'The installed Go version. Useful when given a version range as input.'
   cache-hit:
     description: 'A boolean value to indicate if a cache was hit'
 runs:
-  using: 'node20'
+  using: 'node24'
   main: 'dist/setup/index.js'
   post: 'dist/cache-save/index.js'
   post-if: success()

@@ -1,0 +1,143 @@
+name: Validate Microsoft build of Go
+
+on:
+  push:
+    branches:
+      - main
+    paths-ignore:
+      - '**.md'
+  pull_request:
+    paths-ignore:
+      - '**.md'
+
+jobs:
+  microsoft-basic:
+    name: 'Microsoft build of Go ${{ matrix.go-version }} on ${{ matrix.os }}'
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+        go-version: ['1.25', '1.24']
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Setup Microsoft build of Go ${{ matrix.go-version }}
+        uses: ./
+        with:
+          go-version: ${{ matrix.go-version }}
+          go-download-base-url: 'https://aka.ms/golang/release/latest'
+          cache: false
+
+      - name: Verify Go installation
+        run: go version
+
+      - name: Verify Go env
+        run: go env
+
+      - name: Verify Go is functional
+        shell: bash
+        run: |
+          # Create a simple Go program and run it
+          mkdir -p /tmp/test-go && cd /tmp/test-go
+          cat > main.go << 'EOF'
+          package main
+          import "fmt"
+          func main() {
+            fmt.Println("Hello from Microsoft build of Go!")
+          }
+          EOF
+          go run main.go
+
+  microsoft-env-var:
+    name: 'Microsoft build of Go via env var on ${{ matrix.os }}'
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+    env:
+      GO_DOWNLOAD_BASE_URL: 'https://aka.ms/golang/release/latest'
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Setup Microsoft build of Go via environment variable
+        uses: ./
+        with:
+          go-version: '1.25'
+          cache: false
+
+      - name: Verify Go installation
+        run: go version
+
+      - name: Verify Go is functional
+        shell: bash
+        run: |
+          mkdir -p /tmp/test-go && cd /tmp/test-go
+          cat > main.go << 'EOF'
+          package main
+          import "fmt"
+          func main() {
+            fmt.Println("Hello from Microsoft build of Go via env var!")
+          }
+          EOF
+          go run main.go
+
+  microsoft-architecture:
+    name: 'Microsoft build of Go arch ${{ matrix.architecture }} on ${{ matrix.os }}'
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest]
+        architecture: [x64]
+        include:
+          - os: macos-latest
+            architecture: arm64
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Setup Microsoft build of Go with architecture
+        uses: ./
+        with:
+          go-version: '1.25'
+          go-download-base-url: 'https://aka.ms/golang/release/latest'
+          architecture: ${{ matrix.architecture }}
+          cache: false
+
+      - name: Verify Go installation
+        run: go version
+
+  microsoft-with-cache:
+    name: 'Microsoft build of Go with caching on ${{ matrix.os }}'
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Setup Microsoft build of Go with caching
+        uses: ./
+        with:
+          go-version: '1.25'
+          go-download-base-url: 'https://aka.ms/golang/release/latest'
+          cache: true
+
+      - name: Verify Go installation
+        run: go version
+
+      - name: Verify Go is functional
+        shell: bash
+        run: |
+          mkdir -p /tmp/test-go && cd /tmp/test-go
+          go mod init test
+          cat > main.go << 'EOF'
+          package main
+          import "fmt"
+          func main() {
+            fmt.Println("Hello from cached Microsoft build of Go!")
+          }
+          EOF
+          go run main.go

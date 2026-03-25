@@ -45,6 +45,7 @@ describe('setup-go', () => {
   let mkdirSpy: jest.SpyInstance;
   let symlinkSpy: jest.SpyInstance;
   let execSpy: jest.SpyInstance;
+  let execFileSpy: jest.SpyInstance;
   let getManifestSpy: jest.SpyInstance;
   let getAllVersionsSpy: jest.SpyInstance;
   let httpmGetJsonSpy: jest.SpyInstance;
@@ -71,6 +72,10 @@ describe('setup-go', () => {
     archSpy = jest.spyOn(osm, 'arch');
     archSpy.mockImplementation(() => os['arch']);
     execSpy = jest.spyOn(cp, 'execSync');
+    execFileSpy = jest.spyOn(cp, 'execFileSync');
+    execFileSpy.mockImplementation(() => {
+      throw new Error('ENOENT');
+    });
 
     // switch path join behaviour based on set os.platform
     joinSpy = jest.spyOn(path, 'join');
@@ -129,8 +134,9 @@ describe('setup-go', () => {
   });
 
   afterEach(() => {
-    // clear out env var set during 'run'
+    // clear out env vars set during 'run'
     delete process.env[im.GOTOOLCHAIN_ENV_VAR];
+    delete process.env['GO_DOWNLOAD_BASE_URL'];
 
     //jest.resetAllMocks();
     jest.clearAllMocks();
@@ -389,7 +395,7 @@ describe('setup-go', () => {
 
     const expPath = path.win32.join(toolPath, 'bin');
     expect(dlSpy).toHaveBeenCalledWith(
-      'https://storage.googleapis.com/golang/go1.13.1.windows-amd64.zip',
+      'https://go.dev/dl/go1.13.1.windows-amd64.zip',
       'C:\\temp\\go1.13.1.windows-amd64.zip',
       undefined
     );
@@ -868,6 +874,9 @@ use .
 
 `;
 
+    const toolVersionsContents = `golang 1.23
+`;
+
     it('reads version from go.mod', async () => {
       inputs['go-version-file'] = 'go.mod';
       existsSpy.mockImplementation(() => true);
@@ -890,6 +899,18 @@ use .
       expect(logSpy).toHaveBeenCalledWith('Setup go version spec 1.19');
       expect(logSpy).toHaveBeenCalledWith('Attempting to download 1.19...');
       expect(logSpy).toHaveBeenCalledWith('matching 1.19...');
+    });
+
+    it('reads version from .tool-versions', async () => {
+      inputs['go-version-file'] = '.tool-versions';
+      existsSpy.mockImplementation(() => true);
+      readFileSpy.mockImplementation(() => Buffer.from(toolVersionsContents));
+
+      await main.run();
+
+      expect(logSpy).toHaveBeenCalledWith('Setup go version spec 1.23');
+      expect(logSpy).toHaveBeenCalledWith('Attempting to download 1.23...');
+      expect(logSpy).toHaveBeenCalledWith('matching 1.23...');
     });
 
     it('reads version from .go-version', async () => {
@@ -946,7 +967,7 @@ use .
         const expectedUrl =
           platform === 'win32'
             ? `https://github.com/actions/go-versions/releases/download/${version}/go-${version}-${platform}-${arch}.${fileExtension}`
-            : `https://storage.googleapis.com/golang/go${version}.${osSpec}-${arch}.${fileExtension}`;
+            : `https://go.dev/dl/go${version}.${osSpec}-${arch}.${fileExtension}`;
 
         // ... but not in the local cache
         findSpy.mockImplementation(() => '');
@@ -1112,6 +1133,458 @@ use .
 
       expect(logSpy).toHaveBeenCalledWith(
         '[warning]go-version input was not specified. The action will try to use pre-installed version.'
+      );
+    });
+  });
+
+  describe('go-download-base-url', () => {
+    it('downloads a version from custom base URL using version listing', async () => {
+      os.platform = 'linux';
+      os.arch = 'x64';
+
+      const versionSpec = '1.13.1';
+      const customBaseUrl = 'https://example.com/golang';
+
+      inputs['go-version'] = versionSpec;
+      inputs['go-download-base-url'] = customBaseUrl;
+
+      findSpy.mockImplementation(() => '');
+      dlSpy.mockImplementation(async () => '/some/temp/path');
+      const toolPath = path.normalize('/cache/go/1.13.1/x64');
+      extractTarSpy.mockImplementation(async () => '/some/other/temp/path');
+      cacheSpy.mockImplementation(async () => toolPath);
+
+      await main.run();
+
+      const expPath = path.join(toolPath, 'bin');
+      expect(logSpy).toHaveBeenCalledWith(
+        `Using custom Go download base URL: ${customBaseUrl}`
+      );
+      expect(logSpy).toHaveBeenCalledWith('Install from custom download URL');
+      // Version listing should use custom base URL, not go.dev
+      expect(getSpy).toHaveBeenCalledWith(
+        `${customBaseUrl}/?mode=json&include=all`
+      );
+      expect(dlSpy).toHaveBeenCalled();
+      expect(extractTarSpy).toHaveBeenCalled();
+      expect(cnSpy).toHaveBeenCalledWith(`::add-path::${expPath}${osm.EOL}`);
+    });
+
+    it('skips version listing for known direct-download URL (aka.ms)', async () => {
+      os.platform = 'linux';
+      os.arch = 'x64';
+
+      const versionSpec = '1.25.0';
+      const customBaseUrl = 'https://aka.ms/golang/release/latest';
+
+      inputs['go-version'] = versionSpec;
+      inputs['go-download-base-url'] = customBaseUrl;
+
+      findSpy.mockImplementation(() => '');
+      dlSpy.mockImplementation(async () => '/some/temp/path');
+      const toolPath = path.normalize('/cache/go/1.25.0/x64');
+      extractTarSpy.mockImplementation(async () => '/some/other/temp/path');
+      cacheSpy.mockImplementation(async () => toolPath);
+
+      await main.run();
+
+      const expPath = path.join(toolPath, 'bin');
+      expect(logSpy).toHaveBeenCalledWith(
+        'Skipping version listing for known direct-download URL. Constructing download URL directly.'
+      );
+      expect(logSpy).toHaveBeenCalledWith(
+        `Constructed direct download URL: ${customBaseUrl}/go1.25.0.linux-amd64.tar.gz`
+      );
+      expect(logSpy).toHaveBeenCalledWith('Install from custom download URL');
+      expect(getSpy).not.toHaveBeenCalled();
+      expect(dlSpy).toHaveBeenCalled();
+      expect(cnSpy).toHaveBeenCalledWith(`::add-path::${expPath}${osm.EOL}`);
+    });
+
+    it('constructs correct direct download URL for windows (aka.ms)', async () => {
+      os.platform = 'win32';
+      os.arch = 'x64';
+
+      const versionSpec = '1.25.0';
+      const customBaseUrl = 'https://aka.ms/golang/release/latest';
+
+      inputs['go-version'] = versionSpec;
+      inputs['go-download-base-url'] = customBaseUrl;
+      process.env['RUNNER_TEMP'] = 'C:\\temp\\';
+
+      findSpy.mockImplementation(() => '');
+      dlSpy.mockImplementation(async () => 'C:\\temp\\some\\path');
+      extractZipSpy.mockImplementation(() => 'C:\\temp\\some\\other\\path');
+      const toolPath = path.normalize('C:\\cache\\go\\1.25.0\\x64');
+      cacheSpy.mockImplementation(async () => toolPath);
+
+      await main.run();
+
+      expect(getSpy).not.toHaveBeenCalled();
+      expect(dlSpy).toHaveBeenCalledWith(
+        `${customBaseUrl}/go1.25.0.windows-amd64.zip`,
+        'C:\\temp\\go1.25.0.windows-amd64.zip',
+        undefined
+      );
+    });
+
+    it('skips manifest and downloads directly from custom URL', async () => {
+      os.platform = 'linux';
+      os.arch = 'x64';
+
+      const versionSpec = '1.12.16';
+      const customBaseUrl = 'https://example.com/golang';
+
+      inputs['go-version'] = versionSpec;
+      inputs['go-download-base-url'] = customBaseUrl;
+      inputs['token'] = 'faketoken';
+
+      findSpy.mockImplementation(() => '');
+      dlSpy.mockImplementation(async () => '/some/temp/path');
+      const toolPath = path.normalize('/cache/go/1.12.16/x64');
+      extractTarSpy.mockImplementation(async () => '/some/other/temp/path');
+      cacheSpy.mockImplementation(async () => toolPath);
+
+      await main.run();
+
+      // Should not try to use the manifest at all
+      expect(logSpy).not.toHaveBeenCalledWith(
+        expect.stringContaining('Not found in manifest')
+      );
+      expect(logSpy).toHaveBeenCalledWith('Install from custom download URL');
+    });
+
+    it('strips trailing slashes from custom base URL', async () => {
+      os.platform = 'linux';
+      os.arch = 'x64';
+
+      const versionSpec = '1.13.1';
+      const customBaseUrl = 'https://example.com/golang/';
+
+      inputs['go-version'] = versionSpec;
+      inputs['go-download-base-url'] = customBaseUrl;
+
+      findSpy.mockImplementation(() => '');
+      dlSpy.mockImplementation(async () => '/some/temp/path');
+      const toolPath = path.normalize('/cache/go/1.13.1/x64');
+      extractTarSpy.mockImplementation(async () => '/some/other/temp/path');
+      cacheSpy.mockImplementation(async () => toolPath);
+
+      await main.run();
+
+      expect(logSpy).toHaveBeenCalledWith(
+        `Acquiring go1.13.1 from https://example.com/golang/go1.13.1.linux-amd64.tar.gz`
+      );
+    });
+
+    it('reads custom base URL from environment variable', async () => {
+      os.platform = 'linux';
+      os.arch = 'x64';
+
+      const versionSpec = '1.13.1';
+      const customBaseUrl = 'https://example.com/golang';
+
+      inputs['go-version'] = versionSpec;
+      process.env['GO_DOWNLOAD_BASE_URL'] = customBaseUrl;
+
+      findSpy.mockImplementation(() => '');
+      dlSpy.mockImplementation(async () => '/some/temp/path');
+      const toolPath = path.normalize('/cache/go/1.13.1/x64');
+      extractTarSpy.mockImplementation(async () => '/some/other/temp/path');
+      cacheSpy.mockImplementation(async () => toolPath);
+
+      await main.run();
+
+      expect(logSpy).toHaveBeenCalledWith(
+        `Using custom Go download base URL: ${customBaseUrl}`
+      );
+      expect(logSpy).toHaveBeenCalledWith('Install from custom download URL');
+    });
+
+    it('input takes precedence over environment variable', async () => {
+      os.platform = 'linux';
+      os.arch = 'x64';
+
+      const versionSpec = '1.13.1';
+      const inputUrl = 'https://input.example.com/golang';
+      const envUrl = 'https://env.example.com/golang';
+
+      inputs['go-version'] = versionSpec;
+      inputs['go-download-base-url'] = inputUrl;
+      process.env['GO_DOWNLOAD_BASE_URL'] = envUrl;
+
+      findSpy.mockImplementation(() => '');
+      dlSpy.mockImplementation(async () => '/some/temp/path');
+      const toolPath = path.normalize('/cache/go/1.13.1/x64');
+      extractTarSpy.mockImplementation(async () => '/some/other/temp/path');
+      cacheSpy.mockImplementation(async () => toolPath);
+
+      await main.run();
+
+      expect(logSpy).toHaveBeenCalledWith(
+        `Using custom Go download base URL: ${inputUrl}`
+      );
+      expect(logSpy).toHaveBeenCalledWith(
+        `Acquiring go1.13.1 from ${inputUrl}/go1.13.1.linux-amd64.tar.gz`
+      );
+    });
+
+    it('errors when stable alias is used with custom URL', async () => {
+      os.platform = 'linux';
+      os.arch = 'x64';
+
+      inputs['go-version'] = 'stable';
+      inputs['go-download-base-url'] = 'https://example.com/golang';
+
+      findSpy.mockImplementation(() => '');
+      await main.run();
+
+      expect(cnSpy).toHaveBeenCalledWith(
+        `::error::Version aliases 'stable' are not supported with a custom download base URL. Please specify an exact Go version.${osm.EOL}`
+      );
+    });
+
+    it('logs info when check-latest is used with custom URL', async () => {
+      os.platform = 'linux';
+      os.arch = 'x64';
+
+      const versionSpec = '1.13.1';
+      const customBaseUrl = 'https://example.com/golang';
+
+      inputs['go-version'] = versionSpec;
+      inputs['go-download-base-url'] = customBaseUrl;
+      inputs['check-latest'] = true;
+
+      findSpy.mockImplementation(() => '');
+      dlSpy.mockImplementation(async () => '/some/temp/path');
+      const toolPath = path.normalize('/cache/go/1.13.1/x64');
+      extractTarSpy.mockImplementation(async () => '/some/other/temp/path');
+      cacheSpy.mockImplementation(async () => toolPath);
+
+      await main.run();
+
+      expect(logSpy).toHaveBeenCalledWith(
+        'check-latest is not supported with a custom download base URL. Using the provided version spec directly.'
+      );
+    });
+
+    it('constructs direct download info correctly', () => {
+      os.platform = 'linux';
+      os.arch = 'x64';
+
+      const info = im.getInfoFromDirectDownload(
+        '1.25.0',
+        'x64',
+        'https://aka.ms/golang/release/latest'
+      );
+
+      expect(info.type).toBe('dist');
+      expect(info.downloadUrl).toBe(
+        'https://aka.ms/golang/release/latest/go1.25.0.linux-amd64.tar.gz'
+      );
+      expect(info.fileName).toBe('go1.25.0.linux-amd64.tar.gz');
+      expect(info.resolvedVersion).toBe('1.25.0');
+    });
+
+    it('constructs direct download info for windows', () => {
+      os.platform = 'win32';
+      os.arch = 'x64';
+
+      const info = im.getInfoFromDirectDownload(
+        '1.25.0',
+        'x64',
+        'https://aka.ms/golang/release/latest'
+      );
+
+      expect(info.type).toBe('dist');
+      expect(info.downloadUrl).toBe(
+        'https://aka.ms/golang/release/latest/go1.25.0.windows-amd64.zip'
+      );
+      expect(info.fileName).toBe('go1.25.0.windows-amd64.zip');
+    });
+
+    it('constructs direct download info for arm64', () => {
+      os.platform = 'darwin';
+      os.arch = 'arm64';
+
+      const info = im.getInfoFromDirectDownload(
+        '1.25.0',
+        'arm64',
+        'https://aka.ms/golang/release/latest'
+      );
+
+      expect(info.type).toBe('dist');
+      expect(info.downloadUrl).toBe(
+        'https://aka.ms/golang/release/latest/go1.25.0.darwin-arm64.tar.gz'
+      );
+      expect(info.fileName).toBe('go1.25.0.darwin-arm64.tar.gz');
+    });
+
+    it('caches under actual installed version when it differs from input spec', async () => {
+      os.platform = 'linux';
+      os.arch = 'x64';
+
+      const versionSpec = '1.20';
+      const customBaseUrl = 'https://aka.ms/golang/release/latest';
+
+      inputs['go-version'] = versionSpec;
+      inputs['go-download-base-url'] = customBaseUrl;
+
+      findSpy.mockImplementation(() => '');
+      dlSpy.mockImplementation(async () => '/some/temp/path');
+      extractTarSpy.mockImplementation(async () => '/some/other/temp/path');
+
+      // Mock the installed Go binary reporting a different patch version
+      execFileSpy.mockImplementation(() => 'go version go1.20.14 linux/amd64');
+
+      const expectedToolName = im.customToolCacheName(customBaseUrl);
+      const toolPath = path.normalize(`/cache/${expectedToolName}/1.20.14/x64`);
+      cacheSpy.mockImplementation(async () => toolPath);
+
+      await main.run();
+
+      expect(logSpy).toHaveBeenCalledWith(
+        "Requested version '1.20' resolved to installed version '1.20.14'"
+      );
+      // Cache key should use actual version, not the input spec
+      expect(cacheSpy).toHaveBeenCalledWith(
+        expect.any(String),
+        expectedToolName,
+        '1.20.14',
+        'x64'
+      );
+    });
+
+    it('shows clear error with platform/arch and URL on 404', async () => {
+      os.platform = 'linux';
+      os.arch = 'arm64';
+
+      const versionSpec = '1.25.0';
+      const customBaseUrl = 'https://example.com/golang';
+
+      inputs['go-version'] = versionSpec;
+      inputs['go-download-base-url'] = customBaseUrl;
+
+      getSpy.mockImplementationOnce(() => {
+        throw new Error('Not a JSON endpoint');
+      });
+
+      findSpy.mockImplementation(() => '');
+      const httpError = new tc.HTTPError(404);
+      dlSpy.mockImplementation(() => {
+        throw httpError;
+      });
+
+      await main.run();
+
+      expect(cnSpy).toHaveBeenCalledWith(
+        expect.stringContaining(
+          'The requested Go version 1.25.0 is not available for platform linux/arm64'
+        )
+      );
+      expect(cnSpy).toHaveBeenCalledWith(expect.stringContaining('HTTP 404'));
+    });
+
+    it('shows clear error with platform/arch and URL on download failure', async () => {
+      os.platform = 'linux';
+      os.arch = 'x64';
+
+      const versionSpec = '1.25.0';
+      const customBaseUrl = 'https://example.com/golang';
+
+      inputs['go-version'] = versionSpec;
+      inputs['go-download-base-url'] = customBaseUrl;
+
+      getSpy.mockImplementationOnce(() => {
+        throw new Error('Not a JSON endpoint');
+      });
+
+      findSpy.mockImplementation(() => '');
+      dlSpy.mockImplementation(() => {
+        throw new Error('connection refused');
+      });
+
+      await main.run();
+
+      expect(cnSpy).toHaveBeenCalledWith(
+        expect.stringContaining(
+          'Failed to download Go 1.25.0 for platform linux/x64'
+        )
+      );
+      expect(cnSpy).toHaveBeenCalledWith(
+        expect.stringContaining(customBaseUrl)
+      );
+    });
+
+    it.each(['^1.25.0', '~1.25', '>=1.25.0', '<1.26.0', '1.25.x', '1.x'])(
+      'errors on version range "%s" when version listing is unavailable',
+      async versionSpec => {
+        os.platform = 'linux';
+        os.arch = 'x64';
+
+        inputs['go-version'] = versionSpec;
+        inputs['go-download-base-url'] = 'https://example.com/golang';
+
+        // Simulate version listing not available
+        getSpy.mockImplementationOnce(() => {
+          throw new Error('Not a JSON endpoint');
+        });
+
+        findSpy.mockImplementation(() => '');
+
+        await main.run();
+
+        expect(cnSpy).toHaveBeenCalledWith(
+          expect.stringContaining(
+            `Version range '${versionSpec}' is not supported with a custom download base URL`
+          )
+        );
+      }
+    );
+
+    it('rejects version range in getInfoFromDirectDownload', () => {
+      os.platform = 'linux';
+      os.arch = 'x64';
+
+      expect(() =>
+        im.getInfoFromDirectDownload(
+          '^1.25.0',
+          'x64',
+          'https://example.com/golang'
+        )
+      ).toThrow(
+        "Version range '^1.25.0' is not supported with a custom download base URL"
+      );
+    });
+
+    it('passes token as auth header for custom URL downloads', async () => {
+      os.platform = 'linux';
+      os.arch = 'x64';
+
+      const versionSpec = '1.25.0';
+      const customBaseUrl = 'https://private-mirror.example.com/golang';
+
+      inputs['go-version'] = versionSpec;
+      inputs['go-download-base-url'] = customBaseUrl;
+      inputs['token'] = 'ghp_testtoken123';
+
+      getSpy.mockImplementationOnce(() => {
+        throw new Error('Not a JSON endpoint');
+      });
+
+      findSpy.mockImplementation(() => '');
+      dlSpy.mockImplementation(async () => '/some/temp/path');
+      extractTarSpy.mockImplementation(async () => '/some/other/temp/path');
+      const expectedToolName = im.customToolCacheName(customBaseUrl);
+      const toolPath = path.normalize(`/cache/${expectedToolName}/1.25.0/x64`);
+      cacheSpy.mockImplementation(async () => toolPath);
+
+      await main.run();
+
+      expect(dlSpy).toHaveBeenCalledWith(
+        `${customBaseUrl}/go1.25.0.linux-amd64.tar.gz`,
+        undefined,
+        'token ghp_testtoken123'
       );
     });
   });
