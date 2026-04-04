@@ -15,6 +15,9 @@ inputs:
   cache:
     description: Used to specify whether caching is needed. Set to true, if you'd like to enable caching.
     default: true
+  cache-build:
+    description: 'Whether to cache the Go build cache (GOCACHE) in addition to the module cache (GOMODCACHE). Set to true to include build cache.'
+    default: false
   cache-dependency-path:
     description: 'Used to specify the path to a dependency file - go.sum'
   cache-key-prefix:
@@ -28,7 +31,7 @@ outputs:
   cache-hit:
     description: 'A boolean value to indicate if a cache was hit'
 runs:
-  using: 'node20'
+  using: 'node24'
   main: 'dist/setup/index.js'
   post: 'dist/cache-save/index.js'
   post-if: success()

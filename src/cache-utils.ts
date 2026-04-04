@@ -32,12 +32,15 @@ export const getPackageManagerInfo = async (packageManager: string) => {
 };
 
 export const getCacheDirectoryPath = async (
-  packageManagerInfo: PackageManagerInfo
+  packageManagerInfo: PackageManagerInfo,
+  includeBuildCache = true
 ) => {
+  const commands = includeBuildCache
+    ? packageManagerInfo.cacheFolderCommandList
+    : packageManagerInfo.cacheFolderCommandList.slice(0, 1);
+
   const pathOutputs = await Promise.allSettled(
-    packageManagerInfo.cacheFolderCommandList.map(async command =>
-      getCommandOutput(command)
-    )
+    commands.map(async command => getCommandOutput(command))
   );
 
   const results = pathOutputs.map(item => {

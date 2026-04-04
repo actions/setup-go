@@ -4,6 +4,7 @@ import * as glob from '@actions/glob';
 
 import * as cacheRestore from '../src/cache-restore';
 import * as cacheUtils from '../src/cache-utils';
+import * as hashdir from '../src/hashdir';
 import {PackageManagerInfo} from '../src/package-managers';
 
 describe('restoreCache', () => {
@@ -21,7 +22,11 @@ describe('restoreCache', () => {
   const packageManager = 'default';
   const cacheDependencyPath = 'path';
 
+  const computeMetaHashSpy = jest.spyOn(hashdir, 'computeMetaHash');
+
   beforeEach(() => {
+    process.env['INPUT_CACHE-BUILD'] = 'false';
+    computeMetaHashSpy.mockReturnValue('mock_build_hash');
     getCacheDirectoryPathSpy.mockImplementation(
       (PackageManager: PackageManagerInfo) => {
         return new Promise<string[]>(resolve => {

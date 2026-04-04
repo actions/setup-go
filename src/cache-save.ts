@@ -46,8 +46,12 @@ const cachePackages = async () => {
   const prevBuildHash = core.getState(State.CacheBuildHash);
 
   const packageManagerInfo = await getPackageManagerInfo(packageManager);
+  const cacheBuild = core.getBooleanInput('cache-build');
 
-  const cachePaths = await getCacheDirectoryPath(packageManagerInfo);
+  const cachePaths = await getCacheDirectoryPath(
+    packageManagerInfo,
+    cacheBuild
+  );
 
   const nonExistingPaths = cachePaths.filter(
     cachePath => !fs.existsSync(cachePath)
@@ -73,7 +77,8 @@ const cachePackages = async () => {
     return;
   }
 
-  const buildHash = computeMetaHash([cachePaths[1]]);
+  const buildHash =
+    cachePaths.length > 1 ? computeMetaHash([cachePaths[1]]) : '';
 
   if (primaryKey === state && buildHash === prevBuildHash) {
     core.info(
