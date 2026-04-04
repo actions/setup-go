@@ -1,6 +1,8 @@
 import * as cache from '@actions/cache';
 import * as core from '@actions/core';
 import * as exec from '@actions/exec';
+import fs from 'fs';
+import path from 'path';
 import {supportedPackageManagers, PackageManagerInfo} from './package-managers';
 
 export const getCommandOutput = async (toolCommand: string) => {
@@ -61,6 +63,42 @@ export const getCacheDirectoryPath = async (
 
   return cachePaths;
 };
+
+function getDirSizeBytes(dirPath: string): number {
+  if (!fs.existsSync(dirPath)) return 0;
+  const stat = fs.statSync(dirPath);
+  if (!stat.isDirectory()) return stat.size;
+
+  let total = 0;
+  for (const entry of fs.readdirSync(dirPath, {withFileTypes: true})) {
+    const entryPath = path.join(dirPath, entry.name);
+    if (entry.isDirectory()) {
+      total += getDirSizeBytes(entryPath);
+    } else {
+      total += fs.statSync(entryPath).size;
+    }
+  }
+  return total;
+}
+
+function formatSize(bytes: number): string {
+  if (bytes < 1024) return `${bytes} B`;
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+  if (bytes < 1024 * 1024 * 1024)
+    return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+  return `${(bytes / (1024 * 1024 * 1024)).toFixed(2)} GB`;
+}
+
+export function logCacheSizes(cachePaths: string[]): void {
+  const labels = ['GOMODCACHE', 'GOCACHE'];
+  let total = 0;
+  for (let i = 0; i < cachePaths.length; i++) {
+    const size = getDirSizeBytes(cachePaths[i]);
+    total += size;
+    core.info(`Cache size ${labels[i] || cachePaths[i]}: ${formatSize(size)}`);
+  }
+  core.info(`Cache size total: ${formatSize(total)}`);
+}
 
 export function isGhes(): boolean {
   const ghUrl = new URL(

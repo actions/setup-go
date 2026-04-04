@@ -2,7 +2,11 @@ import * as core from '@actions/core';
 import * as cache from '@actions/cache';
 import fs from 'fs';
 import {State} from './constants';
-import {getCacheDirectoryPath, getPackageManagerInfo} from './cache-utils';
+import {
+  getCacheDirectoryPath,
+  getPackageManagerInfo,
+  logCacheSizes
+} from './cache-utils';
 import {computeMetaHash} from './hashdir';
 
 // Catch and log any unhandled exceptions.  These exceptions can leak out of the uploadChunk method in
@@ -86,6 +90,8 @@ const cachePackages = async () => {
     );
     return;
   }
+
+  logCacheSizes(cachePaths);
 
   const updatedKey = primaryKey + (buildHash ? `-${buildHash}` : '');
   const start = Date.now();

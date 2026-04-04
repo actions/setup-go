@@ -6,7 +6,11 @@ import fs from 'fs';
 
 import {State, Outputs} from './constants';
 import {PackageManagerInfo} from './package-managers';
-import {getCacheDirectoryPath, getPackageManagerInfo} from './cache-utils';
+import {
+  getCacheDirectoryPath,
+  getPackageManagerInfo,
+  logCacheSizes
+} from './cache-utils';
 import {computeMetaHash} from './hashdir';
 
 export const restoreCache = async (
@@ -67,6 +71,7 @@ export const restoreCache = async (
 
   core.saveState(State.CacheMatchedKey, cacheKey);
   core.info(`Cache restored from key: ${cacheKey}`);
+  logCacheSizes(cachePaths);
 
   if (cachePaths.length > 1) {
     const buildHash = computeMetaHash([cachePaths[1]]);
