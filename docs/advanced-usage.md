@@ -164,7 +164,7 @@ jobs:
 
 ## Using the `go-version-file` input
 
-`setup-go` action can read the Go version from a version file. `go-version-file` input is used for specifying the path to the version file. If the file supplied to the `go-version-file` input doesn't exist, the action will fail with an error. This input supports go.mod, go.work, .go-version, and .tool-versions files.
+`setup-go` action can read the Go version from a version file. `go-version-file` input is used for specifying the path to the version file. If the file supplied to the `go-version-file` input doesn't exist, the action will fail with an error. This input supports standard `go.mod` and `go.work` files, custom files that use the same `go.mod`/`go.work` format (for example, `go.tool.mod`), and `.go-version` and `.tool-versions` files.
 
 If both the `go-version` and the `go-version-file` inputs are provided then the `go-version` input is used. The `.tool-versions` file supports version specifications in accordance with asdf standards, adhering to Semantic Versioning ([semver](https://semver.org)).
 

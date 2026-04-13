@@ -901,6 +901,18 @@ use .
       expect(logSpy).toHaveBeenCalledWith('matching 1.19...');
     });
 
+    it('reads version from go.mod-like file name', async () => {
+      inputs['go-version-file'] = 'go.tool.mod';
+      existsSpy.mockImplementation(() => true);
+      readFileSpy.mockImplementation(() => Buffer.from(goModContents));
+
+      await main.run();
+
+      expect(logSpy).toHaveBeenCalledWith('Setup go version spec 1.14');
+      expect(logSpy).toHaveBeenCalledWith('Attempting to download 1.14...');
+      expect(logSpy).toHaveBeenCalledWith('matching 1.14...');
+    });
+
     it('reads version from .tool-versions', async () => {
       inputs['go-version-file'] = '.tool-versions';
       existsSpy.mockImplementation(() => true);
@@ -1061,6 +1073,19 @@ use .
         },
         {
           goVersionfile: 'go.mod',
+          fileContents: Buffer.from(buildGoMod(placeholderVersion, version)),
+          gotoolchain_env: 'local',
+          expected_version: placeholderVersion,
+          desc: 'from go directive when GOTOOLCHAIN is local'
+        },
+        {
+          goVersionfile: 'go.tool.mod',
+          fileContents: Buffer.from(buildGoMod(placeholderVersion, version)),
+          expected_version: version,
+          desc: 'from toolchain directive'
+        },
+        {
+          goVersionfile: 'go.tool.mod',
           fileContents: Buffer.from(buildGoMod(placeholderVersion, version)),
           gotoolchain_env: 'local',
           expected_version: placeholderVersion,
