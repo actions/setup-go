@@ -19,7 +19,8 @@ process.on('uncaughtException', e => {
 export async function run(earlyExit?: boolean) {
   try {
     const cacheInput = core.getBooleanInput('cache');
-    if (cacheInput) {
+    const restoreOnly = core.getBooleanInput('restoreOnly');
+    if (cacheInput && !restoreOnly) {
       await cachePackages();
 
       if (earlyExit) {
