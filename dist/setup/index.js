@@ -52621,6 +52621,9 @@ function resolveVersionInput() {
         }
         version = installer.parseGoVersionFile(versionFilePath);
     }
+    if (!version && fs_1.default.existsSync('go.mod')) {
+        version = installer.parseGoVersionFile('go.mod');
+    }
     return version;
 }
 function setGoToolchain() {

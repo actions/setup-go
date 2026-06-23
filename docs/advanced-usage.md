@@ -168,6 +168,18 @@ jobs:
 
 If both the `go-version` and the `go-version-file` inputs are provided then the `go-version` input is used. The `.tool-versions` file supports version specifications in accordance with asdf standards, adhering to Semantic Versioning ([semver](https://semver.org)).
 
+### Automatic go.mod detection
+
+If neither `go-version` nor `go-version-file` is specified, the action will automatically look for a `go.mod` file in the repository root and use the Go version specified in it. This simplifies workflows for projects that already have a `go.mod` file.
+
+```yaml
+steps:
+  - uses: actions/checkout@v6
+  - uses: actions/setup-go@v6
+    # Automatically uses go.mod from repository root
+  - run: go version
+```
+
 ```yaml
 steps:
   - uses: actions/checkout@v6
