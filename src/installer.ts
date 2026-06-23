@@ -651,30 +651,38 @@ export function makeSemver(version: string): string {
 }
 
 export function parseGoVersionFile(versionFilePath: string): string {
-  const contents = fs.readFileSync(versionFilePath).toString();
+  const moduleOrWorkspaceDirective = /^\s*go\s+(\d+(?:\.\d+)*)/m;
+  const toolchainDirective = /^\s*toolchain\s+go(1\.\d+(?:\.\d+|rc\d+)?)/m;
+  const moduleDeclaration = /^\s*module\s+\S+/m;
+  const workspaceUseDirective = /^\s*use(?:\s+\S+|\s*\()/m;
 
-  if (
-    path.basename(versionFilePath) === 'go.mod' ||
-    path.basename(versionFilePath) === 'go.work'
-  ) {
+  const contents = fs.readFileSync(versionFilePath).toString();
+  const fileName = path.basename(versionFilePath);
+
+  const isGoModOrWorkFileName = fileName === 'go.mod' || fileName === 'go.work';
+  const isGoModuleOrWorkspaceLike =
+    moduleOrWorkspaceDirective.test(contents) &&
+    (moduleDeclaration.test(contents) || workspaceUseDirective.test(contents));
+
+  if (fileName === '.tool-versions') {
+    const match = contents.match(/^golang\s+([^\n#]+)/m);
+    return match ? match[1].trim() : '';
+  }
+
+  if (isGoModOrWorkFileName || isGoModuleOrWorkspaceLike) {
     // for backwards compatibility: use version from go directive if
     // 'GOTOOLCHAIN' has been explicitly set
     if (process.env[GOTOOLCHAIN_ENV_VAR] !== GOTOOLCHAIN_LOCAL_VAL) {
       // toolchain directive: https://go.dev/ref/mod#go-mod-file-toolchain
-      const matchToolchain = contents.match(
-        /^toolchain go(1\.\d+(?:\.\d+|rc\d+)?)/m
-      );
+      const matchToolchain = contents.match(toolchainDirective);
       if (matchToolchain) {
         return matchToolchain[1];
       }
     }
 
     // go directive: https://go.dev/ref/mod#go-mod-file-go
-    const matchGo = contents.match(/^go (\d+(\.\d+)*)/m);
+    const matchGo = contents.match(moduleOrWorkspaceDirective);
     return matchGo ? matchGo[1] : '';
-  } else if (path.basename(versionFilePath) === '.tool-versions') {
-    const match = contents.match(/^golang\s+([^\n#]+)/m);
-    return match ? match[1].trim() : '';
   }
 
   return contents.trim();
