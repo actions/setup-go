@@ -1,4 +1,5 @@
-import {isSelfHosted} from '../src/utils';
+import {describe, it, expect, beforeEach, afterEach} from '@jest/globals';
+import {isSelfHosted} from '../src/utils.js';
 
 describe('utils', () => {
   describe('isSelfHosted', () => {
