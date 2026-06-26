@@ -1,6 +1,6 @@
 {
   "name": "setup-go",
-  "version": "6.5.0",
+  "version": "7.0.0",
   "type": "module",
   "private": true,
   "description": "setup go action",
