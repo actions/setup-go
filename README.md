@@ -9,6 +9,11 @@ This action sets up a Go environment for use in GitHub Actions by:
 - Optionally caching Go modules and build outputs
 - Registering problem matchers for error output
 
+## Breaking changes in V7
+
+The V7 edition of the action includes:
+- **Migrated to ESM** to enable support for the latest `@actions/*` package versions.
+
 ## Breaking changes in V6
 
 The V6 edition of the action includes:

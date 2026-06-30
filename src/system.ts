@@ -1,5 +1,5 @@
 import os from 'os';
-import {Architecture} from './types';
+import {Architecture} from './types.js';
 
 export function getPlatform(): string {
   // darwin and linux match already
