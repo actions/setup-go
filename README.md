@@ -12,7 +12,7 @@ This action sets up a Go environment for use in GitHub Actions by:
 ## Breaking changes in V7
 
 The V7 edition of the action includes:
-- **Migrated to ESM** to enable support for the latest `@actions/*` package versions.
+- Migrated action internals to ESM for compatibility with latest `@actions/*` packages. No changes to action inputs, outputs, or behavior.
 
 ## Breaking changes in V6
 
