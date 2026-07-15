@@ -1,10 +1,41 @@
-import * as cache from '@actions/cache';
-import * as core from '@actions/core';
-import fs from 'fs';
+import {jest, describe, it, expect, beforeEach, afterEach} from '@jest/globals';
 
-import {run} from '../src/cache-save';
-import * as cacheUtils from '../src/cache-utils';
-import {State} from '../src/constants';
+jest.unstable_mockModule('@actions/cache', () => ({
+  saveCache: jest.fn(),
+  restoreCache: jest.fn(),
+  isFeatureAvailable: jest.fn()
+}));
+
+jest.unstable_mockModule('@actions/core', () => ({
+  info: jest.fn(),
+  warning: jest.fn(),
+  debug: jest.fn(),
+  error: jest.fn(),
+  setFailed: jest.fn(),
+  getInput: jest.fn(),
+  getBooleanInput: jest.fn(),
+  getState: jest.fn(),
+  saveState: jest.fn()
+}));
+
+const realFs = (await import('fs')).default;
+const fsExports = {...realFs, existsSync: jest.fn()};
+jest.unstable_mockModule('fs', () => ({...fsExports, default: fsExports}));
+
+// Import real cache-utils (with mocked @actions) before mocking it
+const realCacheUtils = await import('../src/cache-utils.js');
+
+jest.unstable_mockModule('../src/cache-utils.js', () => ({
+  ...realCacheUtils,
+  getCacheDirectoryPath: jest.fn()
+}));
+
+const cache = await import('@actions/cache');
+const core = await import('@actions/core');
+const fs = (await import('fs')).default;
+const cacheUtils = await import('../src/cache-utils.js');
+const {run} = await import('../src/cache-save.js');
+const {State} = await import('../src/constants.js');
 
 describe('cache-save', () => {
   const primaryKey = 'primary-key';
@@ -12,24 +43,28 @@ describe('cache-save', () => {
   let primaryKeyValue: string;
   let matchedKeyValue: string;
 
-  let getBooleanInputSpy: jest.SpyInstance;
-  let getStateSpy: jest.SpyInstance;
-  let infoSpy: jest.SpyInstance;
-  let warningSpy: jest.SpyInstance;
-  let debugSpy: jest.SpyInstance;
-  let setFailedSpy: jest.SpyInstance;
-  let saveCacheSpy: jest.SpyInstance;
-  let getCacheDirectoryPathSpy: jest.SpyInstance;
-  let existsSpy: jest.SpyInstance;
+  let getBooleanInputSpy: jest.Mock<typeof core.getBooleanInput>;
+  let getStateSpy: jest.Mock<typeof core.getState>;
+  let infoSpy: jest.Mock<typeof core.info>;
+  let warningSpy: jest.Mock<typeof core.warning>;
+  let debugSpy: jest.Mock<typeof core.debug>;
+  let setFailedSpy: jest.Mock<typeof core.setFailed>;
+  let saveCacheSpy: jest.Mock<typeof cache.saveCache>;
+  let getCacheDirectoryPathSpy: jest.Mock<
+    typeof cacheUtils.getCacheDirectoryPath
+  >;
+  let existsSpy: jest.Mock<typeof fs.existsSync>;
 
   beforeEach(() => {
     primaryKeyValue = primaryKey;
     matchedKeyValue = 'matched-key';
 
-    getBooleanInputSpy = jest.spyOn(core, 'getBooleanInput');
+    getBooleanInputSpy = core.getBooleanInput as jest.Mock<
+      typeof core.getBooleanInput
+    >;
     getBooleanInputSpy.mockReturnValue(true);
 
-    getStateSpy = jest.spyOn(core, 'getState');
+    getStateSpy = core.getState as jest.Mock<typeof core.getState>;
     getStateSpy.mockImplementation((key: string) => {
       if (key === State.CachePrimaryKey) {
         return primaryKeyValue;
@@ -40,32 +75,34 @@ describe('cache-save', () => {
       return '';
     });
 
-    infoSpy = jest.spyOn(core, 'info');
+    infoSpy = core.info as jest.Mock<typeof core.info>;
     infoSpy.mockImplementation(() => undefined);
 
-    warningSpy = jest.spyOn(core, 'warning');
+    warningSpy = core.warning as jest.Mock<typeof core.warning>;
     warningSpy.mockImplementation(() => undefined);
 
-    debugSpy = jest.spyOn(core, 'debug');
+    debugSpy = core.debug as jest.Mock<typeof core.debug>;
     debugSpy.mockImplementation(() => undefined);
 
-    setFailedSpy = jest.spyOn(core, 'setFailed');
+    setFailedSpy = core.setFailed as jest.Mock<typeof core.setFailed>;
     setFailedSpy.mockImplementation(() => undefined);
 
-    saveCacheSpy = jest.spyOn(cache, 'saveCache');
+    saveCacheSpy = cache.saveCache as jest.Mock<typeof cache.saveCache>;
     saveCacheSpy.mockImplementation(() => Promise.resolve(0));
 
-    getCacheDirectoryPathSpy = jest.spyOn(cacheUtils, 'getCacheDirectoryPath');
+    getCacheDirectoryPathSpy = cacheUtils.getCacheDirectoryPath as jest.Mock<
+      typeof cacheUtils.getCacheDirectoryPath
+    >;
     getCacheDirectoryPathSpy.mockImplementation(() =>
       Promise.resolve(['cache_directory_path', 'cache_directory_path'])
     );
 
-    existsSpy = jest.spyOn(fs, 'existsSync');
+    existsSpy = fs.existsSync as jest.Mock<typeof fs.existsSync>;
     existsSpy.mockImplementation(() => true);
   });
 
   afterEach(() => {
-    jest.restoreAllMocks();
+    jest.clearAllMocks();
   });
 
   it('does not save cache when the cache input is false', async () => {

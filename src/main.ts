@@ -1,14 +1,15 @@
 import * as core from '@actions/core';
 import * as io from '@actions/io';
-import * as installer from './installer';
+import * as installer from './installer.js';
 import * as semver from 'semver';
 import path from 'path';
-import {restoreCache} from './cache-restore';
-import {isCacheFeatureAvailable} from './cache-utils';
+import {fileURLToPath} from 'url';
+import {restoreCache} from './cache-restore.js';
+import {isCacheFeatureAvailable} from './cache-utils.js';
 import cp from 'child_process';
 import fs from 'fs';
 import os from 'os';
-import {Architecture} from './types';
+import {Architecture} from './types.js';
 
 export async function run() {
   try {
@@ -91,7 +92,11 @@ export async function run() {
     }
 
     // add problem matchers
-    const matchersPath = path.join(__dirname, '../..', 'matchers.json');
+    const matchersPath = path.join(
+      path.dirname(fileURLToPath(import.meta.url)),
+      '../..',
+      'matchers.json'
+    );
     core.info(`##[add-matcher]${matchersPath}`);
 
     // output the version actually being used

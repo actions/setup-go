@@ -1,6 +1,6 @@
 ---
 name: anynum
-version: 1.0.0
+version: 1.0.1
 type: npm
 summary: Normalize all Unicode decimal digits (Devanagari, Arabic, Thai, etc.) to
   ASCII numerals. Zero dependencies, performance-first.
