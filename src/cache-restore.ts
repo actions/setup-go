@@ -4,9 +4,9 @@ import * as glob from '@actions/glob';
 import path from 'path';
 import fs from 'fs';
 
-import {State, Outputs} from './constants';
-import {PackageManagerInfo} from './package-managers';
-import {getCacheDirectoryPath, getPackageManagerInfo} from './cache-utils';
+import {State, Outputs} from './constants.js';
+import {PackageManagerInfo} from './package-managers.js';
+import {getCacheDirectoryPath, getPackageManagerInfo} from './cache-utils.js';
 
 export const restoreCache = async (
   versionSpec: string,

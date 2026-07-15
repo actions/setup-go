@@ -1,38 +1,57 @@
-import fs from 'fs';
-import * as io from '@actions/io';
-import * as tc from '@actions/tool-cache';
+import {jest, describe, it, expect, beforeEach, afterEach} from '@jest/globals';
 import path from 'path';
 
+const statSyncMock = jest.fn(() => ({
+  isDirectory: () => true,
+  isFile: () => true
+}));
+const readdirSyncMock = jest.fn(() => [] as any);
+const writeFileSyncMock = jest.fn();
+const mkdirMock = jest.fn();
+const symlinkSyncMock = jest.fn();
+
+jest.unstable_mockModule('@actions/io', () => ({
+  which: jest.fn(),
+  mkdirP: jest.fn(() => Promise.resolve()),
+  rmRF: jest.fn(() => Promise.resolve()),
+  mv: jest.fn(() => Promise.resolve()),
+  cp: jest.fn(() => Promise.resolve())
+}));
+
+const realFs = (await import('fs')).default;
+const fsExports = {
+  ...realFs,
+  statSync: statSyncMock,
+  readdirSync: readdirSyncMock,
+  writeFileSync: writeFileSyncMock,
+  mkdir: mkdirMock,
+  symlinkSync: symlinkSyncMock
+};
+jest.unstable_mockModule('fs', () => ({...fsExports, default: fsExports}));
+
+const io = await import('@actions/io');
+const tc = await import('@actions/tool-cache');
+
 describe('Windows performance workaround', () => {
-  let mkdirSpy: jest.SpyInstance;
-  let symlinkSpy: jest.SpyInstance;
-  let statSpy: jest.SpyInstance;
-  let readdirSpy: jest.SpyInstance;
-  let writeFileSpy: jest.SpyInstance;
-  let rmRFSpy: jest.SpyInstance;
-  let mkdirPSpy: jest.SpyInstance;
-  let cpSpy: jest.SpyInstance;
+  let rmRFSpy: jest.Mock;
+  let mkdirPSpy: jest.Mock;
+  let cpSpy: jest.Mock;
 
   let runnerToolCache: string | undefined;
   beforeEach(() => {
-    mkdirSpy = jest.spyOn(fs, 'mkdir');
-    symlinkSpy = jest.spyOn(fs, 'symlinkSync');
-    statSpy = jest.spyOn(fs, 'statSync');
-    readdirSpy = jest.spyOn(fs, 'readdirSync');
-    writeFileSpy = jest.spyOn(fs, 'writeFileSync');
-    rmRFSpy = jest.spyOn(io, 'rmRF');
-    mkdirPSpy = jest.spyOn(io, 'mkdirP');
-    cpSpy = jest.spyOn(io, 'cp');
+    rmRFSpy = io.rmRF as jest.Mock;
+    mkdirPSpy = io.mkdirP as jest.Mock;
+    cpSpy = io.cp as jest.Mock;
 
     // default implementations
-    // @ts-ignore - not implement unused methods
-    statSpy.mockImplementation(() => ({
-      isDirectory: () => true
+    statSyncMock.mockImplementation(() => ({
+      isDirectory: () => true,
+      isFile: () => true
     }));
-    readdirSpy.mockImplementation(() => []);
-    writeFileSpy.mockImplementation(() => {});
-    mkdirSpy.mockImplementation(() => {});
-    symlinkSpy.mockImplementation(() => {});
+    readdirSyncMock.mockImplementation(() => []);
+    writeFileSyncMock.mockImplementation(() => {});
+    mkdirMock.mockImplementation(() => {});
+    symlinkSyncMock.mockImplementation(() => {});
     rmRFSpy.mockImplementation(() => Promise.resolve());
     mkdirPSpy.mockImplementation(() => Promise.resolve());
     cpSpy.mockImplementation(() => Promise.resolve());
