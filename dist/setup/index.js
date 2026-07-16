@@ -43510,7 +43510,8 @@ async function findMatch(versionSpec, arch = external_os_default().arch(), dlUrl
         const candidate = candidates[i];
         const version = makeSemver(candidate.version);
         core_debug(`check ${version} satisfies ${versionSpec}`);
-        if (node_modules_semver.satisfies(version, versionSpec)) {
+        if (candidate.version.replace(/^go/, '') === versionSpec ||
+            node_modules_semver.satisfies(version, versionSpec)) {
             goFile = candidate.files.find(file => {
                 core_debug(`${file.arch}===${archFilter} && ${file.os}===${platFilter}`);
                 return file.arch === archFilter && file.os === platFilter;
@@ -43566,7 +43567,7 @@ function parseGoVersionFile(versionFilePath) {
             }
         }
         // go directive: https://go.dev/ref/mod#go-mod-file-go
-        const matchGo = contents.match(/^go (\d+(\.\d+)*)/m);
+        const matchGo = contents.match(/^go (\d+(\.\d+)*(?:\.\d+|(beta|rc)\d+)?)/m);
         return matchGo ? matchGo[1] : '';
     }
     else if (external_path_.basename(versionFilePath) === '.tool-versions') {
