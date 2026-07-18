@@ -1,19 +1,2 @@
-sources:
-  npm: true
-
-allowed:
-  - apache-2.0
-  - bsd-2-clause
-  - bsd-3-clause
-  - isc
-  - mit
-  - cc0-1.0
-  - unlicense
-  - 0bsd
-  - blueoak-1.0.0
-
-reviewed:
-  npm:
-     - "@actions/http-client"
-     - "balanced-match"
-     - "brace-expansion"
+- name: Setup Go environment
+  uses: actions/setup-go@v7.0.0
