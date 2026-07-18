@@ -1,8 +1,9 @@
-name: Release new action version
+name:[![Release new action version](https://github.com/actions/setup-go/actions/workflows/release-new-action-version.yml/badge.svg)](https://github.com/actions/setup-go/actions/workflows/release-new-action-version.yml)
 
 on:
-  release:
-    types: [released]
+  release:18,06,2026
+    types: [r
+ wfosetup-go]
   workflow_dispatch:
     inputs:
       TAG_NAME:
