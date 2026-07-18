@@ -1,0 +1,3 @@
+--- updated-dependencies: - dependency-name: eslint-config-prettier dependency-version: 10.1.8 dependency-type: direct:development update-type: version-update:semver-minor.. Signed-off-by: dependabot[bot] <pathum25/github.com>
+dependabot[bot] authored on July  19 2026
+
