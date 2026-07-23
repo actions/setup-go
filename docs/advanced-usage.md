@@ -23,8 +23,8 @@ For repeatable builds, specify the **exact major, minor, and patch version** (su
 
 ```yaml
 steps:
-  - uses: actions/checkout@v6
-  - uses: actions/setup-go@v6
+  - uses: actions/checkout@v7
+  - uses: actions/setup-go@v7
     with:
       go-version: '1.25.5'
   - run: go run hello.go
@@ -36,8 +36,8 @@ You can specify **only a major and minor version** if you are okay with the most
 
 ```yaml
 steps:
-  - uses: actions/checkout@v6
-  - uses: actions/setup-go@v6
+  - uses: actions/checkout@v7
+  - uses: actions/setup-go@v7
     with:
       go-version: '1.25'
   - run: go run hello.go
@@ -53,8 +53,8 @@ Download and use beta or RC Go versions as needed.
 ```yaml
 # RC version
 steps:
-  - uses: actions/checkout@v6
-  - uses: actions/setup-go@v6
+  - uses: actions/checkout@v7
+  - uses: actions/setup-go@v7
     with:
       go-version: '1.25.0-rc.2'
   - run: go version
@@ -63,8 +63,8 @@ steps:
 ```yaml
 # Beta version
 steps:
-  - uses: actions/checkout@v6
-  - uses: actions/setup-go@v6
+  - uses: actions/checkout@v7
+  - uses: actions/setup-go@v7
     with:
       go-version: '1.19.0-beta.1'
   - run: go version
@@ -80,8 +80,8 @@ If `oldstable` is provided, the action resolves it to the latest patch release o
 
 ```yaml
 steps:
-  - uses: actions/checkout@v6
-  - uses: actions/setup-go@v6
+  - uses: actions/checkout@v7
+  - uses: actions/setup-go@v7
     with:
       go-version: 'stable'
   - run: go run hello.go
@@ -89,8 +89,8 @@ steps:
 
 ```yaml
 steps:
-  - uses: actions/checkout@v6
-  - uses: actions/setup-go@v6
+  - uses: actions/checkout@v7
+  - uses: actions/setup-go@v7
     with:
       go-version: 'oldstable'
   - run: go run hello.go
@@ -100,8 +100,8 @@ You can also use **SemVer's version range syntax**, for instance:
 
 ```yaml
 steps:
-  - uses: actions/checkout@v6
-  - uses: actions/setup-go@v6
+  - uses: actions/checkout@v7
+  - uses: actions/setup-go@v7
     with:
       go-version: '^1.25.1'
   - run: go version
@@ -109,8 +109,8 @@ steps:
 
 ```yaml
 steps:
-  - uses: actions/checkout@v6
-  - uses: actions/setup-go@v6
+  - uses: actions/checkout@v7
+  - uses: actions/setup-go@v7
     with:
       go-version: '>=1.24.0-rc.1'
   - run: go version
@@ -129,9 +129,9 @@ jobs:
         go: [ '1.24', '1.25' ]
     name: Go ${{ matrix.go }} sample
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
       - name: Setup go
-        uses: actions/setup-go@v6
+        uses: actions/setup-go@v7
         with:
           go-version: ${{ matrix.go }}
       - run: go run hello.go
@@ -154,9 +154,9 @@ jobs:
           - os: windows-latest
             go: '1.25'
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
       - name: Setup go
-        uses: actions/setup-go@v6
+        uses: actions/setup-go@v7
         with:
           go-version: ${{ matrix.go }}
       - run: go run hello.go
@@ -170,8 +170,8 @@ If both the `go-version` and the `go-version-file` inputs are provided then the 
 
 ```yaml
 steps:
-  - uses: actions/checkout@v6
-  - uses: actions/setup-go@v6
+  - uses: actions/checkout@v7
+  - uses: actions/setup-go@v7
     with:
       go-version-file: 'path/to/go.mod'  # Read Go version from go.mod
   - run: go version
@@ -187,8 +187,8 @@ steps:
 
 ```yaml
 steps:
-  - uses: actions/checkout@v6
-  - uses: actions/setup-go@v6
+  - uses: actions/checkout@v7
+  - uses: actions/setup-go@v7
     with:
       go-version-file: '.go-version' # Read Go version from .go-version
   - run: go version
@@ -196,8 +196,8 @@ steps:
 
 ```yaml
 steps:
-  - uses: actions/checkout@v6
-  - uses: actions/setup-go@v6
+  - uses: actions/checkout@v7
+  - uses: actions/setup-go@v7
     with:
       go-version-file: '.tool-versions' # Read Go version from .tool-versions
   - run: go version
@@ -205,8 +205,8 @@ steps:
 
 ```yaml
 steps:
-  - uses: actions/checkout@v6
-  - uses: actions/setup-go@v6
+  - uses: actions/checkout@v7
+  - uses: actions/setup-go@v7
     with:
       go-version-file: 'go.work' # Read Go version from go.work
   - run: go version
@@ -228,8 +228,8 @@ want the most up-to-date Go version to always be used. It supports major (e.g., 
 
 ```yaml
 steps:
-  - uses: actions/checkout@v6
-  - uses: actions/setup-go@v6
+  - uses: actions/checkout@v7
+  - uses: actions/setup-go@v7
     with:
       go-version: '1.25'
       check-latest: true
@@ -242,8 +242,8 @@ steps:
 
 ```yaml
 steps:
-  - uses: actions/checkout@v6
-  - uses: actions/setup-go@v6
+  - uses: actions/checkout@v7
+  - uses: actions/setup-go@v7
     with:
       go-version: '1.25'
       cache-dependency-path: subdir/go.sum
@@ -256,8 +256,8 @@ steps:
 
 ```yaml
 steps:
-  - uses: actions/checkout@v6
-  - uses: actions/setup-go@v6
+  - uses: actions/checkout@v7
+  - uses: actions/setup-go@v7
     with:
       go-version: '1.25'
       cache-dependency-path: '**/go.sum'
@@ -266,8 +266,8 @@ steps:
 
 ```yaml
 steps:
-  - uses: actions/checkout@v6
-  - uses: actions/setup-go@v6
+  - uses: actions/checkout@v7
+  - uses: actions/setup-go@v7
     with:
       go-version: '1.25'
       cache-dependency-path: |
@@ -288,8 +288,8 @@ env:
 steps:
   - run: echo "$GOOS $GOARCH" > env.txt
 
-  - uses: actions/checkout@v6
-  - uses: actions/setup-go@v6
+  - uses: actions/checkout@v7
+  - uses: actions/setup-go@v7
     with:
       go-version: '1.25'
       cache-dependency-path: |
@@ -306,8 +306,8 @@ Besides dependencies, the action can also cache build outputs (the [`GOCACHE`](h
 
 ```yaml
 steps:
-  - uses: actions/checkout@v6
-  - uses: actions/setup-go@v6
+  - uses: actions/checkout@v7
+  - uses: actions/setup-go@v7
     with:
       go-version: '1.25'
       cache-dependency-path: |
@@ -328,10 +328,10 @@ jobs:
       matrix:
         os: [ubuntu-latest, macos-latest, windows-latest]
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
       - name: Setup go
         id: setup-go
-        uses: actions/setup-go@v6
+        uses: actions/setup-go@v7
         with:
           go-version: '1.25.5'
           cache: false
@@ -394,8 +394,8 @@ jobs:
   build:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v6
-      - uses: actions/setup-go@v6
+      - uses: actions/checkout@v7
+      - uses: actions/setup-go@v7
         id: go124
         with:
           go-version: '^1.24'
@@ -411,8 +411,8 @@ jobs:
   build:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v6
-      - uses: actions/setup-go@v6
+      - uses: actions/checkout@v7
+      - uses: actions/setup-go@v7
         id: go124
         with:
           go-version: '1.24'
@@ -430,8 +430,8 @@ When a custom base URL is provided, the action skips the `actions/go-versions` m
 
 ```yaml
 steps:
-  - uses: actions/checkout@v6
-  - uses: actions/setup-go@v6
+  - uses: actions/checkout@v7
+  - uses: actions/setup-go@v7
     with:
       go-version: '1.25'
       go-download-base-url: 'https://aka.ms/golang/release/latest'
@@ -445,8 +445,8 @@ env:
   GO_DOWNLOAD_BASE_URL: 'https://aka.ms/golang/release/latest'
 
 steps:
-  - uses: actions/checkout@v6
-  - uses: actions/setup-go@v6
+  - uses: actions/checkout@v7
+  - uses: actions/setup-go@v7
     with:
       go-version: '1.25'
   - run: go version
@@ -462,8 +462,8 @@ If your custom download source requires authentication, the `token` input is for
 
 ```yaml
 steps:
-  - uses: actions/checkout@v6
-  - uses: actions/setup-go@v6
+  - uses: actions/checkout@v7
+  - uses: actions/setup-go@v7
     with:
       go-version: '1.25'
       go-download-base-url: 'https://private-mirror.example.com/golang'
@@ -485,7 +485,7 @@ If that fails as well the action will try to download versions directly from [go
 If that fails as well you can get a higher rate limit with [generating a personal access token on github.com](https://github.com/settings/tokens/new) and passing it as the `token` input to the action:
 
 ```yaml
-uses: actions/setup-go@v6
+uses: actions/setup-go@v7
 with:
   token: ${{ secrets.GH_DOTCOM_TOKEN }}
   go-version: '1.25'

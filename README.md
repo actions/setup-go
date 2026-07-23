@@ -35,7 +35,7 @@ See [action.yml](action.yml).
 
 <!-- start usage -->
 ```yaml
-- uses: actions/setup-go@v6
+- uses: actions/setup-go@v7
   with:
     # Version or version range of Go to use
     go-version: '1.23'
@@ -70,8 +70,8 @@ See [action.yml](action.yml).
 
 ```yaml
 steps:
-  - uses: actions/checkout@v6
-  - uses: actions/setup-go@v6
+  - uses: actions/checkout@v7
+  - uses: actions/setup-go@v7
     with:
       go-version: '1.25' # The Go version to download (if necessary) and use.
   - run: go run hello.go
