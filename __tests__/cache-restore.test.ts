@@ -1,18 +1,65 @@
-import * as cache from '@actions/cache';
-import * as core from '@actions/core';
-import * as glob from '@actions/glob';
+import {jest, describe, it, expect, beforeEach, afterEach} from '@jest/globals';
 import fs from 'fs';
 
-import * as cacheRestore from '../src/cache-restore';
-import * as cacheUtils from '../src/cache-utils';
-import {PackageManagerInfo} from '../src/package-managers';
+jest.unstable_mockModule('@actions/cache', () => ({
+  saveCache: jest.fn(),
+  restoreCache: jest.fn(),
+  isFeatureAvailable: jest.fn()
+}));
+
+jest.unstable_mockModule('@actions/glob', () => ({
+  create: jest.fn(),
+  hashFiles: jest.fn()
+}));
+
+jest.unstable_mockModule('@actions/core', () => ({
+  info: jest.fn(),
+  warning: jest.fn(),
+  debug: jest.fn(),
+  error: jest.fn(),
+  notice: jest.fn(),
+  setFailed: jest.fn(),
+  setOutput: jest.fn(),
+  getInput: jest.fn(),
+  getBooleanInput: jest.fn(),
+  getMultilineInput: jest.fn(),
+  addPath: jest.fn(),
+  exportVariable: jest.fn(),
+  saveState: jest.fn(),
+  getState: jest.fn(),
+  setSecret: jest.fn(),
+  isDebug: jest.fn(() => false),
+  startGroup: jest.fn(),
+  endGroup: jest.fn(),
+  group: jest.fn((_name: string, fn: () => Promise<unknown>) => fn()),
+  toPlatformPath: jest.fn((p: string) => p),
+  toWin32Path: jest.fn((p: string) => p),
+  toPosixPath: jest.fn((p: string) => p)
+}));
+
+// Import real cache-utils (with mocked @actions) before mocking it
+const realCacheUtils = await import('../src/cache-utils.js');
+
+jest.unstable_mockModule('../src/cache-utils.js', () => ({
+  ...realCacheUtils,
+  getCacheDirectoryPath: jest.fn()
+}));
+
+const cache = await import('@actions/cache');
+const core = await import('@actions/core');
+const glob = await import('@actions/glob');
+const cacheRestore = await import('../src/cache-restore.js');
+const cacheUtils = await import('../src/cache-utils.js');
+import type {PackageManagerInfo} from '../src/package-managers.js';
 
 describe('restoreCache', () => {
-  let hashFilesSpy: jest.SpyInstance;
-  let getCacheDirectoryPathSpy: jest.SpyInstance;
-  let restoreCacheSpy: jest.SpyInstance;
-  let infoSpy: jest.SpyInstance;
-  let setOutputSpy: jest.SpyInstance;
+  let hashFilesSpy: jest.Mock<typeof glob.hashFiles>;
+  let getCacheDirectoryPathSpy: jest.Mock<
+    typeof cacheUtils.getCacheDirectoryPath
+  >;
+  let restoreCacheSpy: jest.Mock<typeof cache.restoreCache>;
+  let infoSpy: jest.Mock<typeof core.info>;
+  let setOutputSpy: jest.Mock<typeof core.setOutput>;
 
   const versionSpec = '1.13.1';
   const packageManager = 'default';
@@ -24,11 +71,15 @@ describe('restoreCache', () => {
     originalWorkspace = process.env.GITHUB_WORKSPACE;
     process.env.GITHUB_WORKSPACE = '/test/workspace';
     //Arrange
-    hashFilesSpy = jest.spyOn(glob, 'hashFiles');
-    getCacheDirectoryPathSpy = jest.spyOn(cacheUtils, 'getCacheDirectoryPath');
-    restoreCacheSpy = jest.spyOn(cache, 'restoreCache');
-    infoSpy = jest.spyOn(core, 'info');
-    setOutputSpy = jest.spyOn(core, 'setOutput');
+    hashFilesSpy = glob.hashFiles as jest.Mock<typeof glob.hashFiles>;
+    getCacheDirectoryPathSpy = cacheUtils.getCacheDirectoryPath as jest.Mock<
+      typeof cacheUtils.getCacheDirectoryPath
+    >;
+    restoreCacheSpy = cache.restoreCache as jest.Mock<
+      typeof cache.restoreCache
+    >;
+    infoSpy = core.info as jest.Mock<typeof core.info>;
+    setOutputSpy = core.setOutput as jest.Mock<typeof core.setOutput>;
 
     getCacheDirectoryPathSpy.mockImplementation(
       (PackageManager: PackageManagerInfo) => {

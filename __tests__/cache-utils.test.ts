@@ -1,22 +1,60 @@
-import * as exec from '@actions/exec';
-import * as cache from '@actions/cache';
-import * as core from '@actions/core';
-import * as cacheUtils from '../src/cache-utils';
-import {PackageManagerInfo} from '../src/package-managers';
+import {jest, describe, it, expect, beforeEach, afterAll} from '@jest/globals';
+
+jest.unstable_mockModule('@actions/exec', () => ({
+  exec: jest.fn(),
+  getExecOutput: jest.fn()
+}));
+
+jest.unstable_mockModule('@actions/cache', () => ({
+  saveCache: jest.fn(),
+  restoreCache: jest.fn(),
+  isFeatureAvailable: jest.fn()
+}));
+
+jest.unstable_mockModule('@actions/core', () => ({
+  info: jest.fn(),
+  warning: jest.fn(),
+  debug: jest.fn(),
+  error: jest.fn(),
+  notice: jest.fn(),
+  setFailed: jest.fn(),
+  setOutput: jest.fn(),
+  getInput: jest.fn(),
+  getBooleanInput: jest.fn(),
+  getMultilineInput: jest.fn(),
+  addPath: jest.fn(),
+  exportVariable: jest.fn(),
+  saveState: jest.fn(),
+  getState: jest.fn(),
+  setSecret: jest.fn(),
+  isDebug: jest.fn(() => false),
+  startGroup: jest.fn(),
+  endGroup: jest.fn(),
+  group: jest.fn((_name: string, fn: () => Promise<unknown>) => fn()),
+  toPlatformPath: jest.fn((p: string) => p),
+  toWin32Path: jest.fn((p: string) => p),
+  toPosixPath: jest.fn((p: string) => p)
+}));
+
+const exec = await import('@actions/exec');
+const cache = await import('@actions/cache');
+const core = await import('@actions/core');
+const cacheUtils = await import('../src/cache-utils.js');
+import type {PackageManagerInfo} from '../src/package-managers.js';
 
 describe('getCommandOutput', () => {
   //Arrange
-  const getExecOutputSpy = jest.spyOn(exec, 'getExecOutput');
+  const getExecOutputSpy = exec.getExecOutput as jest.Mock<
+    typeof exec.getExecOutput
+  >;
 
   it('should return trimmed stdout in case of successful exit code', async () => {
     //Arrange
     const stdoutResult = ' stdout ';
     const trimmedStdout = stdoutResult.trim();
 
-    getExecOutputSpy.mockImplementation((commandLine: string) => {
-      return new Promise<exec.ExecOutput>(resolve => {
-        resolve({exitCode: 0, stdout: stdoutResult, stderr: ''});
-      });
+    getExecOutputSpy.mockImplementation(async (commandLine: string) => {
+      return {exitCode: 0, stdout: stdoutResult, stderr: ''};
     });
 
     //Act + Assert
@@ -29,10 +67,8 @@ describe('getCommandOutput', () => {
     //Arrange
     const stderrResult = 'error message';
 
-    getExecOutputSpy.mockImplementation((commandLine: string) => {
-      return new Promise<exec.ExecOutput>(resolve => {
-        resolve({exitCode: 10, stdout: '', stderr: stderrResult});
-      });
+    getExecOutputSpy.mockImplementation(async (commandLine: string) => {
+      return {exitCode: 10, stdout: '', stderr: stderrResult};
     });
 
     //Act + Assert
@@ -70,7 +106,9 @@ describe('getPackageManagerInfo', () => {
 
 describe('getCacheDirectoryPath', () => {
   //Arrange
-  const getExecOutputSpy = jest.spyOn(exec, 'getExecOutput');
+  const getExecOutputSpy = exec.getExecOutput as jest.Mock<
+    typeof exec.getExecOutput
+  >;
 
   const validPackageManager: PackageManagerInfo = {
     dependencyFilePattern: 'go.mod',
@@ -79,10 +117,8 @@ describe('getCacheDirectoryPath', () => {
 
   it('should return path to the cache folders which specified package manager uses', async () => {
     //Arrange
-    getExecOutputSpy.mockImplementation((commandLine: string) => {
-      return new Promise<exec.ExecOutput>(resolve => {
-        resolve({exitCode: 0, stdout: 'path/to/cache/folder', stderr: ''});
-      });
+    getExecOutputSpy.mockImplementation(async (commandLine: string) => {
+      return {exitCode: 0, stdout: 'path/to/cache/folder', stderr: ''};
     });
 
     const expectedResult = ['path/to/cache/folder', 'path/to/cache/folder'];
@@ -95,16 +131,12 @@ describe('getCacheDirectoryPath', () => {
 
   it('should return path to the cache folder if one command return empty str', async () => {
     //Arrange
-    getExecOutputSpy.mockImplementationOnce((commandLine: string) => {
-      return new Promise<exec.ExecOutput>(resolve => {
-        resolve({exitCode: 0, stdout: 'path/to/cache/folder', stderr: ''});
-      });
+    getExecOutputSpy.mockImplementationOnce(async (commandLine: string) => {
+      return {exitCode: 0, stdout: 'path/to/cache/folder', stderr: ''};
     });
 
-    getExecOutputSpy.mockImplementationOnce((commandLine: string) => {
-      return new Promise<exec.ExecOutput>(resolve => {
-        resolve({exitCode: 0, stdout: '', stderr: ''});
-      });
+    getExecOutputSpy.mockImplementationOnce(async (commandLine: string) => {
+      return {exitCode: 0, stdout: '', stderr: ''};
     });
 
     const expectedResult = ['path/to/cache/folder'];
@@ -116,10 +148,8 @@ describe('getCacheDirectoryPath', () => {
   });
 
   it('should throw if the both commands return empty str', async () => {
-    getExecOutputSpy.mockImplementation((commandLine: string) => {
-      return new Promise<exec.ExecOutput>(resolve => {
-        resolve({exitCode: 10, stdout: '', stderr: ''});
-      });
+    getExecOutputSpy.mockImplementation(async (commandLine: string) => {
+      return {exitCode: 10, stdout: '', stderr: ''};
     });
 
     //Act + Assert
@@ -129,10 +159,8 @@ describe('getCacheDirectoryPath', () => {
   });
 
   it('should throw if the specified package name is invalid', async () => {
-    getExecOutputSpy.mockImplementation((commandLine: string) => {
-      return new Promise<exec.ExecOutput>(resolve => {
-        resolve({exitCode: 10, stdout: '', stderr: 'Error message'});
-      });
+    getExecOutputSpy.mockImplementation(async (commandLine: string) => {
+      return {exitCode: 10, stdout: '', stderr: 'Error message'};
     });
 
     //Act + Assert
@@ -144,8 +172,10 @@ describe('getCacheDirectoryPath', () => {
 
 describe('isCacheFeatureAvailable', () => {
   //Arrange
-  const isFeatureAvailableSpy = jest.spyOn(cache, 'isFeatureAvailable');
-  const warningSpy = jest.spyOn(core, 'warning');
+  const isFeatureAvailableSpy = cache.isFeatureAvailable as jest.Mock<
+    typeof cache.isFeatureAvailable
+  >;
+  const warningSpy = core.warning as jest.Mock<typeof core.warning>;
 
   it('should return true when cache feature is available', () => {
     //Arrange
@@ -211,10 +241,9 @@ describe('isCacheFeatureAvailable', () => {
 });
 
 describe('isGhes', () => {
-  const pristineEnv = process.env;
+  const pristineEnv = {...process.env};
 
   beforeEach(() => {
-    jest.resetModules();
     process.env = {...pristineEnv};
   });
 

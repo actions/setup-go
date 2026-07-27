@@ -1,7 +1,10 @@
 import * as cache from '@actions/cache';
 import * as core from '@actions/core';
 import * as exec from '@actions/exec';
-import {supportedPackageManagers, PackageManagerInfo} from './package-managers';
+import {
+  supportedPackageManagers,
+  PackageManagerInfo
+} from './package-managers.js';
 
 export const getCommandOutput = async (toolCommand: string) => {
   let {stdout, stderr, exitCode} = await exec.getExecOutput(

@@ -3,13 +3,14 @@ import * as core from '@actions/core';
 import * as path from 'path';
 import * as semver from 'semver';
 import * as httpm from '@actions/http-client';
-import * as sys from './system';
+import * as sys from './system.js';
 import crypto from 'crypto';
 import cp from 'child_process';
 import fs from 'fs';
 import os from 'os';
-import {StableReleaseAlias, isSelfHosted} from './utils';
-import {Architecture} from './types';
+import {StableReleaseAlias, isSelfHosted} from './utils.js';
+import {Architecture} from './types.js';
+import {getVersionsDist} from './go-version-fetch.js';
 
 export const GOTOOLCHAIN_ENV_VAR = 'GOTOOLCHAIN';
 export const GOTOOLCHAIN_LOCAL_VAL = 'local';
@@ -167,12 +168,14 @@ export async function getGo(
       if (err instanceof tc.HTTPError && err.httpStatusCode === 404) {
         throw new Error(
           `The requested Go version ${versionSpec} is not available for platform ${osPlat}/${arch}. ` +
-            `Download URL returned HTTP 404: ${downloadUrl}`
+            `Download URL returned HTTP 404: ${downloadUrl}`,
+          {cause: err}
         );
       }
       throw new Error(
         `Failed to download Go ${versionSpec} for platform ${osPlat}/${arch} ` +
-          `from ${downloadUrl}: ${err}`
+          `from ${downloadUrl}: ${err}`,
+        {cause: err}
       );
     }
   } else {
@@ -218,7 +221,9 @@ export async function getGo(
         core.info('Install from dist');
         downloadPath = await installGoVersion(info, undefined, arch);
       } catch (err) {
-        throw new Error(`Failed to download version ${versionSpec}: ${err}`);
+        throw new Error(`Failed to download version ${versionSpec}: ${err}`, {
+          cause: err
+        });
       }
     }
   }
@@ -569,9 +574,7 @@ export async function findMatch(
   let result: IGoVersion | undefined;
   let match: IGoVersion | undefined;
 
-  const candidates: IGoVersion[] | null = await module.exports.getVersionsDist(
-    dlUrl
-  );
+  const candidates: IGoVersion[] | null = await getVersionsDist(dlUrl);
   if (!candidates) {
     throw new Error(`golang download url did not return results`);
   }
@@ -605,17 +608,6 @@ export async function findMatch(
   }
 
   return result;
-}
-
-export async function getVersionsDist(
-  dlUrl: string
-): Promise<IGoVersion[] | null> {
-  // this returns versions descending so latest is first
-  const http: httpm.HttpClient = new httpm.HttpClient('setup-go', [], {
-    allowRedirects: true,
-    maxRedirects: 3
-  });
-  return (await http.getJson<IGoVersion[]>(dlUrl)).result;
 }
 
 //
@@ -686,9 +678,8 @@ async function resolveStableVersionDist(
 ) {
   const archFilter = sys.getArch(arch);
   const platFilter = sys.getPlatform();
-  const candidates: IGoVersion[] | null = await module.exports.getVersionsDist(
-    GOLANG_DOWNLOAD_URL
-  );
+  const candidates: IGoVersion[] | null =
+    await getVersionsDist(GOLANG_DOWNLOAD_URL);
   if (!candidates) {
     throw new Error(`golang download url did not return results`);
   }

@@ -1,17 +1,98 @@
-import * as core from '@actions/core';
-import * as io from '@actions/io';
-import * as tc from '@actions/tool-cache';
+import {
+  jest,
+  describe,
+  it,
+  expect,
+  beforeAll,
+  beforeEach,
+  afterEach,
+  afterAll
+} from '@jest/globals';
 import fs from 'fs';
 import cp from 'child_process';
-import osm, {type} from 'os';
-import path from 'path';
-import * as main from '../src/main';
-import * as im from '../src/installer';
-import * as httpm from '@actions/http-client';
 
-import goJsonData from './data/golang-dl.json';
-import matchers from '../matchers.json';
-import goTestManifest from './data/versions-manifest.json';
+import goJsonData from './data/golang-dl.json' with {type: 'json'};
+import matchers from '../matchers.json' with {type: 'json'};
+import goTestManifest from './data/versions-manifest.json' with {type: 'json'};
+
+import type {IGoVersion} from '../src/installer.js';
+import type {IToolRelease} from '@actions/tool-cache';
+
+const httpClientGetJson = jest.fn();
+
+const realCore = await import('@actions/core');
+
+jest.unstable_mockModule('@actions/core', () => ({
+  ...realCore,
+  getInput: jest.fn(),
+  getBooleanInput: jest.fn(),
+  info: jest.fn(),
+  debug: jest.fn(),
+  exportVariable: jest.fn()
+}));
+
+const realOs = (await import('os')).default;
+const osPlatformMock = jest.fn();
+const osArchMock = jest.fn();
+const osExports = {
+  ...realOs,
+  platform: osPlatformMock,
+  arch: osArchMock
+};
+jest.unstable_mockModule('os', () => ({...osExports, default: osExports}));
+
+const realPath = (await import('path')).default;
+const pathJoinMock = jest.fn();
+const pathExports = {
+  ...realPath,
+  join: pathJoinMock
+};
+jest.unstable_mockModule('path', () => ({
+  ...pathExports,
+  default: pathExports
+}));
+
+jest.unstable_mockModule('@actions/io', () => ({
+  which: jest.fn(),
+  mkdirP: jest.fn(),
+  rmRF: jest.fn(),
+  mv: jest.fn(),
+  cp: jest.fn()
+}));
+
+const realTc = await import('@actions/tool-cache');
+
+jest.unstable_mockModule('@actions/tool-cache', () => ({
+  ...realTc,
+  find: jest.fn(),
+  downloadTool: jest.fn(),
+  extractTar: jest.fn(),
+  extractZip: jest.fn(),
+  cacheDir: jest.fn(),
+  getManifestFromRepo: jest.fn()
+}));
+
+const realHttp = await import('@actions/http-client');
+
+jest.unstable_mockModule('@actions/http-client', () => ({
+  ...realHttp,
+  HttpClient: jest.fn().mockImplementation(() => ({
+    getJson: httpClientGetJson
+  }))
+}));
+
+jest.unstable_mockModule('../src/go-version-fetch.js', () => ({
+  getVersionsDist: jest.fn()
+}));
+
+const core = await import('@actions/core');
+const io = await import('@actions/io');
+const tc = await import('@actions/tool-cache');
+const vf = await import('../src/go-version-fetch.js');
+const main = await import('../src/main.js');
+const im = await import('../src/installer.js');
+const osm = (await import('os')).default;
+const path = (await import('path')).default;
 const matcherPattern = matchers.problemMatcher[0].pattern[0];
 const matcherRegExp = new RegExp(matcherPattern.regexp);
 const win32Join = path.win32.join;
@@ -23,32 +104,31 @@ describe('setup-go', () => {
   let inputs = {} as any;
   let os = {} as any;
 
-  let inSpy: jest.SpyInstance;
-  let getBooleanInputSpy: jest.SpyInstance;
-  let exportVarSpy: jest.SpyInstance;
-  let findSpy: jest.SpyInstance;
-  let cnSpy: jest.SpyInstance;
-  let logSpy: jest.SpyInstance;
-  let getSpy: jest.SpyInstance;
-  let platSpy: jest.SpyInstance;
-  let archSpy: jest.SpyInstance;
-  let joinSpy: jest.SpyInstance;
-  let dlSpy: jest.SpyInstance;
-  let extractTarSpy: jest.SpyInstance;
-  let extractZipSpy: jest.SpyInstance;
-  let cacheSpy: jest.SpyInstance;
-  let dbgSpy: jest.SpyInstance;
-  let whichSpy: jest.SpyInstance;
-  let existsSpy: jest.SpyInstance;
-  let readFileSpy: jest.SpyInstance;
-  let mkdirpSpy: jest.SpyInstance;
-  let mkdirSpy: jest.SpyInstance;
-  let symlinkSpy: jest.SpyInstance;
-  let execSpy: jest.SpyInstance;
-  let execFileSpy: jest.SpyInstance;
-  let getManifestSpy: jest.SpyInstance;
-  let getAllVersionsSpy: jest.SpyInstance;
-  let httpmGetJsonSpy: jest.SpyInstance;
+  let inSpy: jest.Mock<typeof core.getInput>;
+  let getBooleanInputSpy: jest.Mock<typeof core.getBooleanInput>;
+  let exportVarSpy: jest.Mock<typeof core.exportVariable>;
+  let findSpy: jest.Mock;
+  let cnSpy: jest.SpiedFunction<typeof process.stdout.write>;
+  let logSpy: jest.Mock;
+  let getSpy: jest.Mock;
+  let platSpy: jest.Mock;
+  let archSpy: jest.Mock;
+  let joinSpy: jest.Mock<typeof path.join>;
+  let dlSpy: jest.Mock;
+  let extractTarSpy: jest.Mock;
+  let extractZipSpy: jest.Mock;
+  let cacheSpy: jest.Mock;
+  let dbgSpy: jest.Mock;
+  let whichSpy: jest.Mock;
+  let existsSpy: jest.SpiedFunction<typeof fs.existsSync>;
+  let readFileSpy: jest.SpiedFunction<typeof fs.readFileSync>;
+  let mkdirpSpy: jest.Mock;
+  let mkdirSpy: jest.SpiedFunction<typeof fs.mkdir>;
+  let symlinkSpy: jest.SpiedFunction<typeof fs.symlinkSync>;
+  let execSpy: jest.SpiedFunction<typeof cp.execSync>;
+  let execFileSpy: jest.SpiedFunction<typeof cp.execFileSync>;
+  let getManifestSpy: jest.Mock;
+  let httpmGetJsonSpy: jest.Mock;
 
   beforeAll(async () => {
     process.env['GITHUB_ENV'] = ''; // Stub out Environment file functionality so we can verify it writes to standard out (toolkit is backwards compatible)
@@ -59,17 +139,19 @@ describe('setup-go', () => {
 
     // @actions/core
     inputs = {};
-    inSpy = jest.spyOn(core, 'getInput');
+    inSpy = core.getInput as jest.Mock<typeof core.getInput>;
     inSpy.mockImplementation(name => inputs[name]);
-    getBooleanInputSpy = jest.spyOn(core, 'getBooleanInput');
+    getBooleanInputSpy = core.getBooleanInput as jest.Mock<
+      typeof core.getBooleanInput
+    >;
     getBooleanInputSpy.mockImplementation(name => inputs[name]);
-    exportVarSpy = jest.spyOn(core, 'exportVariable');
+    exportVarSpy = core.exportVariable as jest.Mock<typeof core.exportVariable>;
 
     // node
     os = {};
-    platSpy = jest.spyOn(osm, 'platform');
+    platSpy = osm.platform as jest.Mock;
     platSpy.mockImplementation(() => os['platform']);
-    archSpy = jest.spyOn(osm, 'arch');
+    archSpy = osm.arch as jest.Mock;
     archSpy.mockImplementation(() => os['arch']);
     execSpy = jest.spyOn(cp, 'execSync');
     execFileSpy = jest.spyOn(cp, 'execFileSync');
@@ -78,7 +160,7 @@ describe('setup-go', () => {
     });
 
     // switch path join behaviour based on set os.platform
-    joinSpy = jest.spyOn(path, 'join');
+    joinSpy = path.join as jest.Mock<typeof path.join>;
     joinSpy.mockImplementation((...paths: string[]): string => {
       if (os['platform'] == 'win32') {
         return win32Join(...paths);
@@ -88,23 +170,22 @@ describe('setup-go', () => {
     });
 
     // @actions/tool-cache
-    findSpy = jest.spyOn(tc, 'find');
-    dlSpy = jest.spyOn(tc, 'downloadTool');
-    extractTarSpy = jest.spyOn(tc, 'extractTar');
-    extractZipSpy = jest.spyOn(tc, 'extractZip');
-    cacheSpy = jest.spyOn(tc, 'cacheDir');
-    getSpy = jest.spyOn(im, 'getVersionsDist');
-    getManifestSpy = jest.spyOn(tc, 'getManifestFromRepo');
-    getAllVersionsSpy = jest.spyOn(im, 'getManifest');
+    findSpy = tc.find as jest.Mock;
+    dlSpy = tc.downloadTool as jest.Mock;
+    extractTarSpy = tc.extractTar as jest.Mock;
+    extractZipSpy = tc.extractZip as jest.Mock;
+    cacheSpy = tc.cacheDir as jest.Mock;
+    getSpy = vf.getVersionsDist as jest.Mock;
+    getManifestSpy = tc.getManifestFromRepo as jest.Mock;
 
     // httm
-    httpmGetJsonSpy = jest.spyOn(httpm.HttpClient.prototype, 'getJson');
+    httpmGetJsonSpy = httpClientGetJson;
 
     // io
-    whichSpy = jest.spyOn(io, 'which');
+    whichSpy = io.which as jest.Mock;
     existsSpy = jest.spyOn(fs, 'existsSync');
     readFileSpy = jest.spyOn(fs, 'readFileSync');
-    mkdirpSpy = jest.spyOn(io, 'mkdirP');
+    mkdirpSpy = io.mkdirP as jest.Mock;
 
     // fs
     mkdirSpy = jest.spyOn(fs, 'mkdir');
@@ -112,31 +193,26 @@ describe('setup-go', () => {
     symlinkSpy.mockImplementation(() => {});
 
     // gets
-    getManifestSpy.mockImplementation(() => <tc.IToolRelease[]>goTestManifest);
+    getManifestSpy.mockImplementation(() => goTestManifest as IToolRelease[]);
 
     // writes
     cnSpy = jest.spyOn(process.stdout, 'write');
-    logSpy = jest.spyOn(core, 'info');
-    dbgSpy = jest.spyOn(core, 'debug');
-    getSpy.mockImplementation(() => <im.IGoVersion[] | null>goJsonData);
-    cnSpy.mockImplementation(line => {
-      // uncomment to debug
-      // process.stderr.write('write:' + line + '\n');
-    });
-    logSpy.mockImplementation(line => {
-      // uncomment to debug
-      //process.stderr.write('log:' + line + '\n');
-    });
-    dbgSpy.mockImplementation(msg => {
-      // uncomment to see debug output
-      // process.stderr.write(msg + '\n');
-    });
+    logSpy = core.info as jest.Mock;
+    dbgSpy = core.debug as jest.Mock;
+    getSpy.mockImplementation(() => goJsonData as IGoVersion[] | null);
+    cnSpy.mockImplementation(() => true);
+    logSpy.mockImplementation(() => {});
+    dbgSpy.mockImplementation(() => {});
   });
 
   afterEach(() => {
     // clear out env vars set during 'run'
     delete process.env[im.GOTOOLCHAIN_ENV_VAR];
     delete process.env['GO_DOWNLOAD_BASE_URL'];
+
+    // reset the exit code that core.setFailed sets on the error-path tests so
+    // that a passing run does not leak a non-zero process exit code
+    process.exitCode = 0;
 
     //jest.resetAllMocks();
     jest.clearAllMocks();
@@ -171,8 +247,10 @@ describe('setup-go', () => {
   });
 
   it('should return manifest from raw URL if repo fetch fails', async () => {
-    getManifestSpy.mockRejectedValue(new Error('Fetch failed'));
-    httpmGetJsonSpy.mockResolvedValue({
+    (getManifestSpy as jest.Mock<any>).mockRejectedValue(
+      new Error('Fetch failed')
+    );
+    (httpmGetJsonSpy as jest.Mock<any>).mockResolvedValue({
       result: goTestManifest
     });
     const manifest = await im.getManifest(undefined);
@@ -211,7 +289,7 @@ describe('setup-go', () => {
     os.arch = 'x64';
 
     // spec: 1.13.0 => 1.13
-    const match: im.IGoVersion | undefined = await im.findMatch('1.13.0');
+    const match: IGoVersion | undefined = await im.findMatch('1.13.0');
     expect(match).toBeDefined();
     const version: string = match ? match.version : '';
     expect(version).toBe('go1.13');
@@ -224,7 +302,7 @@ describe('setup-go', () => {
     os.arch = 'x64';
 
     // spec: 1.13 => 1.13.7 (latest)
-    const match: im.IGoVersion | undefined = await im.findMatch('1.13');
+    const match: IGoVersion | undefined = await im.findMatch('1.13');
     expect(match).toBeDefined();
     const version: string = match ? match.version : '';
     expect(version).toBe('go1.13.7');
@@ -237,7 +315,7 @@ describe('setup-go', () => {
     os.arch = 'x64';
 
     // spec: ^1.13.6 => 1.13.7
-    const match: im.IGoVersion | undefined = await im.findMatch('^1.13.6');
+    const match: IGoVersion | undefined = await im.findMatch('^1.13.6');
     expect(match).toBeDefined();
     const version: string = match ? match.version : '';
     expect(version).toBe('go1.13.7');
@@ -250,7 +328,7 @@ describe('setup-go', () => {
     os.arch = 'x32';
 
     // spec: 1 => 1.13.7 (latest)
-    const match: im.IGoVersion | undefined = await im.findMatch('1');
+    const match: IGoVersion | undefined = await im.findMatch('1');
     expect(match).toBeDefined();
     const version: string = match ? match.version : '';
     expect(version).toBe('go1.13.7');
@@ -263,7 +341,7 @@ describe('setup-go', () => {
     os.arch = 'x64';
 
     // spec: 1.14, stable=false => go1.14rc1
-    const match: im.IGoVersion | undefined = await im.findMatch('1.14.0-rc.1');
+    const match: IGoVersion | undefined = await im.findMatch('1.14.0-rc.1');
     expect(match).toBeDefined();
     const version: string = match ? match.version : '';
     expect(version).toBe('go1.14rc1');
@@ -817,10 +895,9 @@ describe('setup-go', () => {
       getManifestSpy.mockImplementation(() => {
         throw new Error('Unable to download manifest');
       });
-      httpmGetJsonSpy.mockRejectedValue(
+      (httpmGetJsonSpy as jest.Mock<any>).mockRejectedValue(
         new Error('Unable to download manifest from raw URL')
       );
-      getAllVersionsSpy.mockImplementationOnce(() => undefined);
 
       dlSpy.mockImplementation(async () => '/some/temp/path');
       const toolPath = path.normalize('/cache/go/1.13.7/x64');
