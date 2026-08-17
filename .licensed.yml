@@ -17,3 +17,4 @@ reviewed:
      - "@actions/http-client"
      - "balanced-match"
      - "brace-expansion"
+     - "minimatch"
