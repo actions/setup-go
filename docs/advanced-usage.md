@@ -229,7 +229,20 @@ steps:
   - run: go version
 ```
 
-Versions without a patch component (e.g., `go 1.22`) already resolve to the latest available patch release, and prerelease versions (e.g., `go1.22rc1` from a `toolchain` directive) are always used as written, so `latest-patch` leaves both unchanged. As with any version range, the resolved patch release depends on what is available in the runner's tool cache and the versions manifest.
+Because the newest patch release is often not yet present in the runner's tool cache, `latest-patch` implies `check-latest`: the newest matching patch is resolved from the versions manifest rather than from whatever the cache happens to hold.
+
+Two operational effects to be aware of:
+
+- The dependency cache key includes the installed Go version, so with `cache: true` each new Go patch release changes the key: the first run after a patch release rebuilds the module and build caches from scratch.
+- If the versions manifest cannot be reached (for example on GitHub Enterprise Server or other runners without github.com access), the action emits a warning and falls back to resolving the version range locally, which may install an older patch release from the runner's tool cache.
+
+Some versions are always used as written and are not affected by `latest-patch`:
+
+- Versions without a patch component (e.g., `go 1.22`), which already resolve to the latest available patch release.
+- Prerelease versions (e.g., `go1.22rc1`), which have no patch series to float within.
+- An exact version pinned by a go.mod or go.work `toolchain` directive (e.g., `toolchain go1.22.3`): the pin is deliberate and is never widened.
+
+`latest-patch` is not supported together with `go-download-base-url`, which requires an exact version.
 
 ## Check latest version
 

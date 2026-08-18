@@ -54,7 +54,8 @@ export async function getGo(
   checkLatest: boolean,
   auth: string | undefined,
   arch: Architecture = os.arch() as Architecture,
-  goDownloadBaseUrl?: string
+  goDownloadBaseUrl?: string,
+  latestPatchApplied = false
 ) {
   let manifest: tc.IToolRelease[] | undefined;
   const osPlat: string = os.platform();
@@ -111,6 +112,12 @@ export async function getGo(
       if (resolvedVersion) {
         versionSpec = resolvedVersion;
         core.info(`Resolved as '${versionSpec}'`);
+      } else if (latestPatchApplied) {
+        // latest-patch depends on the manifest to see patches newer than
+        // the runner's tool cache, so a silent info line is not enough here
+        core.warning(
+          `go-version-file-behavior: latest-patch could not be honored: unable to resolve ${versionSpec} from the versions manifest. Falling back to the version spec, which may resolve to an older patch release from the runner's tool cache.`
+        );
       } else {
         core.info(`Failed to resolve version ${versionSpec} from manifest`);
       }
@@ -642,7 +649,16 @@ export function makeSemver(version: string): string {
   return fullVersion;
 }
 
-export function parseGoVersionFile(versionFilePath: string): string {
+export interface GoVersionFileResult {
+  version: string;
+  // true when the version came from a go.mod/go.work toolchain directive,
+  // an explicit pin that must be respected as written
+  fromToolchainDirective: boolean;
+}
+
+export function parseGoVersionFile(
+  versionFilePath: string
+): GoVersionFileResult {
   const contents = fs.readFileSync(versionFilePath).toString();
 
   if (
@@ -657,31 +673,39 @@ export function parseGoVersionFile(versionFilePath: string): string {
         /^toolchain go(1\.\d+(?:\.\d+|rc\d+)?)/m
       );
       if (matchToolchain) {
-        return matchToolchain[1];
+        return {version: matchToolchain[1], fromToolchainDirective: true};
       }
     }
 
     // go directive: https://go.dev/ref/mod#go-mod-file-go
     const matchGo = contents.match(/^go (\d+(\.\d+)*)/m);
-    return matchGo ? matchGo[1] : '';
+    return {
+      version: matchGo ? matchGo[1] : '',
+      fromToolchainDirective: false
+    };
   } else if (path.basename(versionFilePath) === '.tool-versions') {
     const match = contents.match(/^golang\s+([^\n#]+)/m);
-    return match ? match[1].trim() : '';
+    return {
+      version: match ? match[1].trim() : '',
+      fromToolchainDirective: false
+    };
   }
 
-  return contents.trim();
+  return {version: contents.trim(), fromToolchainDirective: false};
 }
 
 // Widen an exact version from a version file into a semver range matching
 // the newest patch release of the same minor (go-version-file-behavior:
-// latest-patch). Only exact major.minor.patch versions are widened: bare
+// latest-patch). Only exact major.minor.patch versions are widened,
+// optionally with a leading 'v' as found in some .go-version files: bare
 // minors like '1.22' already resolve to the newest patch, and prereleases
 // like '1.21rc2' have no patch series to float within.
 export function latestPatchSpec(version: string): string {
-  if (!/^\d+\.\d+\.\d+$/.test(version)) {
+  const match = version.match(/^v?(\d+\.\d+\.\d+)$/);
+  if (!match) {
     return version;
   }
-  return `~${version}`;
+  return `~${match[1]}`;
 }
 
 async function resolveStableVersionDist(
