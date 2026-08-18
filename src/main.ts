@@ -17,7 +17,7 @@ export async function run() {
     // versionSpec is optional.  If supplied, install / use from the tool cache
     // If not supplied then problem matchers will still be setup.  Useful for self-hosted.
     //
-    const versionSpec = resolveVersionInput();
+    const {version: versionSpec, latestPatchApplied} = resolveVersionInput();
     setGoToolchain();
 
     const cache = core.getBooleanInput('cache');
@@ -33,7 +33,15 @@ export async function run() {
       const token = core.getInput('token');
       const auth = !token ? undefined : `token ${token}`;
 
-      const checkLatest = core.getBooleanInput('check-latest');
+      let checkLatest = core.getBooleanInput('check-latest');
+      if (latestPatchApplied && !checkLatest) {
+        // the runner's tool cache may only hold a stale patch release; the
+        // newest one has to come from the versions manifest
+        core.info(
+          'go-version-file-behavior: latest-patch implies check-latest'
+        );
+        checkLatest = true;
+      }
 
       const goDownloadBaseUrl =
         core.getInput('go-download-base-url') ||
@@ -49,7 +57,8 @@ export async function run() {
         checkLatest,
         auth,
         arch,
-        goDownloadBaseUrl
+        goDownloadBaseUrl,
+        latestPatchApplied
       );
 
       const installDirVersion = path.basename(path.dirname(installDir));
@@ -152,9 +161,24 @@ export function parseGoVersion(versionString: string): string {
   return versionString.split(' ')[2].slice('go'.length);
 }
 
-function resolveVersionInput(): string {
+interface ResolvedVersionInput {
+  version: string;
+  // true when latest-patch widened the version into a range; the newest
+  // matching patch must then be resolved from the versions manifest, not
+  // just the runner's local tool cache
+  latestPatchApplied: boolean;
+}
+
+function resolveVersionInput(): ResolvedVersionInput {
   let version = core.getInput('go-version');
   const versionFilePath = core.getInput('go-version-file');
+
+  const behavior = core.getInput('go-version-file-behavior') || 'exact';
+  if (behavior !== 'exact' && behavior !== 'latest-patch') {
+    throw new Error(
+      `Invalid go-version-file-behavior: '${behavior}'. Supported values: 'exact', 'latest-patch'`
+    );
+  }
 
   if (version && versionFilePath) {
     core.warning(
@@ -163,7 +187,7 @@ function resolveVersionInput(): string {
   }
 
   if (version) {
-    return version;
+    return {version, latestPatchApplied: false};
   }
 
   if (versionFilePath) {
@@ -172,25 +196,39 @@ function resolveVersionInput(): string {
         `The specified go version file at: ${versionFilePath} does not exist`
       );
     }
-    version = installer.parseGoVersionFile(versionFilePath);
+    const versionFile = installer.parseGoVersionFile(versionFilePath);
+    version = versionFile.version;
 
-    const behavior = core.getInput('go-version-file-behavior') || 'exact';
-    if (behavior === 'latest-patch') {
-      const spec = installer.latestPatchSpec(version);
-      if (spec !== version) {
+    if (behavior === 'latest-patch' && version) {
+      if (versionFile.fromToolchainDirective) {
         core.info(
-          `Using latest patch release satisfying ${spec} (version file specifies ${version})`
+          `Using toolchain directive version ${version} as written (latest-patch does not widen an explicit toolchain pin)`
         );
-        version = spec;
+      } else {
+        const spec = installer.latestPatchSpec(version);
+        if (spec === version) {
+          core.info(
+            `Using version ${version} as written (latest-patch only widens exact major.minor.patch versions)`
+          );
+        } else {
+          if (
+            core.getInput('go-download-base-url') ||
+            process.env['GO_DOWNLOAD_BASE_URL']
+          ) {
+            throw new Error(
+              `go-version-file-behavior: 'latest-patch' is not supported with a custom download base URL because version ranges cannot be resolved against it. Use the default 'exact' behavior.`
+            );
+          }
+          core.info(
+            `Using latest patch release satisfying ${spec} (version file specifies ${version})`
+          );
+          return {version: spec, latestPatchApplied: true};
+        }
       }
-    } else if (behavior !== 'exact') {
-      throw new Error(
-        `Invalid go-version-file-behavior: '${behavior}'. Supported values: 'exact', 'latest-patch'`
-      );
     }
   }
 
-  return version;
+  return {version, latestPatchApplied: false};
 }
 
 function setGoToolchain() {
