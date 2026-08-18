@@ -43581,6 +43581,17 @@ function parseGoVersionFile(versionFilePath) {
     }
     return contents.trim();
 }
+// Widen an exact version from a version file into a semver range matching
+// the newest patch release of the same minor (go-version-file-behavior:
+// latest-patch). Only exact major.minor.patch versions are widened: bare
+// minors like '1.22' already resolve to the newest patch, and prereleases
+// like '1.21rc2' have no patch series to float within.
+function latestPatchSpec(version) {
+    if (!/^\d+\.\d+\.\d+$/.test(version)) {
+        return version;
+    }
+    return `~${version}`;
+}
 async function resolveStableVersionDist(versionSpec, arch) {
     const archFilter = getArch(arch);
     const platFilter = getPlatform();
@@ -100360,6 +100371,17 @@ function resolveVersionInput() {
             throw new Error(`The specified go version file at: ${versionFilePath} does not exist`);
         }
         version = parseGoVersionFile(versionFilePath);
+        const behavior = getInput('go-version-file-behavior') || 'exact';
+        if (behavior === 'latest-patch') {
+            const spec = latestPatchSpec(version);
+            if (spec !== version) {
+                core_info(`Using latest patch release satisfying ${spec} (version file specifies ${version})`);
+                version = spec;
+            }
+        }
+        else if (behavior !== 'exact') {
+            throw new Error(`Invalid go-version-file-behavior: '${behavior}'. Supported values: 'exact', 'latest-patch'`);
+        }
     }
     return version;
 }

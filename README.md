@@ -44,6 +44,11 @@ See [action.yml](action.yml).
     # Note: if both go-version and go-version-file are provided, go-version takes precedence.
     go-version-file: 'go.mod'
     
+    # How to interpret an exact version read from go-version-file.
+    # Set to latest-patch to use the newest patch release of the same minor version.
+    # Default: exact
+    go-version-file-behavior: 'exact'
+    
     # Set this option if you want the action to check for the latest available version
     # Default: false
     check-latest: false

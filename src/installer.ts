@@ -672,6 +672,18 @@ export function parseGoVersionFile(versionFilePath: string): string {
   return contents.trim();
 }
 
+// Widen an exact version from a version file into a semver range matching
+// the newest patch release of the same minor (go-version-file-behavior:
+// latest-patch). Only exact major.minor.patch versions are widened: bare
+// minors like '1.22' already resolve to the newest patch, and prereleases
+// like '1.21rc2' have no patch series to float within.
+export function latestPatchSpec(version: string): string {
+  if (!/^\d+\.\d+\.\d+$/.test(version)) {
+    return version;
+  }
+  return `~${version}`;
+}
+
 async function resolveStableVersionDist(
   versionSpec: string,
   arch: Architecture

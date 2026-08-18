@@ -173,6 +173,21 @@ function resolveVersionInput(): string {
       );
     }
     version = installer.parseGoVersionFile(versionFilePath);
+
+    const behavior = core.getInput('go-version-file-behavior') || 'exact';
+    if (behavior === 'latest-patch') {
+      const spec = installer.latestPatchSpec(version);
+      if (spec !== version) {
+        core.info(
+          `Using latest patch release satisfying ${spec} (version file specifies ${version})`
+        );
+        version = spec;
+      }
+    } else if (behavior !== 'exact') {
+      throw new Error(
+        `Invalid go-version-file-behavior: '${behavior}'. Supported values: 'exact', 'latest-patch'`
+      );
+    }
   }
 
   return version;

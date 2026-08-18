@@ -1089,6 +1089,98 @@ use .
     );
   });
 
+  describe('go-version-file-behavior', () => {
+    const buildGoMod = (goVersion: string) => `module example.com/mymodule
+
+go ${goVersion}
+`;
+
+    it('resolves the latest patch of the minor with latest-patch', async () => {
+      os.platform = 'linux';
+      os.arch = 'x64';
+
+      inputs['go-version-file'] = 'go.mod';
+      inputs['go-version-file-behavior'] = 'latest-patch';
+      inputs['token'] = 'faketoken';
+      existsSpy.mockImplementation(() => true);
+      readFileSpy.mockImplementation(() => Buffer.from(buildGoMod('1.12.16')));
+
+      const expectedUrl =
+        'https://github.com/actions/go-versions/releases/download/1.12.17-20200616.21/go-1.12.17-linux-x64.tar.gz';
+
+      // ... but not in the local cache
+      findSpy.mockImplementation(() => '');
+
+      dlSpy.mockImplementation(async () => '/some/temp/path');
+      const toolPath = path.normalize('/cache/go/1.12.17/x64');
+      extractTarSpy.mockImplementation(async () => '/some/other/temp/path');
+      cacheSpy.mockImplementation(async () => toolPath);
+
+      await main.run();
+
+      expect(logSpy).toHaveBeenCalledWith(
+        'Using latest patch release satisfying ~1.12.16 (version file specifies 1.12.16)'
+      );
+      expect(logSpy).toHaveBeenCalledWith('Setup go version spec ~1.12.16');
+      expect(logSpy).toHaveBeenCalledWith(
+        `Acquiring 1.12.17 from ${expectedUrl}`
+      );
+    });
+
+    it('leaves a bare minor version unchanged with latest-patch', async () => {
+      inputs['go-version-file'] = 'go.mod';
+      inputs['go-version-file-behavior'] = 'latest-patch';
+      existsSpy.mockImplementation(() => true);
+      readFileSpy.mockImplementation(() => Buffer.from(buildGoMod('1.14')));
+
+      await main.run();
+
+      expect(logSpy).toHaveBeenCalledWith('Setup go version spec 1.14');
+    });
+
+    it('uses the exact version by default', async () => {
+      inputs['go-version-file'] = 'go.mod';
+      existsSpy.mockImplementation(() => true);
+      readFileSpy.mockImplementation(() => Buffer.from(buildGoMod('1.12.16')));
+
+      await main.run();
+
+      expect(logSpy).toHaveBeenCalledWith('Setup go version spec 1.12.16');
+    });
+
+    it('does not apply to the go-version input', async () => {
+      inputs['go-version'] = '1.12.16';
+      inputs['go-version-file-behavior'] = 'latest-patch';
+
+      await main.run();
+
+      expect(logSpy).toHaveBeenCalledWith('Setup go version spec 1.12.16');
+    });
+
+    it('fails on an unsupported value', async () => {
+      inputs['go-version-file'] = 'go.mod';
+      inputs['go-version-file-behavior'] = 'newest';
+      existsSpy.mockImplementation(() => true);
+      readFileSpy.mockImplementation(() => Buffer.from(buildGoMod('1.12.16')));
+
+      await main.run();
+
+      expect(cnSpy).toHaveBeenCalledWith(
+        `::error::Invalid go-version-file-behavior: 'newest'. Supported values: 'exact', 'latest-patch'${osm.EOL}`
+      );
+    });
+
+    it.each([
+      ['1.22.0', '~1.22.0'],
+      ['1.22', '1.22'],
+      ['1.21rc2', '1.21rc2'],
+      ['1.22.x', '1.22.x'],
+      ['>=1.22.0', '>=1.22.0']
+    ])('latestPatchSpec(%s) == %s', (version, expected) => {
+      expect(im.latestPatchSpec(version)).toBe(expected);
+    });
+  });
+
   describe('go-version-file-toolchain', () => {
     const goVersions = ['1.22.0', '1.21rc2', '1.18'];
     const placeholderVersion = '1.19';
