@@ -3,6 +3,7 @@
   - [Specifying a go version](advanced-usage.md#specifying-a-go-version)
   - [Matrix testing](advanced-usage.md#matrix-testing)
 - [Using the go-version-file input](advanced-usage.md#using-the-go-version-file-input)
+  - [Using the latest patch release](advanced-usage.md#using-the-latest-patch-release)
 - [Check latest version](advanced-usage.md#check-latest-version)
 - [Caching](advanced-usage.md#caching)
   - [Caching in monorepos](advanced-usage.md#caching-in-monorepos)
@@ -211,6 +212,24 @@ steps:
       go-version-file: 'go.work' # Read Go version from go.work
   - run: go version
 ```
+
+### Using the latest patch release
+
+By default, an exact version read from the version file is used as written: a `go 1.22.0` directive installs exactly Go 1.22.0, even if newer 1.22.x patch releases with security fixes are available.
+
+Set `go-version-file-behavior` to `latest-patch` to instead resolve the newest available patch release of the same minor version that is at least the version in the file (e.g., `go 1.22.0` resolves to the newest 1.22.x):
+
+```yaml
+steps:
+  - uses: actions/checkout@v7
+  - uses: actions/setup-go@v7
+    with:
+      go-version-file: 'go.mod'
+      go-version-file-behavior: 'latest-patch'
+  - run: go version
+```
+
+Versions without a patch component (e.g., `go 1.22`) already resolve to the latest available patch release, and prerelease versions (e.g., `go1.22rc1` from a `toolchain` directive) are always used as written, so `latest-patch` leaves both unchanged. As with any version range, the resolved patch release depends on what is available in the runner's tool cache and the versions manifest.
 
 ## Check latest version
 
