@@ -3,6 +3,7 @@
   - [Specifying a go version](advanced-usage.md#specifying-a-go-version)
   - [Matrix testing](advanced-usage.md#matrix-testing)
 - [Using the go-version-file input](advanced-usage.md#using-the-go-version-file-input)
+  - [Using the latest patch release](advanced-usage.md#using-the-latest-patch-release)
 - [Check latest version](advanced-usage.md#check-latest-version)
 - [Caching](advanced-usage.md#caching)
   - [Caching in monorepos](advanced-usage.md#caching-in-monorepos)
@@ -211,6 +212,37 @@ steps:
       go-version-file: 'go.work' # Read Go version from go.work
   - run: go version
 ```
+
+### Using the latest patch release
+
+By default, an exact version read from the version file is used as written: a `go 1.22.0` directive installs exactly Go 1.22.0, even if newer 1.22.x patch releases with security fixes are available.
+
+Set `go-version-file-behavior` to `latest-patch` to instead resolve the newest available patch release of the same minor version that is at least the version in the file (e.g., `go 1.22.0` resolves to the newest 1.22.x):
+
+```yaml
+steps:
+  - uses: actions/checkout@v7
+  - uses: actions/setup-go@v7
+    with:
+      go-version-file: 'go.mod'
+      go-version-file-behavior: 'latest-patch'
+  - run: go version
+```
+
+Because the newest patch release is often not yet present in the runner's tool cache, `latest-patch` implies `check-latest`: the newest matching patch is resolved from the versions manifest rather than from whatever the cache happens to hold.
+
+Two operational effects to be aware of:
+
+- The dependency cache key includes the installed Go version, so with `cache: true` each new Go patch release changes the key: the first run after a patch release rebuilds the module and build caches from scratch.
+- If the versions manifest cannot be reached (for example on GitHub Enterprise Server or other runners without github.com access), the action emits a warning and falls back to resolving the version range locally, which may install an older patch release from the runner's tool cache.
+
+Some versions are always used as written and are not affected by `latest-patch`:
+
+- Versions without a patch component (e.g., `go 1.22`), which already resolve to the latest available patch release.
+- Prerelease versions (e.g., `go1.22rc1`), which have no patch series to float within.
+- An exact version pinned by a go.mod or go.work `toolchain` directive (e.g., `toolchain go1.22.3`): the pin is deliberate and is never widened.
+
+`latest-patch` is not supported together with `go-download-base-url`, which requires an exact version.
 
 ## Check latest version
 

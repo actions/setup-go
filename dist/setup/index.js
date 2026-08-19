@@ -43462,7 +43462,7 @@ const GOLANG_DOWNLOAD_URL = 'https://go.dev/dl/?mode=json&include=all';
 // For these URLs we skip the getInfoFromDist() call entirely and construct
 // the download URL directly, avoiding a guaranteed-404 HTTP request.
 const NO_VERSION_LISTING_BASE_URLS = ['https://aka.ms/golang/release/latest'];
-async function getGo(versionSpec, checkLatest, auth, arch = external_os_default().arch(), goDownloadBaseUrl) {
+async function getGo(versionSpec, checkLatest, auth, arch = external_os_default().arch(), goDownloadBaseUrl, latestPatchApplied = false) {
     let manifest;
     const osPlat = external_os_default().platform();
     const customBaseUrl = goDownloadBaseUrl?.replace(/\/+$/, '');
@@ -43492,6 +43492,11 @@ async function getGo(versionSpec, checkLatest, auth, arch = external_os_default(
             if (resolvedVersion) {
                 versionSpec = resolvedVersion;
                 core_info(`Resolved as '${versionSpec}'`);
+            }
+            else if (latestPatchApplied) {
+                // latest-patch depends on the manifest to see patches newer than
+                // the runner's tool cache, so a silent info line is not enough here
+                warning(`go-version-file-behavior: latest-patch could not be honored: unable to resolve ${versionSpec} from the versions manifest. Falling back to the version spec, which may resolve to an older patch release from the runner's tool cache.`);
             }
             else {
                 core_info(`Failed to resolve version ${versionSpec} from manifest`);
@@ -43865,18 +43870,37 @@ function parseGoVersionFile(versionFilePath) {
             // toolchain directive: https://go.dev/ref/mod#go-mod-file-toolchain
             const matchToolchain = contents.match(/^toolchain go(1\.\d+(?:\.\d+|rc\d+)?)/m);
             if (matchToolchain) {
-                return matchToolchain[1];
+                return { version: matchToolchain[1], fromToolchainDirective: true };
             }
         }
         // go directive: https://go.dev/ref/mod#go-mod-file-go
         const matchGo = contents.match(/^go (\d+(\.\d+)*)/m);
-        return matchGo ? matchGo[1] : '';
+        return {
+            version: matchGo ? matchGo[1] : '',
+            fromToolchainDirective: false
+        };
     }
     else if (external_path_.basename(versionFilePath) === '.tool-versions') {
         const match = contents.match(/^golang\s+([^\n#]+)/m);
-        return match ? match[1].trim() : '';
+        return {
+            version: match ? match[1].trim() : '',
+            fromToolchainDirective: false
+        };
     }
-    return contents.trim();
+    return { version: contents.trim(), fromToolchainDirective: false };
+}
+// Widen an exact version from a version file into a semver range matching
+// the newest patch release of the same minor (go-version-file-behavior:
+// latest-patch). Only exact major.minor.patch versions are widened,
+// optionally with a leading 'v' as found in some .go-version files: bare
+// minors like '1.22' already resolve to the newest patch, and prereleases
+// like '1.21rc2' have no patch series to float within.
+function latestPatchSpec(version) {
+    const match = version.match(/^v?(\d+\.\d+\.\d+)$/);
+    if (!match) {
+        return version;
+    }
+    return `~${match[1]}`;
 }
 async function resolveStableVersionDist(versionSpec, arch) {
     const archFilter = getArch(arch);
@@ -100573,7 +100597,7 @@ async function run() {
         // versionSpec is optional.  If supplied, install / use from the tool cache
         // If not supplied then problem matchers will still be setup.  Useful for self-hosted.
         //
-        const versionSpec = resolveVersionInput();
+        const { version: versionSpec, latestPatchApplied } = resolveVersionInput();
         setGoToolchain();
         const cache = getBooleanInput('cache');
         core_info(`Setup go version spec ${versionSpec}`);
@@ -100584,14 +100608,20 @@ async function run() {
         if (versionSpec) {
             const token = getInput('token');
             const auth = !token ? undefined : `token ${token}`;
-            const checkLatest = getBooleanInput('check-latest');
+            let checkLatest = getBooleanInput('check-latest');
+            if (latestPatchApplied && !checkLatest) {
+                // the runner's tool cache may only hold a stale patch release; the
+                // newest one has to come from the versions manifest
+                core_info('go-version-file-behavior: latest-patch implies check-latest');
+                checkLatest = true;
+            }
             const goDownloadBaseUrl = getInput('go-download-base-url') ||
                 process.env['GO_DOWNLOAD_BASE_URL'] ||
                 undefined;
             if (goDownloadBaseUrl) {
                 core_info(`Using custom Go download base URL: ${goDownloadBaseUrl}`);
             }
-            const installDir = await getGo(versionSpec, checkLatest, auth, arch, goDownloadBaseUrl);
+            const installDir = await getGo(versionSpec, checkLatest, auth, arch, goDownloadBaseUrl, latestPatchApplied);
             const installDirVersion = external_path_default().basename(external_path_default().dirname(installDir));
             addPath(external_path_default().join(installDir, 'bin'));
             core_info('Added go to the path');
@@ -100672,19 +100702,43 @@ function parseGoVersion(versionString) {
 function resolveVersionInput() {
     let version = getInput('go-version');
     const versionFilePath = getInput('go-version-file');
+    const behavior = getInput('go-version-file-behavior') || 'exact';
+    if (behavior !== 'exact' && behavior !== 'latest-patch') {
+        throw new Error(`Invalid go-version-file-behavior: '${behavior}'. Supported values: 'exact', 'latest-patch'`);
+    }
     if (version && versionFilePath) {
         warning('Both go-version and go-version-file inputs are specified, only go-version will be used');
     }
     if (version) {
-        return version;
+        return { version, latestPatchApplied: false };
     }
     if (versionFilePath) {
         if (!external_fs_default().existsSync(versionFilePath)) {
             throw new Error(`The specified go version file at: ${versionFilePath} does not exist`);
         }
-        version = parseGoVersionFile(versionFilePath);
+        const versionFile = parseGoVersionFile(versionFilePath);
+        version = versionFile.version;
+        if (behavior === 'latest-patch' && version) {
+            if (versionFile.fromToolchainDirective) {
+                core_info(`Using toolchain directive version ${version} as written (latest-patch does not widen an explicit toolchain pin)`);
+            }
+            else {
+                const spec = latestPatchSpec(version);
+                if (spec === version) {
+                    core_info(`Using version ${version} as written (latest-patch only widens exact major.minor.patch versions)`);
+                }
+                else {
+                    if (getInput('go-download-base-url') ||
+                        process.env['GO_DOWNLOAD_BASE_URL']) {
+                        throw new Error(`go-version-file-behavior: 'latest-patch' is not supported with a custom download base URL because version ranges cannot be resolved against it. Use the default 'exact' behavior.`);
+                    }
+                    core_info(`Using latest patch release satisfying ${spec} (version file specifies ${version})`);
+                    return { version: spec, latestPatchApplied: true };
+                }
+            }
+        }
     }
-    return version;
+    return { version, latestPatchApplied: false };
 }
 function setGoToolchain() {
     // docs: https://go.dev/doc/toolchain
