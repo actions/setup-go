@@ -53,7 +53,7 @@
     "globals": "^17.7.0",
     "jest": "^30.4.2",
     "nock": "^14.0.0",
-    "prettier": "^3.8.4",
+    "prettier": "^3.9.5",
     "ts-jest": "^29.4.11",
     "typescript": "^6.0.3"
   }
