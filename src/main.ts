@@ -175,6 +175,10 @@ function resolveVersionInput(): string {
     version = installer.parseGoVersionFile(versionFilePath);
   }
 
+  if (!version && fs.existsSync('go.mod')) {
+    version = installer.parseGoVersionFile('go.mod');
+  }
+
   return version;
 }
 

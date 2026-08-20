@@ -100684,6 +100684,9 @@ function resolveVersionInput() {
         }
         version = parseGoVersionFile(versionFilePath);
     }
+    if (!version && external_fs_default().existsSync('go.mod')) {
+        version = parseGoVersionFile('go.mod');
+    }
     return version;
 }
 function setGoToolchain() {
