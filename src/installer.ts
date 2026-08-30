@@ -673,12 +673,14 @@ export function parseGoVersionFile(versionFilePath: string): string {
       const manifest: Record<string, any> = parse(contents);
       const go = manifest?.tools?.go;
 
-      if (typeof go === 'object' && go?.version) {
-        return go.version;
+      const first = Array.isArray(go) ? go[0] : go;
+
+      if (typeof first === 'object' && typeof first?.version === 'string') {
+        return first.version;
       }
 
-      if (typeof go === 'string') {
-        return go;
+      if (typeof first === 'string') {
+        return first;
       }
 
       return '';

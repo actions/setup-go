@@ -1019,6 +1019,20 @@ go = "1.24"
       expect(logSpy).toHaveBeenCalledWith('matching 1.25...');
     });
 
+    it('reads the first version from an array in mise.toml', async () => {
+      inputs['go-version-file'] = 'mise.toml';
+      existsSpy.mockImplementation(() => true);
+      readFileSpy.mockImplementation(() =>
+        Buffer.from('[tools]\ngo = ["1.26", "1.27"]\n')
+      );
+
+      await main.run();
+
+      expect(logSpy).toHaveBeenCalledWith('Setup go version spec 1.26');
+      expect(logSpy).toHaveBeenCalledWith('Attempting to download 1.26...');
+      expect(logSpy).toHaveBeenCalledWith('matching 1.26...');
+    });
+
     it('reads version from .go-version', async () => {
       inputs['go-version-file'] = '.go-version';
       existsSpy.mockImplementation(() => true);

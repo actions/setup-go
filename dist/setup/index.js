@@ -45024,16 +45024,15 @@ function parseGoVersionFile(versionFilePath) {
         return match ? match[1].trim() : '';
     }
     else if (external_path_.basename(versionFilePath) === 'mise.toml') {
-        // mise stores tool versions under the [tools] table. The Go tool is
-        // named "go" in mise, even though this action uses "golang" elsewhere.
         try {
             const manifest = parse(contents);
             const go = manifest?.tools?.go;
-            if (typeof go === 'object' && go?.version) {
-                return go.version;
+            const first = Array.isArray(go) ? go[0] : go;
+            if (typeof first === 'object' && typeof first?.version === 'string') {
+                return first.version;
             }
-            if (typeof go === 'string') {
-                return go;
+            if (typeof first === 'string') {
+                return first;
             }
             return '';
         }
