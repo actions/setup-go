@@ -164,9 +164,9 @@ jobs:
 
 ## Using the `go-version-file` input
 
-`setup-go` action can read the Go version from a version file. `go-version-file` input is used for specifying the path to the version file. If the file supplied to the `go-version-file` input doesn't exist, the action will fail with an error. This input supports go.mod, go.work, .go-version, and .tool-versions files.
+`setup-go` action can read the Go version from a version file. `go-version-file` input is used for specifying the path to the version file. If the file supplied to the `go-version-file` input doesn't exist, the action will fail with an error. This input supports go.mod, go.work, .go-version, .tool-versions, and mise.toml files.
 
-If both the `go-version` and the `go-version-file` inputs are provided then the `go-version` input is used. The `.tool-versions` file supports version specifications in accordance with asdf standards, adhering to Semantic Versioning ([semver](https://semver.org)).
+If both the `go-version` and the `go-version-file` inputs are provided then the `go-version` input is used. The `.tool-versions` file supports version specifications in accordance with asdf standards, adhering to Semantic Versioning ([semver](https://semver.org)). For `mise.toml`, the Go version is read from the `go` entry in the `[tools]` table.
 
 ```yaml
 steps:
@@ -191,6 +191,15 @@ steps:
   - uses: actions/setup-go@v7
     with:
       go-version-file: '.go-version' # Read Go version from .go-version
+  - run: go version
+```
+
+```yaml
+steps:
+  - uses: actions/checkout@v7
+  - uses: actions/setup-go@v7
+    with:
+      go-version-file: 'mise.toml' # Read Go version from mise.toml
   - run: go version
 ```
 

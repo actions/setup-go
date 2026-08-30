@@ -11,6 +11,7 @@ import os from 'os';
 import {StableReleaseAlias, isSelfHosted} from './utils.js';
 import {Architecture} from './types.js';
 import {getVersionsDist} from './go-version-fetch.js';
+import {parse} from 'smol-toml';
 
 export const GOTOOLCHAIN_ENV_VAR = 'GOTOOLCHAIN';
 export const GOTOOLCHAIN_LOCAL_VAL = 'local';
@@ -667,6 +668,23 @@ export function parseGoVersionFile(versionFilePath: string): string {
   } else if (path.basename(versionFilePath) === '.tool-versions') {
     const match = contents.match(/^golang\s+([^\n#]+)/m);
     return match ? match[1].trim() : '';
+  } else if (path.basename(versionFilePath) === 'mise.toml') {
+    try {
+      const manifest: Record<string, any> = parse(contents);
+      const go = manifest?.tools?.go;
+
+      if (typeof go === 'object' && go?.version) {
+        return go.version;
+      }
+
+      if (typeof go === 'string') {
+        return go;
+      }
+
+      return '';
+    } catch {
+      // Fall through to the plain-text parser for invalid TOML.
+    }
   }
 
   return contents.trim();

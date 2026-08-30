@@ -953,6 +953,9 @@ use .
 
     const toolVersionsContents = `golang 1.23
 `;
+    const miseTomlContents = `[tools]
+go = "1.24"
+`;
 
     it('reads version from go.mod', async () => {
       inputs['go-version-file'] = 'go.mod';
@@ -988,6 +991,32 @@ use .
       expect(logSpy).toHaveBeenCalledWith('Setup go version spec 1.23');
       expect(logSpy).toHaveBeenCalledWith('Attempting to download 1.23...');
       expect(logSpy).toHaveBeenCalledWith('matching 1.23...');
+    });
+
+    it('reads version from mise.toml', async () => {
+      inputs['go-version-file'] = 'mise.toml';
+      existsSpy.mockImplementation(() => true);
+      readFileSpy.mockImplementation(() => Buffer.from(miseTomlContents));
+
+      await main.run();
+
+      expect(logSpy).toHaveBeenCalledWith('Setup go version spec 1.24');
+      expect(logSpy).toHaveBeenCalledWith('Attempting to download 1.24...');
+      expect(logSpy).toHaveBeenCalledWith('matching 1.24...');
+    });
+
+    it('reads an object version from mise.toml', async () => {
+      inputs['go-version-file'] = 'mise.toml';
+      existsSpy.mockImplementation(() => true);
+      readFileSpy.mockImplementation(() =>
+        Buffer.from('[tools]\ngo = { version = "1.25" }\n')
+      );
+
+      await main.run();
+
+      expect(logSpy).toHaveBeenCalledWith('Setup go version spec 1.25');
+      expect(logSpy).toHaveBeenCalledWith('Attempting to download 1.25...');
+      expect(logSpy).toHaveBeenCalledWith('matching 1.25...');
     });
 
     it('reads version from .go-version', async () => {
