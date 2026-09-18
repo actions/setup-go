@@ -29,9 +29,9 @@ outputs:
   go-path:
     description: 'The value of `go env GOPATH`.'
   go-bin:
-    description: 'The value of `go env GOBIN`. Go 1.27+ reports an implicit `$GOPATH/bin` default; earlier releases are empty unless `GOBIN` is set. Prefer `go-bin-path`.'
+    description: 'The value of `go env GOBIN`, which may be empty. Prefer `go-bin-path`.'
   go-bin-path:
-    description: 'The base Go binary directory: `GOBIN`, otherwise `bin` under the first GOPATH entry.'
+    description: 'The base Go binary directory: `GOBIN`, otherwise `bin` under the first `GOPATH` entry.'
   go-root:
     description: 'The value of `go env GOROOT`.'
   go-cache:
@@ -43,7 +43,7 @@ outputs:
   go-arch:
     description: 'The value of `go env GOARCH`, the target architecture in Go notation (amd64, arm64).'
   go-tool-dir:
-    description: 'The value of `go env GOTOOLDIR`, the directory holding the toolchain binaries (compile, link, vet).'
+    description: 'The value of `go env GOTOOLDIR`, the directory holding the toolchain binaries.'
 runs:
   using: 'node24'
   main: 'dist/setup/index.js'
