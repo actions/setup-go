@@ -6,6 +6,9 @@ inputs:
     description: 'The Go version to download (if necessary) and use. Supports semver spec and ranges. Be sure to enclose this option in single quotation marks.'
   go-version-file:
     description: 'Path to the go.mod, go.work, .go-version, or .tool-versions file.'
+  go-version-file-behavior:
+    description: 'How to interpret an exact version read from go-version-file. Use "latest-patch" to resolve the newest available patch release of the same minor version (e.g. "1.22.0" in go.mod resolves to the newest 1.22.x); this implies check-latest and is not supported with go-download-base-url. Defaults to "exact", which uses the version as written.'
+    default: exact
   check-latest:
     description: 'Set this option to true if you want the action to always check for the latest available version that satisfies the version spec'
     default: false
