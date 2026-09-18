@@ -100441,6 +100441,15 @@ var State;
 var Outputs;
 (function (Outputs) {
     Outputs["CacheHit"] = "cache-hit";
+    Outputs["GoPath"] = "go-path";
+    Outputs["GoBin"] = "go-bin";
+    Outputs["GoBinPath"] = "go-bin-path";
+    Outputs["GoRoot"] = "go-root";
+    Outputs["GoCache"] = "go-cache";
+    Outputs["GoModCache"] = "go-mod-cache";
+    Outputs["GoOs"] = "go-os";
+    Outputs["GoArch"] = "go-arch";
+    Outputs["GoToolDir"] = "go-tool-dir";
 })(Outputs || (Outputs = {}));
 
 ;// CONCATENATED MODULE: ./src/package-managers.ts
@@ -100567,6 +100576,7 @@ const findDependencyFile = (packageManager) => {
 
 
 
+
 async function run() {
     try {
         //
@@ -100616,6 +100626,10 @@ async function run() {
         core_debug(`add bin ${added}`);
         const goPath = await which('go');
         const goVersion = (external_child_process_default().execSync(`${goPath} version`) || '').toString();
+        const goEnvJson = readGoEnv(goPath);
+        if (goEnvJson) {
+            setGoEnvOutputs(goEnvJson);
+        }
         if (cache && isCacheFeatureAvailable()) {
             const packageManager = 'default';
             const cacheDependencyPath = getInput('cache-dependency-path');
@@ -100640,6 +100654,45 @@ async function run() {
     catch (error) {
         setFailed(error.message);
     }
+}
+function readGoEnv(goPath) {
+    try {
+        const rawGoEnv = external_child_process_default().execFileSync(goPath, ['env', '-json'], {
+            encoding: 'utf8',
+            stdio: ['ignore', 'pipe', 'pipe']
+        });
+        const parsed = JSON.parse(rawGoEnv);
+        if (typeof parsed !== 'object' ||
+            parsed === null ||
+            Array.isArray(parsed)) {
+            throw new Error("'go env -json' did not return a JSON object");
+        }
+        return parsed;
+    }
+    catch (error) {
+        core_info(`Unable to read 'go env -json', the Go environment outputs will not be set: ${error.message}`);
+        return undefined;
+    }
+}
+const goEnvOutputs = [
+    [Outputs.GoPath, 'GOPATH'],
+    [Outputs.GoBin, 'GOBIN'],
+    [Outputs.GoRoot, 'GOROOT'],
+    [Outputs.GoCache, 'GOCACHE'],
+    [Outputs.GoModCache, 'GOMODCACHE'],
+    [Outputs.GoOs, 'GOOS'],
+    [Outputs.GoArch, 'GOARCH'],
+    [Outputs.GoToolDir, 'GOTOOLDIR']
+];
+function setGoEnvOutputs(goEnv) {
+    for (const [output, variable] of goEnvOutputs) {
+        setOutput(output, goEnv[variable] ?? '');
+    }
+    setOutput(Outputs.GoBinPath, goEnv['GOBIN'] || goPathBin(goEnv));
+}
+function goPathBin(goEnv) {
+    const goPath = (goEnv['GOPATH'] ?? '').split((external_path_default()).delimiter)[0];
+    return goPath ? external_path_default().join(goPath, 'bin') : '';
 }
 async function addBinToPath() {
     let added = false;
