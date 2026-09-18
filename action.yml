@@ -29,7 +29,7 @@ outputs:
   go-path:
     description: 'The value of `go env GOPATH`.'
   go-bin:
-    description: 'The value of `go env GOBIN`, which may be empty. Prefer `go-bin-path`.'
+    description: 'The value of `go env GOBIN`.'
   go-bin-path:
     description: 'The base Go binary directory: `GOBIN`, otherwise `bin` under the first `GOPATH` entry.'
   go-root:
