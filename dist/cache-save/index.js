@@ -95641,6 +95641,15 @@ var State;
 var Outputs;
 (function (Outputs) {
     Outputs["CacheHit"] = "cache-hit";
+    Outputs["GoPath"] = "go-path";
+    Outputs["GoBin"] = "go-bin";
+    Outputs["GoBinPath"] = "go-bin-path";
+    Outputs["GoRoot"] = "go-root";
+    Outputs["GoCache"] = "go-cache";
+    Outputs["GoModCache"] = "go-mod-cache";
+    Outputs["GoOs"] = "go-os";
+    Outputs["GoArch"] = "go-arch";
+    Outputs["GoToolDir"] = "go-tool-dir";
 })(Outputs || (Outputs = {}));
 
 ;// CONCATENATED MODULE: ./src/package-managers.ts

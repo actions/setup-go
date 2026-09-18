@@ -28,6 +28,8 @@ jest.unstable_mockModule('@actions/core', () => ({
   getBooleanInput: jest.fn(),
   info: jest.fn(),
   debug: jest.fn(),
+  warning: jest.fn(),
+  setOutput: jest.fn(),
   exportVariable: jest.fn()
 }));
 
@@ -110,6 +112,8 @@ describe('setup-go', () => {
   let findSpy: jest.Mock;
   let cnSpy: jest.SpiedFunction<typeof process.stdout.write>;
   let logSpy: jest.Mock;
+  let setOutputSpy: jest.Mock<typeof core.setOutput>;
+  let warningSpy: jest.Mock<typeof core.warning>;
   let getSpy: jest.Mock;
   let platSpy: jest.Mock;
   let archSpy: jest.Mock;
@@ -198,6 +202,8 @@ describe('setup-go', () => {
     // writes
     cnSpy = jest.spyOn(process.stdout, 'write');
     logSpy = core.info as jest.Mock;
+    setOutputSpy = core.setOutput as jest.Mock<typeof core.setOutput>;
+    warningSpy = core.warning as jest.Mock<typeof core.warning>;
     dbgSpy = core.debug as jest.Mock;
     getSpy.mockImplementation(() => goJsonData as IGoVersion[] | null);
     cnSpy.mockImplementation(() => true);
@@ -644,6 +650,104 @@ describe('setup-go', () => {
 
     const added = await main.addBinToPath();
     expect(added).toBeTruthy();
+  });
+
+  describe('go env outputs', () => {
+    const goEnv = {
+      GOPATH: '/Users/testuser/go',
+      GOBIN: '',
+      GOROOT: '/usr/local/go',
+      GOCACHE: '/Users/testuser/.cache/go-build',
+      GOMODCACHE: '/Users/testuser/go/pkg/mod',
+      GOOS: 'darwin',
+      GOARCH: 'arm64',
+      GOTOOLDIR: '/usr/local/go/pkg/tool/darwin_arm64'
+    };
+
+    it('parses the output of go env -json', () => {
+      execFileSpy.mockImplementation(() => JSON.stringify(goEnv));
+
+      expect(main.readGoEnv('/usr/local/go/bin/go')).toEqual(goEnv);
+    });
+
+    it('returns undefined when go env -json is not supported', () => {
+      execFileSpy.mockImplementation(() => {
+        throw new Error('flag provided but not defined: -json');
+      });
+
+      expect(main.readGoEnv('/usr/local/go/bin/go')).toBeUndefined();
+      expect(logSpy).toHaveBeenCalledWith(
+        expect.stringContaining('flag provided but not defined: -json')
+      );
+      expect(warningSpy).not.toHaveBeenCalled();
+    });
+
+    it('returns undefined when the output is not valid JSON', () => {
+      execFileSpy.mockImplementation(() => 'GOPATH="/Users/testuser/go"');
+
+      expect(main.readGoEnv('/usr/local/go/bin/go')).toBeUndefined();
+    });
+
+    it('returns undefined when the output is not a JSON object', () => {
+      execFileSpy.mockImplementation(() => '[]');
+
+      expect(main.readGoEnv('/usr/local/go/bin/go')).toBeUndefined();
+    });
+
+    it('sets an output for each exposed variable', () => {
+      main.setGoEnvOutputs(goEnv);
+
+      expect(setOutputSpy).toHaveBeenCalledWith('go-path', goEnv.GOPATH);
+      expect(setOutputSpy).toHaveBeenCalledWith('go-bin', '');
+      expect(setOutputSpy).toHaveBeenCalledWith('go-root', goEnv.GOROOT);
+      expect(setOutputSpy).toHaveBeenCalledWith('go-cache', goEnv.GOCACHE);
+      expect(setOutputSpy).toHaveBeenCalledWith(
+        'go-mod-cache',
+        goEnv.GOMODCACHE
+      );
+      expect(setOutputSpy).toHaveBeenCalledWith('go-os', goEnv.GOOS);
+      expect(setOutputSpy).toHaveBeenCalledWith('go-arch', goEnv.GOARCH);
+      expect(setOutputSpy).toHaveBeenCalledWith('go-tool-dir', goEnv.GOTOOLDIR);
+    });
+
+    it('falls back to $GOPATH/bin when GOBIN is empty', () => {
+      main.setGoEnvOutputs(goEnv);
+
+      expect(setOutputSpy).toHaveBeenCalledWith(
+        'go-bin-path',
+        '/Users/testuser/go/bin'
+      );
+    });
+
+    it('prefers GOBIN over $GOPATH/bin when it is set', () => {
+      main.setGoEnvOutputs({...goEnv, GOBIN: '/Users/testuser/bin'});
+
+      expect(setOutputSpy).toHaveBeenCalledWith(
+        'go-bin-path',
+        '/Users/testuser/bin'
+      );
+    });
+
+    it('uses the first entry of a multi-entry GOPATH', () => {
+      const GOPATH = ['/Users/testuser/go', '/Users/testuser/other'].join(
+        path.delimiter
+      );
+
+      main.setGoEnvOutputs({...goEnv, GOPATH});
+
+      expect(setOutputSpy).toHaveBeenCalledWith('go-path', GOPATH);
+      expect(setOutputSpy).toHaveBeenCalledWith(
+        'go-bin-path',
+        '/Users/testuser/go/bin'
+      );
+    });
+
+    it('leaves variables missing from go env -json empty', () => {
+      main.setGoEnvOutputs({});
+
+      expect(setOutputSpy).toHaveBeenCalledWith('go-path', '');
+      expect(setOutputSpy).toHaveBeenCalledWith('go-bin-path', '');
+    });
   });
 
   interface Annotation {

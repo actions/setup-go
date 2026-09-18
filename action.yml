@@ -26,6 +26,24 @@ outputs:
     description: 'The installed Go version. Useful when given a version range as input.'
   cache-hit:
     description: 'A boolean value to indicate if a cache was hit'
+  go-path:
+    description: 'The value of `go env GOPATH`.'
+  go-bin:
+    description: 'The value of `go env GOBIN`.'
+  go-bin-path:
+    description: 'The base Go binary directory: `GOBIN`, otherwise `bin` under the first `GOPATH` entry.'
+  go-root:
+    description: 'The value of `go env GOROOT`.'
+  go-cache:
+    description: 'The value of `go env GOCACHE`, the build cache directory.'
+  go-mod-cache:
+    description: 'The value of `go env GOMODCACHE`, the module cache directory.'
+  go-os:
+    description: 'The value of `go env GOOS`, the target OS in Go notation (linux, darwin, windows).'
+  go-arch:
+    description: 'The value of `go env GOARCH`, the target architecture in Go notation (amd64, arm64).'
+  go-tool-dir:
+    description: 'The value of `go env GOTOOLDIR`, the directory holding the toolchain binaries.'
 runs:
   using: 'node24'
   main: 'dist/setup/index.js'
