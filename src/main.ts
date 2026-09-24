@@ -10,7 +10,7 @@ import cp from 'child_process';
 import fs from 'fs';
 import os from 'os';
 import {Architecture} from './types.js';
-import {Outputs} from './constants.js';
+import {GO_ENV_OUTPUTS, GoEnv, Outputs} from './constants.js';
 
 export async function run() {
   try {
@@ -125,7 +125,7 @@ export async function run() {
   }
 }
 
-export function readGoEnv(goPath: string): Record<string, string> | undefined {
+export function readGoEnv(goPath: string): GoEnv | undefined {
   try {
     const rawGoEnv = cp.execFileSync(goPath, ['env', '-json'], {
       encoding: 'utf8',
@@ -141,7 +141,7 @@ export function readGoEnv(goPath: string): Record<string, string> | undefined {
       throw new Error("'go env -json' did not return a JSON object");
     }
 
-    return parsed as Record<string, string>;
+    return parsed as GoEnv;
   } catch (error) {
     core.info(
       `Unable to read 'go env -json', the Go environment outputs will not be set: ${
@@ -152,27 +152,16 @@ export function readGoEnv(goPath: string): Record<string, string> | undefined {
   }
 }
 
-const goEnvOutputs: ReadonlyArray<[Outputs, string]> = [
-  [Outputs.GoPath, 'GOPATH'],
-  [Outputs.GoBin, 'GOBIN'],
-  [Outputs.GoRoot, 'GOROOT'],
-  [Outputs.GoCache, 'GOCACHE'],
-  [Outputs.GoModCache, 'GOMODCACHE'],
-  [Outputs.GoOs, 'GOOS'],
-  [Outputs.GoArch, 'GOARCH'],
-  [Outputs.GoToolDir, 'GOTOOLDIR']
-];
-
-export function setGoEnvOutputs(goEnv: Record<string, string>): void {
-  for (const [output, variable] of goEnvOutputs) {
-    core.setOutput(output, goEnv[variable] ?? '');
+export function setGoEnvOutputs(goEnv: GoEnv): void {
+  for (const name of GO_ENV_OUTPUTS) {
+    core.setOutput(name, goEnv[name] ?? '');
   }
 
-  core.setOutput(Outputs.GoBinPath, goEnv['GOBIN'] || goPathBin(goEnv));
+  core.setOutput(Outputs.GoBinPath, goEnv.GOBIN || goPathBin(goEnv));
 }
 
-function goPathBin(goEnv: Record<string, string>): string {
-  const goPath = (goEnv['GOPATH'] ?? '').split(path.delimiter)[0];
+function goPathBin(goEnv: GoEnv): string {
+  const goPath = (goEnv.GOPATH ?? '').split(path.delimiter)[0];
   return goPath ? path.join(goPath, 'bin') : '';
 }
 

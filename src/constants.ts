@@ -5,13 +5,19 @@ export enum State {
 
 export enum Outputs {
   CacheHit = 'cache-hit',
-  GoPath = 'go-path',
-  GoBin = 'go-bin',
-  GoBinPath = 'go-bin-path',
-  GoRoot = 'go-root',
-  GoCache = 'go-cache',
-  GoModCache = 'go-mod-cache',
-  GoOs = 'go-os',
-  GoArch = 'go-arch',
-  GoToolDir = 'go-tool-dir'
+  GoBinPath = 'go-bin-path'
 }
+
+export const GO_ENV_OUTPUTS = [
+  'GOPATH',
+  'GOBIN',
+  'GOROOT',
+  'GOCACHE',
+  'GOMODCACHE',
+  'GOOS',
+  'GOARCH',
+  'GOTOOLDIR'
+] as const;
+
+export type GoEnvVar = (typeof GO_ENV_OUTPUTS)[number];
+export type GoEnv = Partial<Record<GoEnvVar, string>>;

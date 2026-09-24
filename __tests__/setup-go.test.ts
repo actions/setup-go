@@ -17,6 +17,7 @@ import goTestManifest from './data/versions-manifest.json' with {type: 'json'};
 
 import type {IGoVersion} from '../src/installer.js';
 import type {IToolRelease} from '@actions/tool-cache';
+import {GO_ENV_OUTPUTS} from '../src/constants.js';
 
 const httpClientGetJson = jest.fn();
 
@@ -697,17 +698,9 @@ describe('setup-go', () => {
     it('sets an output for each exposed variable', () => {
       main.setGoEnvOutputs(goEnv);
 
-      expect(setOutputSpy).toHaveBeenCalledWith('go-path', goEnv.GOPATH);
-      expect(setOutputSpy).toHaveBeenCalledWith('go-bin', '');
-      expect(setOutputSpy).toHaveBeenCalledWith('go-root', goEnv.GOROOT);
-      expect(setOutputSpy).toHaveBeenCalledWith('go-cache', goEnv.GOCACHE);
-      expect(setOutputSpy).toHaveBeenCalledWith(
-        'go-mod-cache',
-        goEnv.GOMODCACHE
-      );
-      expect(setOutputSpy).toHaveBeenCalledWith('go-os', goEnv.GOOS);
-      expect(setOutputSpy).toHaveBeenCalledWith('go-arch', goEnv.GOARCH);
-      expect(setOutputSpy).toHaveBeenCalledWith('go-tool-dir', goEnv.GOTOOLDIR);
+      for (const name of GO_ENV_OUTPUTS) {
+        expect(setOutputSpy).toHaveBeenCalledWith(name, goEnv[name] ?? '');
+      }
     });
 
     it('falls back to $GOPATH/bin when GOBIN is empty', () => {
@@ -735,7 +728,7 @@ describe('setup-go', () => {
 
       main.setGoEnvOutputs({...goEnv, GOPATH});
 
-      expect(setOutputSpy).toHaveBeenCalledWith('go-path', GOPATH);
+      expect(setOutputSpy).toHaveBeenCalledWith('GOPATH', GOPATH);
       expect(setOutputSpy).toHaveBeenCalledWith(
         'go-bin-path',
         '/Users/testuser/go/bin'
@@ -745,7 +738,7 @@ describe('setup-go', () => {
     it('leaves variables missing from go env -json empty', () => {
       main.setGoEnvOutputs({});
 
-      expect(setOutputSpy).toHaveBeenCalledWith('go-path', '');
+      expect(setOutputSpy).toHaveBeenCalledWith('GOPATH', '');
       expect(setOutputSpy).toHaveBeenCalledWith('go-bin-path', '');
     });
   });
