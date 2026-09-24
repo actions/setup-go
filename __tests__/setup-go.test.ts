@@ -698,6 +698,16 @@ describe('setup-go', () => {
     it('sets an output for each exposed variable', () => {
       main.setGoEnvOutputs(goEnv);
 
+      expect(GO_ENV_OUTPUTS).toEqual([
+        'GOPATH',
+        'GOBIN',
+        'GOROOT',
+        'GOCACHE',
+        'GOMODCACHE',
+        'GOOS',
+        'GOARCH',
+        'GOTOOLDIR'
+      ]);
       for (const name of GO_ENV_OUTPUTS) {
         expect(setOutputSpy).toHaveBeenCalledWith(name, goEnv[name] ?? '');
       }
