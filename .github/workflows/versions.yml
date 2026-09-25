@@ -58,15 +58,15 @@ jobs:
           go-version: stable
       - name: Show Go environment outputs
         run: |
-          echo "go-path:      ${{ steps.setup-go.outputs.go-path }}"
-          echo "go-bin:       ${{ steps.setup-go.outputs.go-bin }}"
+          echo "GOPATH:       ${{ steps.setup-go.outputs.GOPATH }}"
+          echo "GOBIN:        ${{ steps.setup-go.outputs.GOBIN }}"
           echo "go-bin-path:  ${{ steps.setup-go.outputs.go-bin-path }}"
-          echo "go-root:      ${{ steps.setup-go.outputs.go-root }}"
-          echo "go-cache:     ${{ steps.setup-go.outputs.go-cache }}"
-          echo "go-mod-cache: ${{ steps.setup-go.outputs.go-mod-cache }}"
-          echo "go-os:        ${{ steps.setup-go.outputs.go-os }}"
-          echo "go-arch:      ${{ steps.setup-go.outputs.go-arch }}"
-          echo "go-tool-dir:  ${{ steps.setup-go.outputs.go-tool-dir }}"
+          echo "GOROOT:       ${{ steps.setup-go.outputs.GOROOT }}"
+          echo "GOCACHE:      ${{ steps.setup-go.outputs.GOCACHE }}"
+          echo "GOMODCACHE:   ${{ steps.setup-go.outputs.GOMODCACHE }}"
+          echo "GOOS:         ${{ steps.setup-go.outputs.GOOS }}"
+          echo "GOARCH:       ${{ steps.setup-go.outputs.GOARCH }}"
+          echo "GOTOOLDIR:    ${{ steps.setup-go.outputs.GOTOOLDIR }}"
 
   aliases-arch:
     runs-on: ${{ matrix.os }}
