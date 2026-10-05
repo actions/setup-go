@@ -40669,8 +40669,8 @@ function getExecOutput(commandLine, args, options) {
         let stdout = '';
         let stderr = '';
         //Using string decoder covers the case where a mult-byte character is split
-        const stdoutDecoder = new external_string_decoder_.StringDecoder('utf8');
-        const stderrDecoder = new external_string_decoder_.StringDecoder('utf8');
+        const stdoutDecoder = new StringDecoder('utf8');
+        const stderrDecoder = new StringDecoder('utf8');
         const originalStdoutListener = (_a = options === null || options === void 0 ? void 0 : options.listeners) === null || _a === void 0 ? void 0 : _a.stdout;
         const originalStdErrListener = (_b = options === null || options === void 0 ? void 0 : options.listeners) === null || _b === void 0 ? void 0 : _b.stderr;
         const stdErrListener = (data) => {
@@ -96210,8 +96210,7 @@ function saveCacheV2(paths_1, key_1, options_1) {
 ;// CONCATENATED MODULE: ./src/constants.ts
 var State;
 (function (State) {
-    State["CachePrimaryKey"] = "CACHE_KEY";
-    State["CacheMatchedKey"] = "CACHE_RESULT";
+    State["CacheEntries"] = "CACHE_ENTRIES";
 })(State || (State = {}));
 var Outputs;
 (function (Outputs) {
@@ -96229,75 +96228,7 @@ const GO_ENV_OUTPUTS = (/* unused pure expression or super */ null && ([
     'GOTOOLDIR'
 ]));
 
-;// CONCATENATED MODULE: ./src/package-managers.ts
-const supportedPackageManagers = {
-    default: {
-        dependencyFilePattern: 'go.mod',
-        cacheFolderCommandList: ['go env GOMODCACHE', 'go env GOCACHE']
-    }
-};
-
-;// CONCATENATED MODULE: ./src/cache-utils.ts
-
-
-
-
-const getCommandOutput = async (toolCommand) => {
-    let { stdout, stderr, exitCode } = await getExecOutput(toolCommand, undefined, { ignoreReturnCode: true });
-    if (exitCode) {
-        stderr = !stderr.trim()
-            ? `The '${toolCommand}' command failed with exit code: ${exitCode}`
-            : stderr;
-        throw new Error(stderr);
-    }
-    return stdout.trim();
-};
-const getPackageManagerInfo = async (packageManager) => {
-    if (!supportedPackageManagers[packageManager]) {
-        throw new Error(`It's not possible to use ${packageManager}, please, check correctness of the package manager name spelling.`);
-    }
-    const obtainedPackageManager = supportedPackageManagers[packageManager];
-    return obtainedPackageManager;
-};
-const getCacheDirectoryPath = async (packageManagerInfo) => {
-    const pathOutputs = await Promise.allSettled(packageManagerInfo.cacheFolderCommandList.map(async (command) => getCommandOutput(command)));
-    const results = pathOutputs.map(item => {
-        if (item.status === 'fulfilled') {
-            return item.value;
-        }
-        else {
-            info(`[warning]getting cache directory path failed: ${item.reason}`);
-        }
-        return '';
-    });
-    const cachePaths = results.filter(item => item);
-    if (!cachePaths.length) {
-        throw new Error(`Could not get cache folder paths.`);
-    }
-    return cachePaths;
-};
-function cache_utils_isGhes() {
-    const ghUrl = new URL(process.env['GITHUB_SERVER_URL'] || 'https://github.com');
-    const hostname = ghUrl.hostname.trimEnd().toUpperCase();
-    const isGitHubHost = hostname === 'GITHUB.COM';
-    const isGitHubEnterpriseCloudHost = hostname.endsWith('.GHE.COM');
-    const isLocalHost = hostname.endsWith('.LOCALHOST');
-    return !isGitHubHost && !isGitHubEnterpriseCloudHost && !isLocalHost;
-}
-function isCacheFeatureAvailable() {
-    if (cache.isFeatureAvailable()) {
-        return true;
-    }
-    if (cache_utils_isGhes()) {
-        core.warning('Cache action is only supported on GHES version >= 3.5. If you are on version >=3.5 Please check with GHES admin if Actions cache service is enabled or not.');
-        return false;
-    }
-    core.warning('The runner was not able to contact the cache service. Caching will be skipped');
-    return false;
-}
-
 ;// CONCATENATED MODULE: ./src/cache-save.ts
-
 
 
 
@@ -96334,28 +96265,32 @@ async function run(earlyExit) {
     }
 }
 const cachePackages = async () => {
-    const packageManager = 'default';
-    const state = getState(State.CacheMatchedKey);
-    const primaryKey = getState(State.CachePrimaryKey);
-    const packageManagerInfo = await getPackageManagerInfo(packageManager);
-    const cachePaths = await getCacheDirectoryPath(packageManagerInfo);
-    const nonExistingPaths = cachePaths.filter(cachePath => !external_fs_default().existsSync(cachePath));
-    if (nonExistingPaths.length === cachePaths.length) {
-        warning('There are no cache folders on the disk');
+    const entries = JSON.parse(getState(State.CacheEntries) || '[]');
+    if (!entries.length) {
+        info('Cache keys were not generated. Please check the log messages above for more errors or information');
         return;
     }
-    if (nonExistingPaths.length) {
-        logWarning(`Cache folder path is retrieved but doesn't exist on disk: ${nonExistingPaths.join(', ')}`);
-    }
-    if (!primaryKey) {
-        info('Primary key was not generated. Please check the log messages above for more errors or information');
-        return;
-    }
-    if (primaryKey === state) {
+    await Promise.all(entries.map(async (entry) => {
+        try {
+            await saveCacheEntry(entry);
+        }
+        catch (error) {
+            const message = error instanceof Error ? error.message : String(error);
+            warning(`Save ${entry.kind} cache failed: ${message}`);
+        }
+    }));
+};
+const saveCacheEntry = async (entry) => {
+    const { kind, path, primaryKey, matchedKey } = entry;
+    if (primaryKey === matchedKey) {
         info(`Cache hit occurred on the primary key ${primaryKey}, not saving cache.`);
         return;
     }
-    const cacheId = await cache_saveCache(cachePaths, primaryKey);
+    if (!external_fs_default().existsSync(path)) {
+        logWarning(`${kind} cache folder doesn't exist on disk: ${path}`);
+        return;
+    }
+    const cacheId = await cache_saveCache([path], primaryKey);
     if (cacheId === -1) {
         // saveCache returns -1 without throwing when the cache was not saved, e.g.
         // a reserve collision or a read-only token (fork PR). @actions/cache has

@@ -127,6 +127,8 @@ The `cache` input is optional, and caching is enabled by default. To disable cac
 
 By default, the action looks for `go.mod` in the repository root and uses its hash as part of the cache key. Use the `cache-dependency-path` input when you have multiple dependency files, or when they’re located in different subdirectories. This input supports glob patterns.
 
+Module sources (`GOMODCACHE`) and build outputs (`GOCACHE`) are cached separately. On the same runner OS, module sources can be reused across Go versions and runner architectures, while build outputs remain partitioned by Go version, runner architecture, and Linux runner image. The `cache-hit` output is `true` only when both cache entries are restored on their primary keys.
+
 If caching cannot be performed for any reason, the action logs a warning and continues workflow execution.
 
 For examples of using `cache-dependency-path`, see the [Caching](docs/advanced-usage.md#caching) section of the [Advanced usage](docs/advanced-usage.md) guide.

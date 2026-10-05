@@ -2,7 +2,7 @@ import * as core from '@actions/core';
 import * as cache from '@actions/cache';
 import fs from 'fs';
 import {State} from './constants.js';
-import {getCacheDirectoryPath, getPackageManagerInfo} from './cache-utils.js';
+import type {CacheEntry} from './cache-utils.js';
 
 // Catch and log any unhandled exceptions.  These exceptions can leak out of the uploadChunk method in
 // @actions/toolkit when a failed upload closes the file descriptor causing any in-process reads to
@@ -39,47 +39,43 @@ export async function run(earlyExit?: boolean) {
 }
 
 const cachePackages = async () => {
-  const packageManager = 'default';
-
-  const state = core.getState(State.CacheMatchedKey);
-  const primaryKey = core.getState(State.CachePrimaryKey);
-
-  const packageManagerInfo = await getPackageManagerInfo(packageManager);
-
-  const cachePaths = await getCacheDirectoryPath(packageManagerInfo);
-
-  const nonExistingPaths = cachePaths.filter(
-    cachePath => !fs.existsSync(cachePath)
+  const entries: CacheEntry[] = JSON.parse(
+    core.getState(State.CacheEntries) || '[]'
   );
-
-  if (nonExistingPaths.length === cachePaths.length) {
-    core.warning('There are no cache folders on the disk');
-    return;
-  }
-
-  if (nonExistingPaths.length) {
-    logWarning(
-      `Cache folder path is retrieved but doesn't exist on disk: ${nonExistingPaths.join(
-        ', '
-      )}`
-    );
-  }
-
-  if (!primaryKey) {
+  if (!entries.length) {
     core.info(
-      'Primary key was not generated. Please check the log messages above for more errors or information'
+      'Cache keys were not generated. Please check the log messages above for more errors or information'
     );
     return;
   }
 
-  if (primaryKey === state) {
+  await Promise.all(
+    entries.map(async entry => {
+      try {
+        await saveCacheEntry(entry);
+      } catch (error) {
+        const message = error instanceof Error ? error.message : String(error);
+        core.warning(`Save ${entry.kind} cache failed: ${message}`);
+      }
+    })
+  );
+};
+
+const saveCacheEntry = async (entry: CacheEntry) => {
+  const {kind, path, primaryKey, matchedKey} = entry;
+  if (primaryKey === matchedKey) {
     core.info(
       `Cache hit occurred on the primary key ${primaryKey}, not saving cache.`
     );
     return;
   }
 
-  const cacheId = await cache.saveCache(cachePaths, primaryKey);
+  if (!fs.existsSync(path)) {
+    logWarning(`${kind} cache folder doesn't exist on disk: ${path}`);
+    return;
+  }
+
+  const cacheId = await cache.saveCache([path], primaryKey);
   if (cacheId === -1) {
     // saveCache returns -1 without throwing when the cache was not saved, e.g.
     // a reserve collision or a read-only token (fork PR). @actions/cache has
