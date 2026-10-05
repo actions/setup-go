@@ -97543,8 +97543,7 @@ function saveCacheV2(paths_1, key_1, options_1) {
 ;// CONCATENATED MODULE: ./src/constants.ts
 var State;
 (function (State) {
-    State["CachePrimaryKey"] = "CACHE_KEY";
-    State["CacheMatchedKey"] = "CACHE_RESULT";
+    State["CacheEntries"] = "CACHE_ENTRIES";
 })(State || (State = {}));
 var Outputs;
 (function (Outputs) {
@@ -97566,11 +97565,16 @@ const GO_ENV_OUTPUTS = [
 const supportedPackageManagers = {
     default: {
         dependencyFilePattern: 'go.mod',
-        cacheFolderCommandList: ['go env GOMODCACHE', 'go env GOCACHE']
+        cacheFolderCommandList: [
+            { kind: 'modules', command: 'go env GOMODCACHE' },
+            { kind: 'build', command: 'go env GOCACHE' }
+        ]
     }
 };
 
 ;// CONCATENATED MODULE: ./src/cache-utils.ts
+
+
 
 
 
@@ -97593,22 +97597,78 @@ const getPackageManagerInfo = async (packageManager) => {
     return obtainedPackageManager;
 };
 const getCacheDirectoryPath = async (packageManagerInfo) => {
-    const pathOutputs = await Promise.allSettled(packageManagerInfo.cacheFolderCommandList.map(async (command) => getCommandOutput(command)));
-    const results = pathOutputs.map(item => {
+    const pathOutputs = await Promise.allSettled(packageManagerInfo.cacheFolderCommandList.map(async ({ kind, command }) => ({
+        kind,
+        path: await getCommandOutput(command)
+    })));
+    const cachePaths = [];
+    for (const item of pathOutputs) {
         if (item.status === 'fulfilled') {
-            return item.value;
+            if (item.value.path) {
+                cachePaths.push(item.value);
+            }
         }
         else {
             core_info(`[warning]getting cache directory path failed: ${item.reason}`);
         }
-        return '';
-    });
-    const cachePaths = results.filter(item => item);
+    }
     if (!cachePaths.length) {
         throw new Error(`Could not get cache folder paths.`);
     }
     return cachePaths;
 };
+function canRestoreCachesInParallel(directories) {
+    try {
+        const paths = directories.map(directory => {
+            const resolvedPath = resolveCachePath(directory.path);
+            // Conservatively handle case-insensitive Windows/macOS filesystems.
+            return process.platform === 'darwin' || process.platform === 'win32'
+                ? resolvedPath.toLowerCase()
+                : resolvedPath;
+        });
+        // A cache archive can replace symlinks traversed by the other restore.
+        // Canonical destinations alone do not capture that extraction footprint.
+        if (paths.some((resolvedPath, index) => {
+            const absolutePath = external_path_default().resolve(directories[index].path);
+            const normalizedPath = process.platform === 'darwin' || process.platform === 'win32'
+                ? absolutePath.toLowerCase()
+                : absolutePath;
+            return resolvedPath !== normalizedPath;
+        })) {
+            return false;
+        }
+        return paths.every((parent, index) => paths.every((child, otherIndex) => {
+            if (index === otherIndex) {
+                return true;
+            }
+            const relative = external_path_default().relative(parent, child);
+            return (relative === '..' ||
+                relative.startsWith(`..${(external_path_default()).sep}`) ||
+                external_path_default().isAbsolute(relative));
+        }));
+    }
+    catch {
+        // If the paths cannot be resolved safely, avoid concurrent extraction.
+        return false;
+    }
+}
+function resolveCachePath(directory) {
+    const absolutePath = external_path_default().resolve(directory);
+    try {
+        external_fs_default().lstatSync(absolutePath);
+    }
+    catch (error) {
+        const parent = external_path_default().dirname(absolutePath);
+        if (error.code !== 'ENOENT' ||
+            parent === absolutePath) {
+            throw error;
+        }
+        // Cold cache directories may not exist yet. Resolve their existing
+        // ancestors so symlink aliases still participate in the overlap check.
+        return external_path_default().join(resolveCachePath(parent), external_path_default().basename(absolutePath));
+    }
+    return external_fs_default().realpathSync(absolutePath);
+}
 function cache_utils_isGhes() {
     const ghUrl = new URL(process.env['GITHUB_SERVER_URL'] || 'https://github.com');
     const hostname = ghUrl.hostname.trimEnd().toUpperCase();
@@ -97638,6 +97698,7 @@ function isCacheFeatureAvailable() {
 
 
 const cache_restore_restoreCache = async (versionSpec, packageManager, cacheDependencyPath) => {
+    setOutput(Outputs.CacheHit, false);
     const packageManagerInfo = await getPackageManagerInfo(packageManager);
     const platform = process.env.RUNNER_OS;
     const arch = process.arch;
@@ -97650,18 +97711,45 @@ const cache_restore_restoreCache = async (versionSpec, packageManager, cacheDepe
         throw new Error('Some specified paths were not resolved, unable to cache dependencies.');
     }
     const linuxVersion = process.env.RUNNER_OS === 'Linux' ? `${process.env.ImageOS}-` : '';
-    const primaryKey = `setup-go-${platform}-${arch}-${linuxVersion}go-${versionSpec}-${fileHash}`;
-    core_debug(`primary key is ${primaryKey}`);
-    saveState(State.CachePrimaryKey, primaryKey);
-    const cacheKey = await restoreCache(cachePaths, primaryKey);
-    setOutput(Outputs.CacheHit, Boolean(cacheKey));
-    if (!cacheKey) {
-        core_info(`Cache is not found`);
-        setOutput(Outputs.CacheHit, false);
-        return;
+    const primaryKeys = {
+        // Downloaded module sources can be reused across Go versions and runner
+        // architectures. Keep OS isolation for filesystem compatibility.
+        modules: `setup-go-modules-${platform}-${fileHash}`,
+        build: `setup-go-build-${platform}-${arch}-${linuxVersion}go-${versionSpec}-${fileHash}`
+    };
+    const entries = cachePaths.map(directory => ({
+        ...directory,
+        primaryKey: primaryKeys[directory.kind]
+    }));
+    const restoreEntry = async (entry) => {
+        core_debug(`${entry.kind} primary key is ${entry.primaryKey}`);
+        try {
+            entry.matchedKey = await restoreCache([entry.path], entry.primaryKey);
+            if (entry.matchedKey) {
+                core_info(`${entry.kind} cache restored from key: ${entry.matchedKey}`);
+            }
+            else {
+                core_info(`${entry.kind} cache is not found`);
+            }
+        }
+        catch (error) {
+            const message = error instanceof Error ? error.message : String(error);
+            warning(`Restore ${entry.kind} cache failed: ${message}`);
+        }
+    };
+    if (canRestoreCachesInParallel(entries)) {
+        await Promise.all(entries.map(restoreEntry));
     }
-    saveState(State.CacheMatchedKey, cacheKey);
-    core_info(`Cache restored from key: ${cacheKey}`);
+    else {
+        for (const entry of entries) {
+            await restoreEntry(entry);
+        }
+    }
+    // Preserve the resolved paths so the post step uses the same cache versions,
+    // even if a later step changes the Go environment.
+    saveState(State.CacheEntries, entries);
+    setOutput(Outputs.CacheHit, entries.length === packageManagerInfo.cacheFolderCommandList.length &&
+        entries.every(entry => entry.matchedKey === entry.primaryKey));
 };
 const findDependencyFile = (packageManager) => {
     const dependencyFile = packageManager.dependencyFilePattern;

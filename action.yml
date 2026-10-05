@@ -25,7 +25,7 @@ outputs:
   go-version:
     description: 'The installed Go version. Useful when given a version range as input.'
   cache-hit:
-    description: 'A boolean value to indicate if a cache was hit'
+    description: 'A boolean value indicating whether both module and build cache entries were restored on their primary keys'
   GOPATH:
     description: 'The value of `go env GOPATH`.'
   GOBIN:
