@@ -42006,8 +42006,12 @@ async function getGo(versionSpec, checkLatest, auth, arch = external_os_default(
     const toolCacheName = customBaseUrl
         ? customToolCacheName(customBaseUrl)
         : 'go';
+    // Convert prerelease specs (1.21rc2) to semver (1.21.0-rc.2).
+    const cacheSpec = /^\d+\.\d+(\.\d+)?(beta|rc)\d+$/.test(versionSpec)
+        ? makeSemver(versionSpec)
+        : versionSpec;
     // check cache
-    const toolPath = find(toolCacheName, versionSpec, arch);
+    const toolPath = find(toolCacheName, cacheSpec, arch);
     // If not found in cache, download
     if (toolPath) {
         core_info(`Found in cache @ ${toolPath}`);
@@ -42316,7 +42320,8 @@ async function findMatch(versionSpec, arch = external_os_default().arch(), dlUrl
         const candidate = candidates[i];
         const version = makeSemver(candidate.version);
         core_debug(`check ${version} satisfies ${versionSpec}`);
-        if (node_modules_semver.satisfies(version, versionSpec)) {
+        if (candidate.version.replace(/^go/, '') === versionSpec ||
+            node_modules_semver.satisfies(version, versionSpec)) {
             goFile = candidate.files.find(file => {
                 core_debug(`${file.arch}===${archFilter} && ${file.os}===${platFilter}`);
                 return file.arch === archFilter && file.os === platFilter;
@@ -42366,13 +42371,13 @@ function parseGoVersionFile(versionFilePath) {
         // 'GOTOOLCHAIN' has been explicitly set
         if (process.env[GOTOOLCHAIN_ENV_VAR] !== GOTOOLCHAIN_LOCAL_VAL) {
             // toolchain directive: https://go.dev/ref/mod#go-mod-file-toolchain
-            const matchToolchain = contents.match(/^toolchain go(1\.\d+(?:\.\d+|rc\d+)?)/m);
+            const matchToolchain = contents.match(/^toolchain go(1\.\d+(?:\.\d+|(beta|rc)\d+)?)/m);
             if (matchToolchain) {
                 return matchToolchain[1];
             }
         }
         // go directive: https://go.dev/ref/mod#go-mod-file-go
-        const matchGo = contents.match(/^go (\d+(\.\d+)*)/m);
+        const matchGo = contents.match(/^go (\d+(\.\d+)*(?:\.\d+|(beta|rc)\d+)?)/m);
         return matchGo ? matchGo[1] : '';
     }
     else if (external_path_namespaceObject.basename(versionFilePath) === '.tool-versions') {

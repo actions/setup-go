@@ -123,8 +123,13 @@ export async function getGo(
     ? customToolCacheName(customBaseUrl)
     : 'go';
 
+  // Convert prerelease specs (1.21rc2) to semver (1.21.0-rc.2).
+  const cacheSpec = /^\d+\.\d+(\.\d+)?(beta|rc)\d+$/.test(versionSpec)
+    ? makeSemver(versionSpec)
+    : versionSpec;
+
   // check cache
-  const toolPath = tc.find(toolCacheName, versionSpec, arch);
+  const toolPath = tc.find(toolCacheName, cacheSpec, arch);
   // If not found in cache, download
   if (toolPath) {
     core.info(`Found in cache @ ${toolPath}`);
@@ -585,7 +590,10 @@ export async function findMatch(
     const version = makeSemver(candidate.version);
 
     core.debug(`check ${version} satisfies ${versionSpec}`);
-    if (semver.satisfies(version, versionSpec)) {
+    if (
+      candidate.version.replace(/^go/, '') === versionSpec ||
+      semver.satisfies(version, versionSpec)
+    ) {
       goFile = candidate.files.find(file => {
         core.debug(
           `${file.arch}===${archFilter} && ${file.os}===${platFilter}`
@@ -654,7 +662,7 @@ export function parseGoVersionFile(versionFilePath: string): string {
     if (process.env[GOTOOLCHAIN_ENV_VAR] !== GOTOOLCHAIN_LOCAL_VAL) {
       // toolchain directive: https://go.dev/ref/mod#go-mod-file-toolchain
       const matchToolchain = contents.match(
-        /^toolchain go(1\.\d+(?:\.\d+|rc\d+)?)/m
+        /^toolchain go(1\.\d+(?:\.\d+|(beta|rc)\d+)?)/m
       );
       if (matchToolchain) {
         return matchToolchain[1];
@@ -662,7 +670,7 @@ export function parseGoVersionFile(versionFilePath: string): string {
     }
 
     // go directive: https://go.dev/ref/mod#go-mod-file-go
-    const matchGo = contents.match(/^go (\d+(\.\d+)*)/m);
+    const matchGo = contents.match(/^go (\d+(\.\d+)*(?:\.\d+|(beta|rc)\d+)?)/m);
     return matchGo ? matchGo[1] : '';
   } else if (path.basename(versionFilePath) === '.tool-versions') {
     const match = contents.match(/^golang\s+([^\n#]+)/m);
