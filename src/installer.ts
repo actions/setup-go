@@ -657,7 +657,7 @@ export function parseGoVersionFile(versionFilePath: string): string {
     if (process.env[GOTOOLCHAIN_ENV_VAR] !== GOTOOLCHAIN_LOCAL_VAL) {
       // toolchain directive: https://go.dev/ref/mod#go-mod-file-toolchain
       const matchToolchain = contents.match(
-        /^toolchain go(1\.\d+(?:\.\d+|rc\d+)?)/m
+        /^toolchain go(1\.\d+(?:\.\d+|(beta|rc)\d+)?)/m
       );
       if (matchToolchain) {
         return matchToolchain[1];

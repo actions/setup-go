@@ -1237,7 +1237,7 @@ use .
   });
 
   describe('go-version-file-toolchain', () => {
-    const goVersions = ['1.22.0', '1.21rc2', '1.18'];
+    const goVersions = ['1.22.0', '1.21rc2', '1.18', '1.18beta2'];
     const placeholderVersion = '1.19';
     const buildGoMod = (
       goVersion: string,
