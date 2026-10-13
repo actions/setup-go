@@ -471,6 +471,26 @@ describe('setup-go', () => {
     expect(cnSpy).toHaveBeenCalledWith(`::add-path::${expPath}${osm.EOL}`);
   });
 
+  it('finds a rc version of go already in the cache', async () => {
+    inputs['go-version'] = '1.14rc1';
+
+    const toolPath = path.normalize('/cache/go/1.14.0rc.1/x64');
+    findSpy.mockImplementation(() => toolPath);
+    await main.run();
+
+    expect(logSpy).toHaveBeenCalledWith(`Found in cache @ ${toolPath}`);
+  });
+
+  it('finds a rc version in the cache and adds it to the path', async () => {
+    inputs['go-version'] = '1.14rc1';
+    const toolPath = path.normalize('/cache/go/1.14.0.rc.1/x64');
+    findSpy.mockImplementation(() => toolPath);
+    await main.run();
+
+    const expPath = path.join(toolPath, 'bin');
+    expect(cnSpy).toHaveBeenCalledWith(`::add-path::${expPath}${osm.EOL}`);
+  });
+
   it('handles unhandled error and reports error', async () => {
     const errMsg = 'unhandled error message';
     inputs['go-version'] = '1.13.0';
@@ -522,6 +542,51 @@ describe('setup-go', () => {
     expect(dlSpy).toHaveBeenCalledWith(
       'https://go.dev/dl/go1.13.1.windows-amd64.zip',
       'C:\\temp\\go1.13.1.windows-amd64.zip',
+      undefined
+    );
+    expect(cnSpy).toHaveBeenCalledWith(`::add-path::${expPath}${osm.EOL}`);
+  });
+
+  it('downloads a rc version not in the cache', async () => {
+    os.platform = 'linux';
+    os.arch = 'x64';
+
+    inputs['go-version'] = '1.14rc1';
+
+    findSpy.mockImplementation(() => '');
+    dlSpy.mockImplementation(() => '/some/temp/path');
+    const toolPath = path.normalize('/cache/go/1.14.0-rc.1/x64');
+    extractTarSpy.mockImplementation(() => '/some/other/temp/path');
+    cacheSpy.mockImplementation(() => toolPath);
+    await main.run();
+
+    const expPath = path.join(toolPath, 'bin');
+
+    expect(dlSpy).toHaveBeenCalled();
+    expect(extractTarSpy).toHaveBeenCalled();
+    expect(cnSpy).toHaveBeenCalledWith(`::add-path::${expPath}${osm.EOL}`);
+  });
+
+  it('downloads a rc version not in the cache (windows)', async () => {
+    os.platform = 'win32';
+    os.arch = 'x64';
+
+    inputs['go-version'] = '1.14rc1';
+    process.env['RUNNER_TEMP'] = 'C:\\temp\\';
+
+    findSpy.mockImplementation(() => '');
+    dlSpy.mockImplementation(() => 'C:\\temp\\some\\path');
+    extractZipSpy.mockImplementation(() => 'C:\\temp\\some\\other\\path');
+
+    const toolPath = path.normalize('C:\\cache\\go\\1.21.0-rc.2\\x64');
+    cacheSpy.mockImplementation(() => toolPath);
+
+    await main.run();
+
+    const expPath = path.win32.join(toolPath, 'bin');
+    expect(dlSpy).toHaveBeenCalledWith(
+      'https://go.dev/dl/go1.14rc1.windows-amd64.zip',
+      'C:\\temp\\go1.14rc1.windows-amd64.zip',
       undefined
     );
     expect(cnSpy).toHaveBeenCalledWith(`::add-path::${expPath}${osm.EOL}`);

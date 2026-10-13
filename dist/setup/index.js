@@ -42006,8 +42006,12 @@ async function getGo(versionSpec, checkLatest, auth, arch = external_os_default(
     const toolCacheName = customBaseUrl
         ? customToolCacheName(customBaseUrl)
         : 'go';
+    // Convert prerelease specs (1.21rc2) to semver (1.21.0-rc.2).
+    const cacheSpec = /^\d+\.\d+(\.\d+)?(beta|rc)\d+$/.test(versionSpec)
+        ? makeSemver(versionSpec)
+        : versionSpec;
     // check cache
-    const toolPath = find(toolCacheName, versionSpec, arch);
+    const toolPath = find(toolCacheName, cacheSpec, arch);
     // If not found in cache, download
     if (toolPath) {
         core_info(`Found in cache @ ${toolPath}`);

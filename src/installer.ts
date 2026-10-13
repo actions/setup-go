@@ -123,8 +123,13 @@ export async function getGo(
     ? customToolCacheName(customBaseUrl)
     : 'go';
 
+  // Convert prerelease specs (1.21rc2) to semver (1.21.0-rc.2).
+  const cacheSpec = /^\d+\.\d+(\.\d+)?(beta|rc)\d+$/.test(versionSpec)
+    ? makeSemver(versionSpec)
+    : versionSpec;
+
   // check cache
-  const toolPath = tc.find(toolCacheName, versionSpec, arch);
+  const toolPath = tc.find(toolCacheName, cacheSpec, arch);
   // If not found in cache, download
   if (toolPath) {
     core.info(`Found in cache @ ${toolPath}`);
