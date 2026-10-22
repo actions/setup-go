@@ -31,7 +31,7 @@ outputs:
   GOBIN:
     description: 'The value of `go env GOBIN`.'
   go-bin-path:
-    description: 'The base Go binary directory: `GOBIN`, otherwise `bin` under the first `GOPATH` entry.'
+    description: 'The base Go binary directory: the `GOBIN` value, otherwise `bin` under the first `GOPATH` entry when `GOBIN` is empty.'
   GOROOT:
     description: 'The value of `go env GOROOT`.'
   GOCACHE:
