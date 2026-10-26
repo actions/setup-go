@@ -610,6 +610,12 @@ export async function findMatch(
   return result;
 }
 
+export function isGoNativeVersion(version: string): boolean {
+  const expression =
+    /^go[1-9]\d*\.(0|[1-9]\d*)(?:\.(0|[1-9]\d*)|(?:beta|rc)[1-9]\d*)?$/;
+  return expression.test(version);
+}
+
 //
 // Convert the go version syntax into semver for semver matching
 // 1.13.1 => 1.13.1

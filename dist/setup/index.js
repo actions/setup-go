@@ -42335,6 +42335,10 @@ async function findMatch(versionSpec, arch = external_os_default().arch(), dlUrl
     }
     return result;
 }
+function isGoNativeVersion(version) {
+    const expression = /^go[1-9]\d*\.(0|[1-9]\d*)(?:\.(0|[1-9]\d*)|(?:beta|rc)[1-9]\d*)?$/;
+    return expression.test(version);
+}
 //
 // Convert the go version syntax into semver for semver matching
 // 1.13.1 => 1.13.1
@@ -97835,6 +97839,15 @@ function resolveVersionInput() {
         warning('Both go-version and go-version-file inputs are specified, only go-version will be used');
     }
     if (version) {
+        // With a custom download URL leave the version unchanged.
+        const customBaseUrl = getInput('go-download-base-url') ||
+            process.env['GO_DOWNLOAD_BASE_URL'];
+        if (version.startsWith('go') && !customBaseUrl) {
+            if (!isGoNativeVersion(version)) {
+                throw new Error(`Invalid Go version "${version}". Go-native versions must look like go1.21, go1.21.5, go1.18beta2, or go1.21rc2. For version ranges, use semver syntax (e.g. ~1.21, ^1.21).`);
+            }
+            version = makeSemver(version);
+        }
         return version;
     }
     if (versionFilePath) {
