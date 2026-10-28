@@ -41969,6 +41969,10 @@ async function getGo(versionSpec, checkLatest, auth, arch = external_os_default(
     let manifest;
     const osPlat = external_os_default().platform();
     const customBaseUrl = goDownloadBaseUrl?.replace(/\/+$/, '');
+    const originalVersionSpec = versionSpec;
+    if (isGoNativeVersion(versionSpec)) {
+        versionSpec = makeSemver(versionSpec);
+    }
     if (versionSpec === StableReleaseAlias.Stable ||
         versionSpec === StableReleaseAlias.OldStable) {
         if (customBaseUrl) {
@@ -42023,7 +42027,7 @@ async function getGo(versionSpec, checkLatest, auth, arch = external_os_default(
         const skipVersionListing = NO_VERSION_LISTING_BASE_URLS.some(url => customBaseUrl.toLowerCase() === url.toLowerCase());
         if (skipVersionListing) {
             core_info('Skipping version listing for known direct-download URL. Constructing download URL directly.');
-            info = getInfoFromDirectDownload(versionSpec, arch, customBaseUrl);
+            info = getInfoFromDirectDownload(originalVersionSpec, arch, customBaseUrl);
         }
         else {
             try {
@@ -42033,7 +42037,7 @@ async function getGo(versionSpec, checkLatest, auth, arch = external_os_default(
                 core_info('Version listing not available from custom URL. Constructing download URL directly.');
             }
             if (!info) {
-                info = getInfoFromDirectDownload(versionSpec, arch, customBaseUrl);
+                info = getInfoFromDirectDownload(originalVersionSpec, arch, customBaseUrl);
             }
         }
         try {
@@ -42043,10 +42047,10 @@ async function getGo(versionSpec, checkLatest, auth, arch = external_os_default(
         catch (err) {
             const downloadUrl = info?.downloadUrl || customBaseUrl;
             if (err instanceof HTTPError && err.httpStatusCode === 404) {
-                throw new Error(`The requested Go version ${versionSpec} is not available for platform ${osPlat}/${arch}. ` +
+                throw new Error(`The requested Go version ${originalVersionSpec} is not available for platform ${osPlat}/${arch}. ` +
                     `Download URL returned HTTP 404: ${downloadUrl}`, { cause: err });
             }
-            throw new Error(`Failed to download Go ${versionSpec} for platform ${osPlat}/${arch} ` +
+            throw new Error(`Failed to download Go ${originalVersionSpec} for platform ${osPlat}/${arch} ` +
                 `from ${downloadUrl}: ${err}`, { cause: err });
         }
     }
@@ -42335,6 +42339,10 @@ async function findMatch(versionSpec, arch = external_os_default().arch(), dlUrl
     }
     return result;
 }
+function isGoNativeVersion(version) {
+    const expression = /^go[1-9]\d*\.(0|[1-9]\d*)(?:\.(0|[1-9]\d*)|(?:beta|rc)[1-9]\d*)?$/;
+    return expression.test(version);
+}
 //
 // Convert the go version syntax into semver for semver matching
 // 1.13.1 => 1.13.1
@@ -42342,6 +42350,10 @@ async function findMatch(versionSpec, arch = external_os_default().arch(), dlUrl
 // 1.10beta1 => 1.10.0-beta.1, 1.10rc1 => 1.10.0-rc.1
 // 1.8.5beta1 => 1.8.5-beta.1, 1.8.5rc1 => 1.8.5-rc.1
 function makeSemver(version) {
+    const validVersion = node_modules_semver.valid(version);
+    if (validVersion) {
+        return validVersion;
+    }
     version = version.replace('go', '');
     version = version.replace('beta', '-beta.').replace('rc', '-rc.');
     const parts = version.split('-');
@@ -97835,6 +97847,13 @@ function resolveVersionInput() {
         warning('Both go-version and go-version-file inputs are specified, only go-version will be used');
     }
     if (version) {
+        const customBaseUrl = getInput('go-download-base-url') ||
+            process.env['GO_DOWNLOAD_BASE_URL'];
+        if (version.startsWith('go') &&
+            !customBaseUrl &&
+            !isGoNativeVersion(version)) {
+            throw new Error(`Invalid Go version "${version}". Go-native versions must look like go1.21, go1.21.5, go1.18beta2, or go1.21rc2. For version ranges, use SemVer syntax (e.g. ~1.21, ^1.21).`);
+        }
         return version;
     }
     if (versionFilePath) {
