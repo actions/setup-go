@@ -60,6 +60,11 @@ export async function getGo(
   const osPlat: string = os.platform();
   const customBaseUrl = goDownloadBaseUrl?.replace(/\/+$/, '');
 
+  const originalVersionSpec = versionSpec;
+  if (isGoNativeVersion(versionSpec)) {
+    versionSpec = makeSemver(versionSpec);
+  }
+
   if (
     versionSpec === StableReleaseAlias.Stable ||
     versionSpec === StableReleaseAlias.OldStable
@@ -146,7 +151,11 @@ export async function getGo(
       core.info(
         'Skipping version listing for known direct-download URL. Constructing download URL directly.'
       );
-      info = getInfoFromDirectDownload(versionSpec, arch, customBaseUrl);
+      info = getInfoFromDirectDownload(
+        originalVersionSpec,
+        arch,
+        customBaseUrl
+      );
     } else {
       try {
         info = await getInfoFromDist(versionSpec, arch, customBaseUrl);
@@ -156,7 +165,11 @@ export async function getGo(
         );
       }
       if (!info) {
-        info = getInfoFromDirectDownload(versionSpec, arch, customBaseUrl);
+        info = getInfoFromDirectDownload(
+          originalVersionSpec,
+          arch,
+          customBaseUrl
+        );
       }
     }
 
@@ -167,13 +180,13 @@ export async function getGo(
       const downloadUrl = info?.downloadUrl || customBaseUrl;
       if (err instanceof tc.HTTPError && err.httpStatusCode === 404) {
         throw new Error(
-          `The requested Go version ${versionSpec} is not available for platform ${osPlat}/${arch}. ` +
+          `The requested Go version ${originalVersionSpec} is not available for platform ${osPlat}/${arch}. ` +
             `Download URL returned HTTP 404: ${downloadUrl}`,
           {cause: err}
         );
       }
       throw new Error(
-        `Failed to download Go ${versionSpec} for platform ${osPlat}/${arch} ` +
+        `Failed to download Go ${originalVersionSpec} for platform ${osPlat}/${arch} ` +
           `from ${downloadUrl}: ${err}`,
         {cause: err}
       );
@@ -623,6 +636,10 @@ export function isGoNativeVersion(version: string): boolean {
 // 1.10beta1 => 1.10.0-beta.1, 1.10rc1 => 1.10.0-rc.1
 // 1.8.5beta1 => 1.8.5-beta.1, 1.8.5rc1 => 1.8.5-rc.1
 export function makeSemver(version: string): string {
+  const validVersion = semver.valid(version);
+  if (validVersion) {
+    return validVersion;
+  }
   version = version.replace('go', '');
   version = version.replace('beta', '-beta.').replace('rc', '-rc.');
   const parts = version.split('-');
