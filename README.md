@@ -94,6 +94,7 @@ the [check-latest input](docs/advanced-usage.md#check-latest-version).
 The `go-version` input supports the following syntax:
 
 - Specific versions: `1.25`, `1.24.11`, `1.24.0-rc.1`, `1.23.0-beta.1`
+- Native Go versions: `go1.21`, `go1.21.5`, `go1.18beta2`, `go1.21rc2`. `go1.21` resolves to exactly `1.21.0`, unlike `1.21`, which matches patch releases.
 - SemVer version range syntax: `^1.25.1`, `~1.24.1`, `>=1.25.0-rc.1`, `<1.25.0`, `>=1.22.0 <1.24.0`
 - Aliases: `stable`, `oldstable`
 - Wildcards: `1.25.x`, `1.x`

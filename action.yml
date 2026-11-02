@@ -3,7 +3,7 @@ description: 'Setup a Go environment and add it to the PATH'
 author: 'GitHub'
 inputs:
   go-version:
-    description: 'The Go version to download (if necessary) and use. Supports semver spec and ranges. Be sure to enclose this option in single quotation marks.'
+    description: 'The Go version to download (if necessary) and use. Supports native Go versions (e.g. go1.21.5), semver specs and ranges. Be sure to enclose this option in single quotation marks.'
   go-version-file:
     description: 'Path to the go.mod, go.work, .go-version, or .tool-versions file.'
   check-latest:
