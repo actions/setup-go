@@ -99,8 +99,6 @@ The `go-version` input supports the following syntax:
 - Aliases: `stable`, `oldstable`
 - Wildcards: `1.25.x`, `1.x`
 
-> **Note:** Native Go version validation and normalization apply only when no custom download base URL is configured. When `go-download-base-url` or `GO_DOWNLOAD_BASE_URL` is set, the `go-version` input is passed through unchanged.
-
 For details on Semantic Versioning, see [the semver package documentation](https://github.com/npm/node-semver).
 
 > **Note**: Due to the peculiarities of YAML parsing, it is recommended to wrap the version in single quotation marks:
