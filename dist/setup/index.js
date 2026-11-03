@@ -97604,8 +97604,19 @@ const getPackageManagerInfo = async (packageManager) => {
     const obtainedPackageManager = supportedPackageManagers[packageManager];
     return obtainedPackageManager;
 };
-const getCacheDirectoryPath = async (packageManagerInfo) => {
-    const pathOutputs = await Promise.allSettled(packageManagerInfo.cacheFolderCommandList.map(async (command) => getCommandOutput(command)));
+const getCacheDirectoryPath = async (packageManagerInfo, goEnv) => {
+    const environmentPaths = {
+        'go env GOMODCACHE': goEnv?.GOMODCACHE,
+        'go env GOCACHE': goEnv?.GOCACHE
+    };
+    const pathOutputs = await Promise.allSettled(packageManagerInfo.cacheFolderCommandList.map(async (command) => {
+        const cachedPath = environmentPaths[command];
+        if (typeof cachedPath === 'string' && cachedPath.trim()) {
+            core_debug(`Using the Go environment snapshot for '${command}'`);
+            return cachedPath.trim();
+        }
+        return getCommandOutput(command);
+    }));
     const results = pathOutputs.map(item => {
         if (item.status === 'fulfilled') {
             return item.value;
@@ -97649,11 +97660,11 @@ function isCacheFeatureAvailable() {
 
 
 
-const cache_restore_restoreCache = async (versionSpec, packageManager, cacheDependencyPath) => {
+const cache_restore_restoreCache = async (versionSpec, packageManager, cacheDependencyPath, goEnv) => {
     const packageManagerInfo = await getPackageManagerInfo(packageManager);
     const platform = process.env.RUNNER_OS;
     const arch = process.arch;
-    const cachePaths = await getCacheDirectoryPath(packageManagerInfo);
+    const cachePaths = await getCacheDirectoryPath(packageManagerInfo, goEnv);
     const dependencyFilePath = cacheDependencyPath
         ? cacheDependencyPath
         : findDependencyFile(packageManagerInfo);
@@ -97756,7 +97767,7 @@ async function run() {
             const packageManager = 'default';
             const cacheDependencyPath = getInput('cache-dependency-path');
             try {
-                await cache_restore_restoreCache(parseGoVersion(goVersion), packageManager, cacheDependencyPath);
+                await cache_restore_restoreCache(parseGoVersion(goVersion), packageManager, cacheDependencyPath, goEnvJson);
             }
             catch (error) {
                 warning(`Restore cache failed: ${error.message}`);

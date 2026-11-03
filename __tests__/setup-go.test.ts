@@ -88,7 +88,17 @@ jest.unstable_mockModule('../src/go-version-fetch.js', () => ({
   getVersionsDist: jest.fn()
 }));
 
+jest.unstable_mockModule('../src/cache-restore.js', () => ({
+  restoreCache: jest.fn()
+}));
+const realCacheUtils = await import('../src/cache-utils.js');
+jest.unstable_mockModule('../src/cache-utils.js', () => ({
+  ...realCacheUtils,
+  isCacheFeatureAvailable: jest.fn(() => true)
+}));
+
 const core = await import('@actions/core');
+const cacheRestore = await import('../src/cache-restore.js');
 const io = await import('@actions/io');
 const tc = await import('@actions/tool-cache');
 const vf = await import('../src/go-version-fetch.js');
@@ -670,6 +680,38 @@ describe('setup-go', () => {
 
       expect(main.readGoEnv('/usr/local/go/bin/go')).toEqual(goEnv);
     });
+
+    it.each([true, false])(
+      'passes the available environment to restore (JSON supported: %s)',
+      async supported => {
+        inputs['cache'] = true;
+        whichSpy.mockResolvedValue('/usr/local/go/bin/go');
+        existsSpy.mockReturnValue(true);
+        execSpy.mockImplementation(command =>
+          Buffer.from(
+            command === 'go env GOPATH'
+              ? '/Users/testuser/go'
+              : String(command).endsWith(' version')
+                ? 'go version go1.22.0 linux/amd64'
+                : ''
+          )
+        );
+        execFileSpy.mockImplementation(() => {
+          if (!supported)
+            throw new Error('flag provided but not defined: -json');
+          return JSON.stringify(goEnv);
+        });
+
+        await main.run();
+
+        expect(cacheRestore.restoreCache).toHaveBeenCalledWith(
+          '1.22.0',
+          'default',
+          undefined,
+          supported ? goEnv : undefined
+        );
+      }
+    );
 
     it('returns undefined when go env -json is not supported', () => {
       execFileSpy.mockImplementation(() => {

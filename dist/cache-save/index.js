@@ -96259,8 +96259,19 @@ const getPackageManagerInfo = async (packageManager) => {
     const obtainedPackageManager = supportedPackageManagers[packageManager];
     return obtainedPackageManager;
 };
-const getCacheDirectoryPath = async (packageManagerInfo) => {
-    const pathOutputs = await Promise.allSettled(packageManagerInfo.cacheFolderCommandList.map(async (command) => getCommandOutput(command)));
+const getCacheDirectoryPath = async (packageManagerInfo, goEnv) => {
+    const environmentPaths = {
+        'go env GOMODCACHE': goEnv?.GOMODCACHE,
+        'go env GOCACHE': goEnv?.GOCACHE
+    };
+    const pathOutputs = await Promise.allSettled(packageManagerInfo.cacheFolderCommandList.map(async (command) => {
+        const cachedPath = environmentPaths[command];
+        if (typeof cachedPath === 'string' && cachedPath.trim()) {
+            core_debug(`Using the Go environment snapshot for '${command}'`);
+            return cachedPath.trim();
+        }
+        return getCommandOutput(command);
+    }));
     const results = pathOutputs.map(item => {
         if (item.status === 'fulfilled') {
             return item.value;
