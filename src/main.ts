@@ -96,7 +96,8 @@ export async function run() {
         await restoreCache(
           parseGoVersion(goVersion),
           packageManager,
-          cacheDependencyPath
+          cacheDependencyPath,
+          goEnvJson
         );
       } catch (error) {
         core.warning(`Restore cache failed: ${(error as Error).message}`);

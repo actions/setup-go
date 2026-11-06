@@ -1,6 +1,7 @@
 import * as cache from '@actions/cache';
 import * as core from '@actions/core';
 import * as exec from '@actions/exec';
+import {GoEnv} from './constants.js';
 import {
   supportedPackageManagers,
   PackageManagerInfo
@@ -35,12 +36,22 @@ export const getPackageManagerInfo = async (packageManager: string) => {
 };
 
 export const getCacheDirectoryPath = async (
-  packageManagerInfo: PackageManagerInfo
+  packageManagerInfo: PackageManagerInfo,
+  goEnv?: GoEnv
 ) => {
+  const environmentPaths: Record<string, string | undefined> = {
+    'go env GOMODCACHE': goEnv?.GOMODCACHE,
+    'go env GOCACHE': goEnv?.GOCACHE
+  };
   const pathOutputs = await Promise.allSettled(
-    packageManagerInfo.cacheFolderCommandList.map(async command =>
-      getCommandOutput(command)
-    )
+    packageManagerInfo.cacheFolderCommandList.map(async command => {
+      const cachedPath = environmentPaths[command];
+      if (typeof cachedPath === 'string' && cachedPath.trim()) {
+        core.debug(`Using the Go environment snapshot for '${command}'`);
+        return cachedPath.trim();
+      }
+      return getCommandOutput(command);
+    })
   );
 
   const results = pathOutputs.map(item => {

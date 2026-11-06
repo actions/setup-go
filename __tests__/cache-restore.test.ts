@@ -137,6 +137,22 @@ describe('restoreCache', () => {
     expect(setOutputSpy).toHaveBeenCalledWith('cache-hit', true);
   });
 
+  it('passes the Go environment snapshot to cache directory discovery', async () => {
+    hashFilesSpy.mockResolvedValue('file_hash');
+    restoreCacheSpy.mockResolvedValue('cache_key');
+    const goEnv = {GOMODCACHE: '/custom/modules', GOCACHE: '/custom/build'};
+    await cacheRestore.restoreCache(
+      versionSpec,
+      packageManager,
+      cacheDependencyPath,
+      goEnv
+    );
+    expect(getCacheDirectoryPathSpy).toHaveBeenCalledWith(
+      await realCacheUtils.getPackageManagerInfo(packageManager),
+      goEnv
+    );
+  });
+
   it('should throw if dependency file is not found in workspace', async () => {
     jest.spyOn(fs, 'readdirSync').mockReturnValue(['main.go'] as any);
 
