@@ -1,4 +1,14 @@
-import {jest, describe, it, expect, beforeEach, afterAll} from '@jest/globals';
+import {
+  jest,
+  describe,
+  it,
+  expect,
+  beforeEach,
+  afterEach,
+  afterAll
+} from '@jest/globals';
+import fs from 'fs';
+import path from 'path';
 
 jest.unstable_mockModule('@actions/exec', () => ({
   exec: jest.fn(),
@@ -84,7 +94,10 @@ describe('getPackageManagerInfo', () => {
     const packageManagerName = 'default';
     const expectedResult = {
       dependencyFilePattern: 'go.mod',
-      cacheFolderCommandList: ['go env GOMODCACHE', 'go env GOCACHE']
+      cacheFolderCommandList: [
+        {kind: 'modules', command: 'go env GOMODCACHE'},
+        {kind: 'build', command: 'go env GOCACHE'}
+      ]
     };
 
     //Act + Assert
@@ -112,16 +125,29 @@ describe('getCacheDirectoryPath', () => {
 
   const validPackageManager: PackageManagerInfo = {
     dependencyFilePattern: 'go.mod',
-    cacheFolderCommandList: ['go env GOMODCACHE', 'go env GOCACHE']
+    cacheFolderCommandList: [
+      {kind: 'modules', command: 'go env GOMODCACHE'},
+      {kind: 'build', command: 'go env GOCACHE'}
+    ]
   };
 
   it('should return path to the cache folders which specified package manager uses', async () => {
     //Arrange
     getExecOutputSpy.mockImplementation(async (commandLine: string) => {
-      return {exitCode: 0, stdout: 'path/to/cache/folder', stderr: ''};
+      return {
+        exitCode: 0,
+        stdout:
+          commandLine === 'go env GOMODCACHE'
+            ? 'path/to/modules'
+            : 'path/to/build',
+        stderr: ''
+      };
     });
 
-    const expectedResult = ['path/to/cache/folder', 'path/to/cache/folder'];
+    const expectedResult = [
+      {kind: 'modules', path: 'path/to/modules'},
+      {kind: 'build', path: 'path/to/build'}
+    ];
 
     //Act + Assert
     return cacheUtils
@@ -129,27 +155,43 @@ describe('getCacheDirectoryPath', () => {
       .then(data => expect(data).toEqual(expectedResult));
   });
 
-  it('should return path to the cache folder if one command return empty str', async () => {
-    //Arrange
-    getExecOutputSpy.mockImplementationOnce(async (commandLine: string) => {
-      return {exitCode: 0, stdout: 'path/to/cache/folder', stderr: ''};
-    });
+  it.each(validPackageManager.cacheFolderCommandList)(
+    'preserves the $kind identity when the other command returns an empty path',
+    async ({kind, command}) => {
+      getExecOutputSpy.mockImplementation(async commandLine => ({
+        exitCode: 0,
+        stdout: commandLine === command ? 'path/to/cache/folder' : '',
+        stderr: ''
+      }));
 
-    getExecOutputSpy.mockImplementationOnce(async (commandLine: string) => {
-      return {exitCode: 0, stdout: '', stderr: ''};
-    });
+      await expect(
+        cacheUtils.getCacheDirectoryPath(validPackageManager)
+      ).resolves.toEqual([{kind, path: 'path/to/cache/folder'}]);
+    }
+  );
 
-    const expectedResult = ['path/to/cache/folder'];
+  it.each(validPackageManager.cacheFolderCommandList)(
+    'preserves the $kind identity when the other command fails',
+    async ({kind, command}) => {
+      getExecOutputSpy.mockImplementation(async commandLine => {
+        if (commandLine !== command) {
+          throw new Error('Could not run go env');
+        }
+        return {exitCode: 0, stdout: 'path/to/cache/folder', stderr: ''};
+      });
 
-    //Act + Assert
-    return cacheUtils
-      .getCacheDirectoryPath(validPackageManager)
-      .then(data => expect(data).toEqual(expectedResult));
-  });
+      await expect(
+        cacheUtils.getCacheDirectoryPath(validPackageManager)
+      ).resolves.toEqual([{kind, path: 'path/to/cache/folder'}]);
+      expect(core.info).toHaveBeenCalledWith(
+        expect.stringContaining('Could not run go env')
+      );
+    }
+  );
 
   it('should throw if the both commands return empty str', async () => {
     getExecOutputSpy.mockImplementation(async (commandLine: string) => {
-      return {exitCode: 10, stdout: '', stderr: ''};
+      return {exitCode: 0, stdout: '', stderr: ''};
     });
 
     //Act + Assert
@@ -158,7 +200,7 @@ describe('getCacheDirectoryPath', () => {
     }).rejects.toThrow();
   });
 
-  it('should throw if the specified package name is invalid', async () => {
+  it('should throw if both commands fail', async () => {
     getExecOutputSpy.mockImplementation(async (commandLine: string) => {
       return {exitCode: 10, stdout: '', stderr: 'Error message'};
     });
@@ -167,6 +209,139 @@ describe('getCacheDirectoryPath', () => {
     await expect(async () => {
       await cacheUtils.getCacheDirectoryPath(validPackageManager);
     }).rejects.toThrow();
+  });
+});
+
+describe('canRestoreCachesInParallel', () => {
+  const originalPlatform = Object.getOwnPropertyDescriptor(
+    process,
+    'platform'
+  )!;
+  const directoryStat = fs.lstatSync(process.cwd());
+
+  beforeEach(() => {
+    Object.defineProperty(process, 'platform', {value: 'linux'});
+    jest.spyOn(fs, 'lstatSync').mockReturnValue(directoryStat);
+    jest
+      .spyOn(fs, 'realpathSync')
+      .mockImplementation(directory => path.resolve(directory.toString()));
+  });
+
+  afterEach(() => {
+    Object.defineProperty(process, 'platform', originalPlatform);
+    jest.restoreAllMocks();
+  });
+
+  it.each([
+    {modules: 'cache/modules', build: 'cache/build', parallel: true},
+    {modules: 'cache', build: 'cache-build', parallel: true},
+    {modules: 'cache', build: 'cache', parallel: false},
+    {modules: 'cache', build: 'cache/build', parallel: false},
+    {modules: 'cache/modules', build: 'cache', parallel: false},
+    {modules: 'cache', build: 'cache/../cache', parallel: false}
+  ])(
+    'checks overlapping paths: $modules and $build',
+    ({modules, build, parallel}) => {
+      expect(
+        cacheUtils.canRestoreCachesInParallel([
+          {kind: 'modules', path: modules},
+          {kind: 'build', path: build}
+        ])
+      ).toBe(parallel);
+    }
+  );
+
+  it('allows concurrent Windows restores with disjoint paths', () => {
+    Object.defineProperty(process, 'platform', {value: 'win32'});
+
+    expect(
+      cacheUtils.canRestoreCachesInParallel([
+        {kind: 'modules', path: 'cache/modules'},
+        {kind: 'build', path: 'cache/build'}
+      ])
+    ).toBe(true);
+  });
+
+  it.each(['darwin', 'win32'])(
+    'handles case-insensitive paths conservatively on %s',
+    platform => {
+      Object.defineProperty(process, 'platform', {value: platform});
+
+      expect(
+        cacheUtils.canRestoreCachesInParallel([
+          {kind: 'modules', path: 'cache'},
+          {kind: 'build', path: 'CACHE/build'}
+        ])
+      ).toBe(false);
+    }
+  );
+
+  it.each([true, false])(
+    'serializes symlink aliases with missing cache directories (overlap=%s)',
+    overlap => {
+      const alias = path.resolve('alias');
+      const target = path.resolve('target');
+      jest.spyOn(fs, 'lstatSync').mockImplementation(directory => {
+        if (directory !== alias && directory !== target) {
+          throw Object.assign(new Error('Missing path'), {code: 'ENOENT'});
+        }
+        return directoryStat;
+      });
+      jest.spyOn(fs, 'realpathSync').mockReturnValue(target);
+
+      expect(
+        cacheUtils.canRestoreCachesInParallel([
+          {kind: 'modules', path: path.join(alias, 'modules')},
+          {
+            kind: 'build',
+            path: path.join(target, overlap ? 'modules/build' : 'build')
+          }
+        ])
+      ).toBe(false);
+    }
+  );
+
+  it.each(['nested alias', 'alias through module cache'])(
+    'serializes restores when the %s resolves outside the module cache',
+    scenario => {
+      const modules = path.resolve('modules');
+      const target = path.resolve('external-build');
+      const alias = path.join(modules, 'build-link');
+      const build =
+        scenario === 'nested alias'
+          ? path.join(alias, 'cache')
+          : path.resolve('build-alias', 'cache');
+      jest.spyOn(fs, 'realpathSync').mockImplementation(directory => {
+        const absolute = path.resolve(directory.toString());
+        if (absolute === build) {
+          return path.join(target, 'cache');
+        }
+        if (absolute === path.dirname(build)) {
+          return scenario === 'nested alias' ? target : alias;
+        }
+        return absolute;
+      });
+
+      expect(
+        cacheUtils.canRestoreCachesInParallel([
+          {kind: 'modules', path: modules},
+          {kind: 'build', path: build}
+        ])
+      ).toBe(false);
+    }
+  );
+
+  it('falls back to sequential restores when path resolution fails', () => {
+    jest.spyOn(fs, 'realpathSync').mockImplementation(() => {
+      throw new Error('Cannot resolve path');
+    });
+
+    expect(
+      cacheUtils.canRestoreCachesInParallel([
+        {kind: 'modules', path: 'cache/modules'},
+        {kind: 'build', path: 'cache/build'}
+      ])
+    ).toBe(false);
   });
 });
 
