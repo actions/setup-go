@@ -675,32 +675,62 @@ export function makeSemver(version: string): string {
 
 export function parseGoVersionFile(versionFilePath: string): string {
   const contents = fs.readFileSync(versionFilePath).toString();
+  const fileName = path.basename(versionFilePath);
 
-  if (
-    path.basename(versionFilePath) === 'go.mod' ||
-    path.basename(versionFilePath) === 'go.work'
-  ) {
-    // for backwards compatibility: use version from go directive if
-    // 'GOTOOLCHAIN' has been explicitly set
-    if (process.env[GOTOOLCHAIN_ENV_VAR] !== GOTOOLCHAIN_LOCAL_VAL) {
-      // toolchain directive: https://go.dev/ref/mod#go-mod-file-toolchain
-      const matchToolchain = contents.match(
-        /^toolchain go(1\.\d+(?:\.\d+|(beta|rc)\d+)?)/m
-      );
-      if (matchToolchain) {
-        return matchToolchain[1];
-      }
-    }
-
-    // go directive: https://go.dev/ref/mod#go-mod-file-go
-    const matchGo = contents.match(/^go (\d+(\.\d+)*(?:\.\d+|(beta|rc)\d+)?)/m);
-    return matchGo ? matchGo[1] : '';
-  } else if (path.basename(versionFilePath) === '.tool-versions') {
+  // Besides go.mod, Go reads any file ending in .mod as a module file
+  // through -modfile, such as go.tool.mod for tool dependencies.
+  if (fileName === 'go.work' || fileName.endsWith('.mod')) {
+    return parseGoModVersion(contents);
+  } else if (fileName === '.tool-versions') {
     const match = contents.match(/^golang\s+([^\n#]+)/m);
     return match ? match[1].trim() : '';
   }
 
   return contents.trim();
+}
+
+// Returns the toolchain directive version, or the go directive version when
+// the toolchain directive is missing, ignored, or older than the go directive.
+function parseGoModVersion(contents: string): string {
+  // go directive: https://go.dev/ref/mod#go-mod-file-go
+  const goVersion =
+    contents.match(/^go (\d+(\.\d+)*(?:\.\d+|(beta|rc)\d+)?)/m)?.[1] ?? '';
+
+  // for backwards compatibility: use version from go directive if
+  // 'GOTOOLCHAIN' has been explicitly set
+  if (process.env[GOTOOLCHAIN_ENV_VAR] === GOTOOLCHAIN_LOCAL_VAL) {
+    return goVersion;
+  }
+
+  // toolchain directive: https://go.dev/ref/mod#go-mod-file-toolchain
+  const toolchainVersion = contents.match(
+    /^toolchain go(1\.\d+(?:\.\d+|(beta|rc)\d+)?)/m
+  )?.[1];
+
+  // A toolchain older than the go directive can't load the file.
+  if (
+    !toolchainVersion ||
+    (goVersion && isOlderGoVersion(toolchainVersion, goVersion))
+  ) {
+    return goVersion;
+  }
+  return toolchainVersion;
+}
+
+// Reports whether version is older than other in the go command's order.
+// See https://pkg.go.dev/go/version#Compare.
+function isOlderGoVersion(version: string, other: string): boolean {
+  const toSemver = (v: string) => {
+    const semVersion = makeSemver(v);
+    // Before Go 1.21, a missing patch number means .0, so 1.20 = 1.20.0.
+    // From 1.21 on, it marks a language version, which sorts before the
+    // prereleases and releases: 1.21 < 1.21rc1 < 1.21.0. The SemVer
+    // version 1.21.0-0 sorts the same way.
+    return /^\d+\.\d+$/.test(v) && semver.minor(semVersion) >= 21
+      ? `${semVersion}-0`
+      : semVersion;
+  };
+  return semver.lt(toSemver(version), toSemver(other));
 }
 
 async function resolveStableVersionDist(

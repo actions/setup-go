@@ -171,7 +171,7 @@ jobs:
 
 ## Using the `go-version-file` input
 
-`setup-go` action can read the Go version from a version file. `go-version-file` input is used for specifying the path to the version file. If the file supplied to the `go-version-file` input doesn't exist, the action will fail with an error. This input supports go.mod, go.work, .go-version, and .tool-versions files.
+`setup-go` action can read the Go version from a version file. `go-version-file` input is used for specifying the path to the version file. If the file supplied to the `go-version-file` input doesn't exist, the action will fail with an error. This input supports go.mod, go.work, .go-version, and .tool-versions files, plus any other file whose name ends in `.mod`, such as go.tool.mod.
 
 If both the `go-version` and the `go-version-file` inputs are provided then the `go-version` input is used. The `.tool-versions` file supports version specifications in accordance with asdf standards, adhering to Semantic Versioning ([semver](https://semver.org)).
 
@@ -184,7 +184,7 @@ steps:
   - run: go version
 ```
 
-- Uses the `toolchain` directive if present, otherwise the action falls back to the `go` directive.
+- Uses the `toolchain` directive if present, otherwise the action falls back to the `go` directive. The action also uses the `go` directive when you set `GOTOOLCHAIN` to `local`, or when the `toolchain` directive names an older version than the `go` directive, because an older toolchain can't load the module.
 
 - The `go` directive in `go.mod` can specify a patch version or omit it altogether (e.g., `go 1.25.0` or `go 1.25`). If a patch version is specified, that specific patch version will be used. If no patch version is specified, it will search for the latest available patch version in the cache,
 [versions-manifest.json](https://github.com/actions/go-versions/blob/main/versions-manifest.json), and the
@@ -216,6 +216,17 @@ steps:
   - uses: actions/setup-go@v7
     with:
       go-version-file: 'go.work' # Read Go version from go.work
+  - run: go version
+```
+
+To read the Go version from a module file that you pass to `-modfile`, such as a go.tool.mod file for tool dependencies, set `go-version-file` to that file. The action reads its `go` and `toolchain` directives the same way as in go.mod.
+
+```yaml
+steps:
+  - uses: actions/checkout@v7
+  - uses: actions/setup-go@v7
+    with:
+      go-version-file: 'go.tool.mod' # Read Go version from go.tool.mod
   - run: go version
 ```
 

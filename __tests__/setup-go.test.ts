@@ -1267,6 +1267,17 @@ use .
     const toolVersionsContents = `golang 1.23
 `;
 
+    const goToolModContents = `module example.com/mymodule
+
+go 1.24.0
+
+toolchain go1.24.2
+
+tool golang.org/x/vuln/cmd/govulncheck
+
+require golang.org/x/vuln v1.1.4 // indirect
+`;
+
     it('reads version from go.mod', async () => {
       inputs['go-version-file'] = 'go.mod';
       existsSpy.mockImplementation(() => true);
@@ -1289,6 +1300,18 @@ use .
       expect(logSpy).toHaveBeenCalledWith('Setup go version spec 1.19');
       expect(logSpy).toHaveBeenCalledWith('Attempting to download 1.19...');
       expect(logSpy).toHaveBeenCalledWith('matching 1.19...');
+    });
+
+    it('reads version from go.tool.mod', async () => {
+      inputs['go-version-file'] = 'go.tool.mod';
+      existsSpy.mockImplementation(() => true);
+      readFileSpy.mockImplementation(() => Buffer.from(goToolModContents));
+
+      await main.run();
+
+      expect(logSpy).toHaveBeenCalledWith('Setup go version spec 1.24.2');
+      expect(logSpy).toHaveBeenCalledWith('Attempting to download 1.24.2...');
+      expect(logSpy).toHaveBeenCalledWith('matching 1.24.2...');
     });
 
     it('reads version from .tool-versions', async () => {
@@ -1404,7 +1427,8 @@ use .
 
   describe('go-version-file-toolchain', () => {
     const goVersions = ['1.22.0', '1.21rc2', '1.18', '1.18beta2'];
-    const placeholderVersion = '1.19';
+    // Older than every toolchain version, so the toolchain directive applies.
+    const placeholderVersion = '1.17';
     const buildGoMod = (
       goVersion: string,
       toolchainVersion: string
@@ -1485,6 +1509,61 @@ use .
           );
         });
       });
+    });
+  });
+
+  describe('parseGoVersionFile', () => {
+    const parse = (fileName: string, contents: string) => {
+      readFileSpy.mockImplementation(() => Buffer.from(contents));
+      return im.parseGoVersionFile(fileName);
+    };
+
+    it.each(['go.mod', 'go.work', 'go.tool.mod', 'build/tools.mod'])(
+      'reads go and toolchain directives from %s',
+      fileName => {
+        expect(parse(fileName, 'go 1.24.0\n')).toBe('1.24.0');
+        expect(parse(fileName, 'go 1.24.0\ntoolchain go1.25.1\n')).toBe(
+          '1.25.1'
+        );
+        expect(parse(fileName, 'go 1.25.0\ntoolchain go1.24.0\n')).toBe(
+          '1.25.0'
+        );
+      }
+    );
+
+    it.each([
+      ['toolchain is older than go', 'go 1.25.0\ntoolchain go1.24.0', '1.25.0'],
+      [
+        'toolchain rc is older than go rc',
+        'go 1.25rc2\ntoolchain go1.25rc1',
+        '1.25rc2'
+      ],
+      [
+        'toolchain rc is newer than go language version',
+        'go 1.25\ntoolchain go1.25rc1',
+        '1.25rc1'
+      ],
+      [
+        'toolchain release before Go 1.21 is newer than go rc',
+        'go 1.20rc1\ntoolchain go1.20',
+        '1.20'
+      ],
+      ['toolchain is default', 'go 1.25.0\ntoolchain default', '1.25.0'],
+      [
+        'toolchain has a custom suffix',
+        'go 1.24.0\ntoolchain go1.25.1-custom',
+        '1.25.1'
+      ],
+      ['go directive is missing', 'toolchain go1.25.1', '1.25.1']
+    ])('picks the right version when %s', (_desc, contents, expected) => {
+      expect(parse('go.tool.mod', contents)).toBe(expected);
+    });
+
+    it('ignores the toolchain directive when GOTOOLCHAIN is local', () => {
+      process.env[im.GOTOOLCHAIN_ENV_VAR] = 'local';
+      expect(parse('go.tool.mod', 'go 1.24.0\ntoolchain go1.25.1\n')).toBe(
+        '1.24.0'
+      );
     });
   });
 
