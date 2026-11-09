@@ -97991,8 +97991,6 @@ const supportedPackageManagers = {
 
 
 
-
-
 const getCommandOutput = async (toolCommand) => {
     let { stdout, stderr, exitCode } = await getExecOutput(toolCommand, undefined, { ignoreReturnCode: true });
     if (exitCode) {
@@ -98031,58 +98029,6 @@ const getCacheDirectoryPath = async (packageManagerInfo) => {
     }
     return cachePaths;
 };
-function canRestoreCachesInParallel(directories) {
-    try {
-        const paths = directories.map(directory => {
-            const resolvedPath = resolveCachePath(directory.path);
-            // Conservatively handle case-insensitive Windows/macOS filesystems.
-            return process.platform === 'darwin' || process.platform === 'win32'
-                ? resolvedPath.toLowerCase()
-                : resolvedPath;
-        });
-        // A cache archive can replace symlinks traversed by the other restore.
-        // Canonical destinations alone do not capture that extraction footprint.
-        if (paths.some((resolvedPath, index) => {
-            const absolutePath = external_path_default().resolve(directories[index].path);
-            const normalizedPath = process.platform === 'darwin' || process.platform === 'win32'
-                ? absolutePath.toLowerCase()
-                : absolutePath;
-            return resolvedPath !== normalizedPath;
-        })) {
-            return false;
-        }
-        return paths.every((parent, index) => paths.every((child, otherIndex) => {
-            if (index === otherIndex) {
-                return true;
-            }
-            const relative = external_path_default().relative(parent, child);
-            return (relative === '..' ||
-                relative.startsWith(`..${(external_path_default()).sep}`) ||
-                external_path_default().isAbsolute(relative));
-        }));
-    }
-    catch {
-        // If the paths cannot be resolved safely, avoid concurrent extraction.
-        return false;
-    }
-}
-function resolveCachePath(directory) {
-    const absolutePath = external_path_default().resolve(directory);
-    try {
-        external_fs_default().lstatSync(absolutePath);
-    }
-    catch (error) {
-        const parent = external_path_default().dirname(absolutePath);
-        if (error.code !== 'ENOENT' ||
-            parent === absolutePath) {
-            throw error;
-        }
-        // Cold cache directories may not exist yet. Resolve their existing
-        // ancestors so symlink aliases still participate in the overlap check.
-        return external_path_default().join(resolveCachePath(parent), external_path_default().basename(absolutePath));
-    }
-    return external_fs_default().realpathSync(absolutePath);
-}
 function cache_utils_isGhes() {
     const ghUrl = new URL(process.env['GITHUB_SERVER_URL'] || 'https://github.com');
     const hostname = ghUrl.hostname.trimEnd().toUpperCase();
@@ -98135,7 +98081,7 @@ const cache_restore_restoreCache = async (versionSpec, packageManager, cacheDepe
         ...directory,
         primaryKey: primaryKeys[directory.kind]
     }));
-    const restoreEntry = async (entry) => {
+    for (const entry of entries) {
         core_debug(`${entry.kind} primary key is ${entry.primaryKey}`);
         try {
             entry.matchedKey = await restoreCache([entry.path], entry.primaryKey);
@@ -98149,14 +98095,6 @@ const cache_restore_restoreCache = async (versionSpec, packageManager, cacheDepe
         catch (error) {
             const message = error instanceof Error ? error.message : String(error);
             warning(`Restore ${entry.kind} cache failed: ${message}`);
-        }
-    };
-    if (canRestoreCachesInParallel(entries)) {
-        await Promise.all(entries.map(restoreEntry));
-    }
-    else {
-        for (const entry of entries) {
-            await restoreEntry(entry);
         }
     }
     // Preserve the resolved paths so the post step uses the same cache versions,

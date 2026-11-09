@@ -2,7 +2,6 @@
 
 import {jest, describe, it, expect, beforeEach, afterEach} from '@jest/globals';
 import fs from 'fs';
-import path from 'path';
 
 jest.unstable_mockModule('@actions/cache', () => ({
   saveCache: jest.fn(),
@@ -88,10 +87,6 @@ describe('restoreCache', () => {
   ];
   const originalEnv = {...process.env};
   const originalArch = Object.getOwnPropertyDescriptor(process, 'arch')!;
-  const originalPlatform = Object.getOwnPropertyDescriptor(
-    process,
-    'platform'
-  )!;
 
   beforeEach(() => {
     jest.resetAllMocks();
@@ -102,7 +97,6 @@ describe('restoreCache', () => {
       ImageOS: 'ubuntu24'
     };
     Object.defineProperty(process, 'arch', {value: 'x64'});
-    Object.defineProperty(process, 'platform', {value: 'linux'});
     hashFilesSpy.mockResolvedValue('file_hash');
     getCacheDirectoryPathSpy.mockResolvedValue(directories);
     restoreCacheSpy.mockResolvedValue(undefined);
@@ -112,7 +106,6 @@ describe('restoreCache', () => {
   afterEach(() => {
     process.env = {...originalEnv};
     Object.defineProperty(process, 'arch', originalArch);
-    Object.defineProperty(process, 'platform', originalPlatform);
     jest.restoreAllMocks();
   });
 
@@ -153,15 +146,9 @@ describe('restoreCache', () => {
     expect(infoSpy).toHaveBeenCalledWith('build cache is not found');
   });
 
-  it.each([
-    {platform: 'linux', firstFails: false},
-    {platform: 'linux', firstFails: true},
-    {platform: 'win32', firstFails: false},
-    {platform: 'win32', firstFails: true}
-  ])(
-    'starts both restores concurrently on $platform and waits for both (first fails=$firstFails)',
-    async ({platform, firstFails}) => {
-      Object.defineProperty(process, 'platform', {value: platform});
+  it.each([false, true])(
+    'restores entries sequentially and waits for both (first fails=%s)',
+    async firstFails => {
       const started = [deferred(), deferred()];
       const release = [deferred(), deferred()];
       let completed = false;
@@ -179,10 +166,14 @@ describe('restoreCache', () => {
         completed = true;
       });
       try {
-        await Promise.all(started.map(signal => signal.promise));
+        await started[0].promise;
+        expect(restoreCacheSpy).toHaveBeenCalledTimes(1);
+        expect(core.saveState).not.toHaveBeenCalled();
+        expect(setOutputSpy).not.toHaveBeenCalledWith('cache-hit', true);
+
         release[0].resolve();
-        // Let the first completion propagate while the second stays blocked.
-        await new Promise<void>(resolve => setImmediate(resolve));
+        await started[1].promise;
+        expect(restoreCacheSpy).toHaveBeenCalledTimes(2);
         expect(completed).toBe(false);
         expect(core.saveState).not.toHaveBeenCalled();
         expect(setOutputSpy).not.toHaveBeenCalledWith('cache-hit', true);
@@ -193,38 +184,6 @@ describe('restoreCache', () => {
 
       expect(setOutputSpy).toHaveBeenLastCalledWith('cache-hit', !firstFails);
       expect(core.saveState).toHaveBeenCalledTimes(1);
-    }
-  );
-
-  it.each(['linux', 'win32'])(
-    'restores overlapping directories sequentially on %s',
-    async platform => {
-      Object.defineProperty(process, 'platform', {value: platform});
-      getCacheDirectoryPathSpy.mockResolvedValue([
-        directories[0],
-        {kind: 'build', path: path.join(modulePath, 'build')}
-      ]);
-      const firstStarted = deferred();
-      const releaseFirst = deferred();
-      restoreCacheSpy.mockImplementation(async (paths, key) => {
-        if (paths[0] === modulePath) {
-          firstStarted.resolve();
-          await releaseFirst.promise;
-        }
-        return key;
-      });
-
-      const pending = restore();
-      try {
-        await firstStarted.promise;
-        expect(restoreCacheSpy).toHaveBeenCalledTimes(1);
-      } finally {
-        releaseFirst.resolve();
-        await pending;
-      }
-
-      expect(restoreCacheSpy).toHaveBeenCalledTimes(2);
-      expect(setOutputSpy).toHaveBeenLastCalledWith('cache-hit', true);
     }
   );
 

@@ -41,16 +41,17 @@ function deferred() {
 describe('cache-save', () => {
   let entries: CacheEntry[];
 
-  let getBooleanInputSpy: jest.Mock<typeof core.getBooleanInput>;
-  let getStateSpy: jest.Mock<typeof core.getState>;
-  let infoSpy: jest.Mock<typeof core.info>;
-  let warningSpy: jest.Mock<typeof core.warning>;
-  let debugSpy: jest.Mock<typeof core.debug>;
-  let setFailedSpy: jest.Mock<typeof core.setFailed>;
-  let saveCacheSpy: jest.Mock<typeof cache.saveCache>;
-  let existsSpy: jest.Mock<typeof fs.existsSync>;
+  const getBooleanInputSpy = jest.mocked(core.getBooleanInput);
+  const getStateSpy = jest.mocked(core.getState);
+  const infoSpy = jest.mocked(core.info);
+  const warningSpy = jest.mocked(core.warning);
+  const debugSpy = jest.mocked(core.debug);
+  const setFailedSpy = jest.mocked(core.setFailed);
+  const saveCacheSpy = jest.mocked(cache.saveCache);
+  const existsSpy = jest.mocked(fs.existsSync);
 
   beforeEach(() => {
+    jest.resetAllMocks();
     entries = [
       {
         kind: 'modules',
@@ -64,36 +65,14 @@ describe('cache-save', () => {
       }
     ];
 
-    getBooleanInputSpy = core.getBooleanInput as jest.Mock<
-      typeof core.getBooleanInput
-    >;
     getBooleanInputSpy.mockReturnValue(true);
-
-    getStateSpy = core.getState as jest.Mock<typeof core.getState>;
     getStateSpy.mockImplementation(() => JSON.stringify(entries));
-
-    infoSpy = core.info as jest.Mock<typeof core.info>;
-    infoSpy.mockImplementation(() => undefined);
-
-    warningSpy = core.warning as jest.Mock<typeof core.warning>;
-    warningSpy.mockImplementation(() => undefined);
-
-    debugSpy = core.debug as jest.Mock<typeof core.debug>;
-    debugSpy.mockImplementation(() => undefined);
-
-    setFailedSpy = core.setFailed as jest.Mock<typeof core.setFailed>;
-    setFailedSpy.mockImplementation(() => undefined);
-
-    saveCacheSpy = cache.saveCache as jest.Mock<typeof cache.saveCache>;
-    saveCacheSpy.mockImplementation(() => Promise.resolve(0));
-
-    existsSpy = fs.existsSync as jest.Mock<typeof fs.existsSync>;
-    existsSpy.mockImplementation(() => true);
+    saveCacheSpy.mockResolvedValue(0);
+    existsSpy.mockReturnValue(true);
   });
 
   afterEach(() => {
     jest.restoreAllMocks();
-    jest.clearAllMocks();
   });
 
   it('does not save cache when the cache input is false', async () => {
@@ -146,7 +125,7 @@ describe('cache-save', () => {
   );
 
   it('does not save cache when there are no cache folders on the disk', async () => {
-    existsSpy.mockImplementation(() => false);
+    existsSpy.mockReturnValue(false);
 
     await run();
 

@@ -248,7 +248,7 @@ The action restores and saves two independent cache entries:
 
 Both entries use the content hash of files listed by `cache-dependency-path`, or the root `go.mod` by default. Adding source files or build settings to that input invalidates both entries when those files change. Custom cache locations and the cache service's normal access restrictions still apply.
 
-Each entry is restored and saved independently. An exact hit is not uploaded again. A failure for one entry does not prevent caching the other. The `cache-hit` output is `true` only when both entries are restored on their primary keys.
+Each entry is restored and saved independently. Restores run sequentially to avoid concurrent extraction into overlapping custom cache directories. An exact hit is not uploaded again. A failure for one entry does not prevent caching the other. The `cache-hit` output is `true` only when both entries are restored on their primary keys.
 
 ### Caching in monorepos
 

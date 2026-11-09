@@ -8,7 +8,6 @@ import {State, Outputs} from './constants.js';
 import {PackageManagerInfo} from './package-managers.js';
 import {
   CacheEntry,
-  canRestoreCachesInParallel,
   getCacheDirectoryPath,
   getPackageManagerInfo
 } from './cache-utils.js';
@@ -49,7 +48,7 @@ export const restoreCache = async (
     primaryKey: primaryKeys[directory.kind]
   }));
 
-  const restoreEntry = async (entry: CacheEntry) => {
+  for (const entry of entries) {
     core.debug(`${entry.kind} primary key is ${entry.primaryKey}`);
     try {
       entry.matchedKey = await cache.restoreCache(
@@ -64,14 +63,6 @@ export const restoreCache = async (
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
       core.warning(`Restore ${entry.kind} cache failed: ${message}`);
-    }
-  };
-
-  if (canRestoreCachesInParallel(entries)) {
-    await Promise.all(entries.map(restoreEntry));
-  } else {
-    for (const entry of entries) {
-      await restoreEntry(entry);
     }
   }
 

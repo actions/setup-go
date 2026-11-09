@@ -96684,35 +96684,33 @@ const cachePackages = async () => {
         info('Cache keys were not generated. Please check the log messages above for more errors or information');
         return;
     }
-    await Promise.all(entries.map(async (entry) => {
-        try {
-            await saveCacheEntry(entry);
-        }
-        catch (error) {
-            const message = error instanceof Error ? error.message : String(error);
-            warning(`Save ${entry.kind} cache failed: ${message}`);
-        }
-    }));
+    await Promise.all(entries.map(saveCacheEntry));
 };
 const saveCacheEntry = async (entry) => {
-    const { kind, path, primaryKey, matchedKey } = entry;
-    if (primaryKey === matchedKey) {
-        info(`Cache hit occurred on the primary key ${primaryKey}, not saving cache.`);
-        return;
+    try {
+        const { kind, path, primaryKey, matchedKey } = entry;
+        if (primaryKey === matchedKey) {
+            info(`Cache hit occurred on the primary key ${primaryKey}, not saving cache.`);
+            return;
+        }
+        if (!external_fs_default().existsSync(path)) {
+            logWarning(`${kind} cache folder doesn't exist on disk: ${path}`);
+            return;
+        }
+        const cacheId = await cache_saveCache([path], primaryKey);
+        if (cacheId === -1) {
+            // saveCache returns -1 without throwing when the cache was not saved, e.g.
+            // a reserve collision or a read-only token (fork PR). @actions/cache has
+            // already logged the reason at the appropriate severity, so just trace it.
+            core_debug(`Cache was not saved for the key: ${primaryKey}`);
+            return;
+        }
+        info(`Cache saved with the key: ${primaryKey}`);
     }
-    if (!external_fs_default().existsSync(path)) {
-        logWarning(`${kind} cache folder doesn't exist on disk: ${path}`);
-        return;
+    catch (error) {
+        const message = error instanceof Error ? error.message : String(error);
+        warning(`Save ${entry.kind} cache failed: ${message}`);
     }
-    const cacheId = await cache_saveCache([path], primaryKey);
-    if (cacheId === -1) {
-        // saveCache returns -1 without throwing when the cache was not saved, e.g.
-        // a reserve collision or a read-only token (fork PR). @actions/cache has
-        // already logged the reason at the appropriate severity, so just trace it.
-        core_debug(`Cache was not saved for the key: ${primaryKey}`);
-        return;
-    }
-    info(`Cache saved with the key: ${primaryKey}`);
 };
 function logWarning(message) {
     const warningPrefix = '[warning]';
