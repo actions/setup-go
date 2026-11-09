@@ -97560,8 +97560,7 @@ function saveCacheV2(paths_1, key_1, options_1) {
 ;// CONCATENATED MODULE: ./src/constants.ts
 var State;
 (function (State) {
-    State["CachePrimaryKey"] = "CACHE_KEY";
-    State["CacheMatchedKey"] = "CACHE_RESULT";
+    State["CacheEntries"] = "CACHE_ENTRIES";
 })(State || (State = {}));
 var Outputs;
 (function (Outputs) {
@@ -97583,7 +97582,10 @@ const GO_ENV_OUTPUTS = [
 const supportedPackageManagers = {
     default: {
         dependencyFilePattern: 'go.mod',
-        cacheFolderCommandList: ['go env GOMODCACHE', 'go env GOCACHE']
+        cacheFolderCommandList: [
+            { kind: 'modules', command: 'go env GOMODCACHE' },
+            { kind: 'build', command: 'go env GOCACHE' }
+        ]
     }
 };
 
@@ -97610,17 +97612,21 @@ const getPackageManagerInfo = async (packageManager) => {
     return obtainedPackageManager;
 };
 const getCacheDirectoryPath = async (packageManagerInfo) => {
-    const pathOutputs = await Promise.allSettled(packageManagerInfo.cacheFolderCommandList.map(async (command) => getCommandOutput(command)));
-    const results = pathOutputs.map(item => {
+    const pathOutputs = await Promise.allSettled(packageManagerInfo.cacheFolderCommandList.map(async ({ kind, command }) => ({
+        kind,
+        path: await getCommandOutput(command)
+    })));
+    const cachePaths = [];
+    for (const item of pathOutputs) {
         if (item.status === 'fulfilled') {
-            return item.value;
+            if (item.value.path) {
+                cachePaths.push(item.value);
+            }
         }
         else {
             core_info(`[warning]getting cache directory path failed: ${item.reason}`);
         }
-        return '';
-    });
-    const cachePaths = results.filter(item => item);
+    }
     if (!cachePaths.length) {
         throw new Error(`Could not get cache folder paths.`);
     }
@@ -97655,6 +97661,7 @@ function isCacheFeatureAvailable() {
 
 
 const cache_restore_restoreCache = async (versionSpec, packageManager, cacheDependencyPath) => {
+    setOutput(Outputs.CacheHit, false);
     const packageManagerInfo = await getPackageManagerInfo(packageManager);
     const platform = process.env.RUNNER_OS;
     const arch = process.arch;
@@ -97667,18 +97674,37 @@ const cache_restore_restoreCache = async (versionSpec, packageManager, cacheDepe
         throw new Error('Some specified paths were not resolved, unable to cache dependencies.');
     }
     const linuxVersion = process.env.RUNNER_OS === 'Linux' ? `${process.env.ImageOS}-` : '';
-    const primaryKey = `setup-go-${platform}-${arch}-${linuxVersion}go-${versionSpec}-${fileHash}`;
-    core_debug(`primary key is ${primaryKey}`);
-    saveState(State.CachePrimaryKey, primaryKey);
-    const cacheKey = await restoreCache(cachePaths, primaryKey);
-    setOutput(Outputs.CacheHit, Boolean(cacheKey));
-    if (!cacheKey) {
-        core_info(`Cache is not found`);
-        setOutput(Outputs.CacheHit, false);
-        return;
+    const primaryKeys = {
+        // Downloaded module sources can be reused across Go versions and runner
+        // architectures. Keep OS isolation for filesystem compatibility.
+        modules: `setup-go-modules-${platform}-${fileHash}`,
+        build: `setup-go-build-${platform}-${arch}-${linuxVersion}go-${versionSpec}-${fileHash}`
+    };
+    const entries = cachePaths.map(directory => ({
+        ...directory,
+        primaryKey: primaryKeys[directory.kind]
+    }));
+    for (const entry of entries) {
+        core_debug(`${entry.kind} primary key is ${entry.primaryKey}`);
+        try {
+            entry.matchedKey = await restoreCache([entry.path], entry.primaryKey);
+            if (entry.matchedKey) {
+                core_info(`${entry.kind} cache restored from key: ${entry.matchedKey}`);
+            }
+            else {
+                core_info(`${entry.kind} cache is not found`);
+            }
+        }
+        catch (error) {
+            const message = error instanceof Error ? error.message : String(error);
+            warning(`Restore ${entry.kind} cache failed: ${message}`);
+        }
     }
-    saveState(State.CacheMatchedKey, cacheKey);
-    core_info(`Cache restored from key: ${cacheKey}`);
+    // Preserve the resolved paths so the post step uses the same cache versions,
+    // even if a later step changes the Go environment.
+    saveState(State.CacheEntries, entries);
+    setOutput(Outputs.CacheHit, entries.length === packageManagerInfo.cacheFolderCommandList.length &&
+        entries.every(entry => entry.matchedKey === entry.primaryKey));
 };
 const findDependencyFile = (packageManager) => {
     const dependencyFile = packageManager.dependencyFilePattern;

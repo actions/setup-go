@@ -84,7 +84,10 @@ describe('getPackageManagerInfo', () => {
     const packageManagerName = 'default';
     const expectedResult = {
       dependencyFilePattern: 'go.mod',
-      cacheFolderCommandList: ['go env GOMODCACHE', 'go env GOCACHE']
+      cacheFolderCommandList: [
+        {kind: 'modules', command: 'go env GOMODCACHE'},
+        {kind: 'build', command: 'go env GOCACHE'}
+      ]
     };
 
     //Act + Assert
@@ -112,16 +115,29 @@ describe('getCacheDirectoryPath', () => {
 
   const validPackageManager: PackageManagerInfo = {
     dependencyFilePattern: 'go.mod',
-    cacheFolderCommandList: ['go env GOMODCACHE', 'go env GOCACHE']
+    cacheFolderCommandList: [
+      {kind: 'modules', command: 'go env GOMODCACHE'},
+      {kind: 'build', command: 'go env GOCACHE'}
+    ]
   };
 
   it('should return path to the cache folders which specified package manager uses', async () => {
     //Arrange
     getExecOutputSpy.mockImplementation(async (commandLine: string) => {
-      return {exitCode: 0, stdout: 'path/to/cache/folder', stderr: ''};
+      return {
+        exitCode: 0,
+        stdout:
+          commandLine === 'go env GOMODCACHE'
+            ? 'path/to/modules'
+            : 'path/to/build',
+        stderr: ''
+      };
     });
 
-    const expectedResult = ['path/to/cache/folder', 'path/to/cache/folder'];
+    const expectedResult = [
+      {kind: 'modules', path: 'path/to/modules'},
+      {kind: 'build', path: 'path/to/build'}
+    ];
 
     //Act + Assert
     return cacheUtils
@@ -129,27 +145,43 @@ describe('getCacheDirectoryPath', () => {
       .then(data => expect(data).toEqual(expectedResult));
   });
 
-  it('should return path to the cache folder if one command return empty str', async () => {
-    //Arrange
-    getExecOutputSpy.mockImplementationOnce(async (commandLine: string) => {
-      return {exitCode: 0, stdout: 'path/to/cache/folder', stderr: ''};
-    });
+  it.each(validPackageManager.cacheFolderCommandList)(
+    'preserves the $kind identity when the other command returns an empty path',
+    async ({kind, command}) => {
+      getExecOutputSpy.mockImplementation(async commandLine => ({
+        exitCode: 0,
+        stdout: commandLine === command ? 'path/to/cache/folder' : '',
+        stderr: ''
+      }));
 
-    getExecOutputSpy.mockImplementationOnce(async (commandLine: string) => {
-      return {exitCode: 0, stdout: '', stderr: ''};
-    });
+      await expect(
+        cacheUtils.getCacheDirectoryPath(validPackageManager)
+      ).resolves.toEqual([{kind, path: 'path/to/cache/folder'}]);
+    }
+  );
 
-    const expectedResult = ['path/to/cache/folder'];
+  it.each(validPackageManager.cacheFolderCommandList)(
+    'preserves the $kind identity when the other command fails',
+    async ({kind, command}) => {
+      getExecOutputSpy.mockImplementation(async commandLine => {
+        if (commandLine !== command) {
+          throw new Error('Could not run go env');
+        }
+        return {exitCode: 0, stdout: 'path/to/cache/folder', stderr: ''};
+      });
 
-    //Act + Assert
-    return cacheUtils
-      .getCacheDirectoryPath(validPackageManager)
-      .then(data => expect(data).toEqual(expectedResult));
-  });
+      await expect(
+        cacheUtils.getCacheDirectoryPath(validPackageManager)
+      ).resolves.toEqual([{kind, path: 'path/to/cache/folder'}]);
+      expect(core.info).toHaveBeenCalledWith(
+        expect.stringContaining('Could not run go env')
+      );
+    }
+  );
 
   it('should throw if the both commands return empty str', async () => {
     getExecOutputSpy.mockImplementation(async (commandLine: string) => {
-      return {exitCode: 10, stdout: '', stderr: ''};
+      return {exitCode: 0, stdout: '', stderr: ''};
     });
 
     //Act + Assert
@@ -158,7 +190,7 @@ describe('getCacheDirectoryPath', () => {
     }).rejects.toThrow();
   });
 
-  it('should throw if the specified package name is invalid', async () => {
+  it('should throw if both commands fail', async () => {
     getExecOutputSpy.mockImplementation(async (commandLine: string) => {
       return {exitCode: 10, stdout: '', stderr: 'Error message'};
     });
