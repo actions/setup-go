@@ -246,9 +246,9 @@ The action restores and saves two independent cache entries:
 - **Module sources (`GOMODCACHE`)**: keyed by the runner OS and dependency-file hash. These sources can be reused across Go versions, runner architectures, and runner images on the same OS.
 - **Build outputs (`GOCACHE`)**: keyed by the runner OS, runner architecture, Linux runner image (when applicable), Go version, and dependency-file hash.
 
-Both entries use the hash of `cache-dependency-path`, or the root `go.mod` by default. Adding source files or build settings to that input invalidates both entries when those files change. Custom cache locations and the cache service's normal access restrictions still apply.
+Both entries use the content hash of files listed by `cache-dependency-path`, or the root `go.mod` by default. Adding source files or build settings to that input invalidates both entries when those files change. Custom cache locations and the cache service's normal access restrictions still apply.
 
-Each entry is restored and saved independently, with concurrent transfers where safe. An exact hit is not uploaded again, even when the other entry misses. A failure for one entry does not prevent caching the other. The `cache-hit` output is `true` only when both entries are restored on their primary keys.
+Each entry is restored and saved independently. An exact hit is not uploaded again. A failure for one entry does not prevent caching the other. The `cache-hit` output is `true` only when both entries are restored on their primary keys.
 
 ### Caching in monorepos
 
@@ -290,7 +290,9 @@ steps:
 
 ### Multi-target builds
 
-`GOOS` and `GOARCH` are not automatically included in the cache keys. `cache-dependency-path` isn’t limited to dependency files (like `go.sum`); it can also include files that capture these build settings. This prevents jobs for different targets from competing to populate the same immutable cache entry. Because both entries use the same dependency-file hash, this workaround separates the module cache as well as the build cache.
+`GOOS` and `GOARCH` are not automatically included in the cache keys. A workflow that builds for multiple targets without accounting for this may result in a race to fill the cache due to the cache key collision. One target wins the race, causing the cache to be less useful for other targets.
+
+`cache-dependency-path` can be used to implement a workaround. It can point to files with arbitrary content, not only dependency files like `go.sum`. Writing `GOOS` and `GOARCH` to a file and including that file separates the module cache and build cache of each target:
 
 ```yaml
 env:
