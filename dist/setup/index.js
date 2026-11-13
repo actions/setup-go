@@ -42122,7 +42122,7 @@ async function cacheWindowsDir(extPath, tool, version, arch) {
     if (isSelfHosted())
         return false;
     const defaultToolCacheRoot = process.env['RUNNER_TOOL_CACHE'];
-    if (!defaultToolCacheRoot)
+    if (!defaultToolCacheRoot || !/^c:[\\/]/i.test(defaultToolCacheRoot))
         return false;
     if (!external_fs_default().existsSync('d:\\') || !external_fs_default().existsSync('c:\\'))
         return false;
