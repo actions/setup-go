@@ -1,3 +1,5 @@
+- name: Setup Go environment
+  uses: actions/setup-go@v7.0.0
 name: Basic validation
 
 on:
