@@ -547,6 +547,94 @@ describe('setup-go', () => {
     expect(cnSpy).toHaveBeenCalledWith(`::add-path::${expPath}${osm.EOL}`);
   });
 
+  describe('Windows tool cache relocation', () => {
+    let originalEnv: NodeJS.ProcessEnv;
+    let mkdirSyncSpy: jest.SpiedFunction<typeof fs.mkdirSync>;
+
+    beforeEach(() => {
+      originalEnv = {...process.env};
+      process.env['RUNNER_ENVIRONMENT'] = 'github-hosted';
+      process.env['RUNNER_TEMP'] = 'C:\\temp';
+      os.platform = 'win32';
+      os.arch = 'x64';
+      findSpy.mockImplementation(() => '');
+      getManifestSpy.mockImplementation(() => []);
+      dlSpy.mockImplementation(() => 'C:\\temp\\go.zip');
+      extractZipSpy.mockImplementation(() => 'C:\\temp\\extracted');
+      existsSpy.mockReturnValue(true);
+      mkdirSyncSpy = jest
+        .spyOn(fs, 'mkdirSync')
+        .mockImplementation(() => undefined);
+      jest
+        .mocked(tc.cacheDir)
+        .mockImplementation(
+          async (_source, tool, version, arch) =>
+            `${process.env['RUNNER_TOOL_CACHE']}\\${tool}\\${version}\\${arch}`
+        );
+    });
+
+    afterEach(() => {
+      process.env = originalEnv;
+      mkdirSyncSpy.mockRestore();
+      existsSpy.mockRestore();
+    });
+
+    it.each([
+      'D:\\hostedtoolcache',
+      'E:\\hostedtoolcache',
+      '\\\\server\\share\\hostedtoolcache',
+      'C:hostedtoolcache'
+    ])(
+      'installs directly without links when the cache root is %s',
+      async root => {
+        process.env['RUNNER_TOOL_CACHE'] = root;
+
+        const toolPath = await im.getGo('1.13.1', false, undefined, 'x64');
+
+        expect(toolPath).toBe(`${root}\\go\\1.13.1\\x64`);
+        expect(cacheSpy).toHaveBeenCalledTimes(1);
+        expect(cacheSpy).toHaveBeenCalledWith(
+          'C:\\temp\\extracted\\go',
+          'go',
+          '1.13.1',
+          'x64'
+        );
+        expect(symlinkSpy).not.toHaveBeenCalled();
+        expect(mkdirSyncSpy).not.toHaveBeenCalled();
+        expect(process.env['RUNNER_TOOL_CACHE']).toBe(root);
+      }
+    );
+
+    it.each([
+      ['C:\\hostedtoolcache', 'D:\\hostedtoolcache'],
+      ['c:\\hostedtoolcache', 'd:\\hostedtoolcache']
+    ])(
+      'preserves relocation for the cache root %s',
+      async (root, relocatedRoot) => {
+        process.env['RUNNER_TOOL_CACHE'] = root;
+
+        const toolPath = await im.getGo('1.13.1', false, undefined, 'x64');
+        const expectedPath = `${root}\\go\\1.13.1\\x64`;
+        const relocatedPath = `${relocatedRoot}\\go\\1.13.1\\x64`;
+
+        expect(toolPath).toBe(expectedPath);
+        expect(cacheSpy).toHaveBeenCalledTimes(1);
+        expect(symlinkSpy).toHaveBeenCalledTimes(2);
+        expect(symlinkSpy).toHaveBeenCalledWith(
+          relocatedPath,
+          expectedPath,
+          'junction'
+        );
+        expect(symlinkSpy).toHaveBeenCalledWith(
+          `${relocatedPath}.complete`,
+          `${expectedPath}.complete`,
+          'file'
+        );
+        expect(process.env['RUNNER_TOOL_CACHE']).toBe(root);
+      }
+    );
+  });
+
   it('downloads a rc version not in the cache', async () => {
     os.platform = 'linux';
     os.arch = 'x64';

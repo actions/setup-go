@@ -285,7 +285,8 @@ async function cacheWindowsDir(
   if (isSelfHosted()) return false;
 
   const defaultToolCacheRoot = process.env['RUNNER_TOOL_CACHE'];
-  if (!defaultToolCacheRoot) return false;
+  if (!defaultToolCacheRoot || !/^c:[\\/]/i.test(defaultToolCacheRoot))
+    return false;
 
   if (!fs.existsSync('d:\\') || !fs.existsSync('c:\\')) return false;
 
