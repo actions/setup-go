@@ -244,7 +244,16 @@ steps:
 ```
 
 ## Caching
- 
+
+The action restores and saves two independent cache entries:
+
+- **Module sources (`GOMODCACHE`)**: keyed by the runner OS and dependency-file hash. These sources can be reused across Go versions, runner architectures, and runner images on the same OS.
+- **Build outputs (`GOCACHE`)**: keyed by the runner OS, runner architecture, Linux runner image (when applicable), Go version, and dependency-file hash.
+
+Both entries use the content hash of files listed by `cache-dependency-path`, or the root `go.mod` by default. Adding source files or build settings to that input invalidates both entries when those files change. Custom cache locations and the cache service's normal access restrictions still apply.
+
+Each entry is restored and saved independently. Restores run sequentially to avoid concurrent extraction into overlapping custom cache directories. An exact hit is not uploaded again. A failure for one entry does not prevent caching the other. The `cache-hit` output is `true` only when both entries are restored on their primary keys.
+
 ### Caching in monorepos
 
 ```yaml
@@ -285,7 +294,9 @@ steps:
 
 ### Multi-target builds
 
-`cache-dependency-path` isn’t limited to dependency files (like `go.sum`). It can also include files that capture build settings (for example, `GOOS`/`GOARCH`). This allows separate caches per target platform (OS/architecture) and helps avoid reusing caches across incompatible builds.
+`GOOS` and `GOARCH` are not automatically included in the cache keys. A workflow that builds for multiple targets without accounting for this may result in a race to fill the cache due to the cache key collision. One target wins the race, causing the cache to be less useful for other targets.
+
+`cache-dependency-path` can be used to implement a workaround. It can point to files with arbitrary content, not only dependency files like `go.sum`. Writing `GOOS` and `GOARCH` to a file and including that file separates the module cache and build cache of each target:
 
 ```yaml
 env:
@@ -293,16 +304,15 @@ env:
   GOARCH: ...
 
 steps:
-  - run: echo "$GOOS $GOARCH" > env.txt
-
   - uses: actions/checkout@v7
+  - run: echo "$GOOS $GOARCH" > env.txt
   - uses: actions/setup-go@v7
     with:
       go-version: '1.25'
       cache-dependency-path: |
         go.sum
         env.txt
-  - run: go run hello.go    
+  - run: go build ./...
 ```
 
 ### Cache invalidation on source changes
@@ -369,19 +379,25 @@ jobs:
         if: runner.os == 'Linux'
         shell: bash
         run: echo "CACHE_OS_SUFFIX=$ImageOS-" >> $GITHUB_ENV
-      - name: Restore Go cache
-        id: go-cache
+      - name: Restore Go module cache
+        id: go-module-cache
         uses: actions/cache/restore@v5
         with:
-          path: |
-            ${{ env.GO_MOD_CACHE }}
-            ${{ env.GO_BUILD_CACHE }}
-          key: setup-go-${{ runner.os }}-${{ env.ARCH }}-${{ env.CACHE_OS_SUFFIX }}go-${{ steps.setup-go.outputs.go-version }}-${{ hashFiles('**/go.mod') }}
+          path: ${{ env.GO_MOD_CACHE }}
+          key: setup-go-modules-${{ runner.os }}-${{ hashFiles('go.mod') }}
+      - name: Restore Go build cache
+        id: go-build-cache
+        uses: actions/cache/restore@v5
+        with:
+          path: ${{ env.GO_BUILD_CACHE }}
+          key: setup-go-build-${{ runner.os }}-${{ env.ARCH }}-${{ env.CACHE_OS_SUFFIX }}go-${{ steps.setup-go.outputs.go-version }}-${{ hashFiles('go.mod') }}
       - name: Download modules
         run: go mod download
       - name: Build
         run: go build ./...
 ```
+
+Use the same file patterns in `hashFiles` as the `cache-dependency-path` of the workflow that saves the caches. The example above matches the default root `go.mod` input.
 
 > If there are several builds on the same repo, it may make sense to create a cache in one build and use it in others. The action [actions/cache/restore](https://github.com/actions/cache/tree/main/restore#only-restore-cache)
 should be used in this case.
@@ -411,7 +427,7 @@ jobs:
 
 ### `cache-hit`
 
-**cache-hit** output is available with a boolean value that indicates whether a cache hit occurred on the primary key:
+**cache-hit** is `true` only when both the module cache and the build cache are restored on their primary keys. If only one entry hits its primary key, the output is `false`, but that entry is still used and is not saved again. An entry restored from a non-primary key can still be saved under its primary key:
 
 ```yaml
 jobs:
@@ -424,7 +440,7 @@ jobs:
         with:
           go-version: '1.24'
           cache: true
-      - run: echo "Was the Go cache restored? ${{ steps.go124.outputs.cache-hit }}" # true if cache-hit occurred
+      - run: echo "Were both Go caches restored? ${{ steps.go124.outputs.cache-hit }}"
 ```
 
 ### Go environment outputs
