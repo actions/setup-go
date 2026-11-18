@@ -4,20 +4,21 @@ import * as glob from '@actions/glob';
 import path from 'path';
 import fs from 'fs';
 
-import {State, Outputs} from './constants.js';
+import {State, Outputs, GoEnv} from './constants.js';
 import {PackageManagerInfo} from './package-managers.js';
 import {getCacheDirectoryPath, getPackageManagerInfo} from './cache-utils.js';
 
 export const restoreCache = async (
   versionSpec: string,
   packageManager: string,
-  cacheDependencyPath?: string
+  cacheDependencyPath?: string,
+  goEnv?: GoEnv
 ) => {
   const packageManagerInfo = await getPackageManagerInfo(packageManager);
   const platform = process.env.RUNNER_OS;
   const arch = process.arch;
 
-  const cachePaths = await getCacheDirectoryPath(packageManagerInfo);
+  const cachePaths = await getCacheDirectoryPath(packageManagerInfo, goEnv);
 
   const dependencyFilePath = cacheDependencyPath
     ? cacheDependencyPath

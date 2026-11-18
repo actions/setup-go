@@ -147,6 +147,36 @@ describe('getCacheDirectoryPath', () => {
       .then(data => expect(data).toEqual(expectedResult));
   });
 
+  it('reuses both cache directories without starting Go processes', async () => {
+    getExecOutputSpy.mockClear();
+    await expect(
+      cacheUtils.getCacheDirectoryPath(validPackageManager, {
+        GOMODCACHE: '/custom/modules',
+        GOCACHE: '/custom/build'
+      })
+    ).resolves.toEqual(['/custom/modules', '/custom/build']);
+    expect(getExecOutputSpy).not.toHaveBeenCalled();
+  });
+
+  it('queries only the directory missing from the environment snapshot', async () => {
+    getExecOutputSpy.mockClear();
+    getExecOutputSpy.mockResolvedValue({
+      exitCode: 0,
+      stdout: ' /fallback/build \n',
+      stderr: ''
+    });
+    await expect(
+      cacheUtils.getCacheDirectoryPath(validPackageManager, {
+        GOMODCACHE: '/custom/modules',
+        GOCACHE: ' '
+      })
+    ).resolves.toEqual(['/custom/modules', '/fallback/build']);
+    expect(getExecOutputSpy).toHaveBeenCalledTimes(1);
+    expect(getExecOutputSpy).toHaveBeenCalledWith('go env GOCACHE', undefined, {
+      ignoreReturnCode: true
+    });
+  });
+
   it('should throw if the both commands return empty str', async () => {
     getExecOutputSpy.mockImplementation(async (commandLine: string) => {
       return {exitCode: 10, stdout: '', stderr: ''};
