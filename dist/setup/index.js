@@ -98056,8 +98056,6 @@ function getLinuxImageOS() {
     if (imageOS?.trim() || process.env.RUNNER_ENVIRONMENT !== 'github-hosted') {
         return imageOS;
     }
-    // Some hosted Ubuntu runners leave ImageOS empty. Match the existing Ubuntu
-    // image naming convention using the release of the environment running Go.
     for (const file of ['/etc/os-release', '/usr/lib/os-release']) {
         try {
             const { ID, VERSION_ID } = (0,external_node_util_.parseEnv)(external_fs_default().readFileSync(file, 'utf8'));
