@@ -215,6 +215,18 @@ function resolveVersionInput(): string {
   }
 
   if (version) {
+    const customBaseUrl =
+      core.getInput('go-download-base-url') ||
+      process.env['GO_DOWNLOAD_BASE_URL'];
+    if (
+      version.startsWith('go') &&
+      !customBaseUrl &&
+      !installer.isGoNativeVersion(version)
+    ) {
+      throw new Error(
+        `Invalid Go version "${version}". Go-native versions must look like go1.21, go1.21.5, go1.18beta2, or go1.21rc2. For version ranges, use SemVer syntax (e.g. ~1.21, ^1.21).`
+      );
+    }
     return version;
   }
 

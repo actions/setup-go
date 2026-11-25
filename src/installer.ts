@@ -60,6 +60,11 @@ export async function getGo(
   const osPlat: string = os.platform();
   const customBaseUrl = goDownloadBaseUrl?.replace(/\/+$/, '');
 
+  const originalVersionSpec = versionSpec;
+  if (isGoNativeVersion(versionSpec)) {
+    versionSpec = makeSemver(versionSpec);
+  }
+
   if (
     versionSpec === StableReleaseAlias.Stable ||
     versionSpec === StableReleaseAlias.OldStable
@@ -123,8 +128,13 @@ export async function getGo(
     ? customToolCacheName(customBaseUrl)
     : 'go';
 
+  // Convert prerelease specs (1.21rc2) to semver (1.21.0-rc.2).
+  const cacheSpec = /^\d+\.\d+(\.\d+)?(beta|rc)\d+$/.test(versionSpec)
+    ? makeSemver(versionSpec)
+    : versionSpec;
+
   // check cache
-  const toolPath = tc.find(toolCacheName, versionSpec, arch);
+  const toolPath = tc.find(toolCacheName, cacheSpec, arch);
   // If not found in cache, download
   if (toolPath) {
     core.info(`Found in cache @ ${toolPath}`);
@@ -146,7 +156,11 @@ export async function getGo(
       core.info(
         'Skipping version listing for known direct-download URL. Constructing download URL directly.'
       );
-      info = getInfoFromDirectDownload(versionSpec, arch, customBaseUrl);
+      info = getInfoFromDirectDownload(
+        originalVersionSpec,
+        arch,
+        customBaseUrl
+      );
     } else {
       try {
         info = await getInfoFromDist(versionSpec, arch, customBaseUrl);
@@ -156,7 +170,11 @@ export async function getGo(
         );
       }
       if (!info) {
-        info = getInfoFromDirectDownload(versionSpec, arch, customBaseUrl);
+        info = getInfoFromDirectDownload(
+          originalVersionSpec,
+          arch,
+          customBaseUrl
+        );
       }
     }
 
@@ -167,13 +185,13 @@ export async function getGo(
       const downloadUrl = info?.downloadUrl || customBaseUrl;
       if (err instanceof tc.HTTPError && err.httpStatusCode === 404) {
         throw new Error(
-          `The requested Go version ${versionSpec} is not available for platform ${osPlat}/${arch}. ` +
+          `The requested Go version ${originalVersionSpec} is not available for platform ${osPlat}/${arch}. ` +
             `Download URL returned HTTP 404: ${downloadUrl}`,
           {cause: err}
         );
       }
       throw new Error(
-        `Failed to download Go ${versionSpec} for platform ${osPlat}/${arch} ` +
+        `Failed to download Go ${originalVersionSpec} for platform ${osPlat}/${arch} ` +
           `from ${downloadUrl}: ${err}`,
         {cause: err}
       );
@@ -585,7 +603,10 @@ export async function findMatch(
     const version = makeSemver(candidate.version);
 
     core.debug(`check ${version} satisfies ${versionSpec}`);
-    if (semver.satisfies(version, versionSpec)) {
+    if (
+      candidate.version.replace(/^go/, '') === versionSpec ||
+      semver.satisfies(version, versionSpec)
+    ) {
       goFile = candidate.files.find(file => {
         core.debug(
           `${file.arch}===${archFilter} && ${file.os}===${platFilter}`
@@ -610,6 +631,12 @@ export async function findMatch(
   return result;
 }
 
+export function isGoNativeVersion(version: string): boolean {
+  const expression =
+    /^go[1-9]\d*\.(0|[1-9]\d*)(?:\.(0|[1-9]\d*)|(?:beta|rc)[1-9]\d*)?$/;
+  return expression.test(version);
+}
+
 //
 // Convert the go version syntax into semver for semver matching
 // 1.13.1 => 1.13.1
@@ -617,6 +644,10 @@ export async function findMatch(
 // 1.10beta1 => 1.10.0-beta.1, 1.10rc1 => 1.10.0-rc.1
 // 1.8.5beta1 => 1.8.5-beta.1, 1.8.5rc1 => 1.8.5-rc.1
 export function makeSemver(version: string): string {
+  const validVersion = semver.valid(version);
+  if (validVersion) {
+    return validVersion;
+  }
   version = version.replace('go', '');
   version = version.replace('beta', '-beta.').replace('rc', '-rc.');
   const parts = version.split('-');
@@ -654,7 +685,7 @@ export function parseGoVersionFile(versionFilePath: string): string {
     if (process.env[GOTOOLCHAIN_ENV_VAR] !== GOTOOLCHAIN_LOCAL_VAL) {
       // toolchain directive: https://go.dev/ref/mod#go-mod-file-toolchain
       const matchToolchain = contents.match(
-        /^toolchain go(1\.\d+(?:\.\d+|rc\d+)?)/m
+        /^toolchain go(1\.\d+(?:\.\d+|(beta|rc)\d+)?)/m
       );
       if (matchToolchain) {
         return matchToolchain[1];
@@ -662,7 +693,7 @@ export function parseGoVersionFile(versionFilePath: string): string {
     }
 
     // go directive: https://go.dev/ref/mod#go-mod-file-go
-    const matchGo = contents.match(/^go (\d+(\.\d+)*)/m);
+    const matchGo = contents.match(/^go (\d+(\.\d+)*(?:\.\d+|(beta|rc)\d+)?)/m);
     return matchGo ? matchGo[1] : '';
   } else if (path.basename(versionFilePath) === '.tool-versions') {
     const match = contents.match(/^golang\s+([^\n#]+)/m);

@@ -343,17 +343,57 @@ describe('setup-go', () => {
     expect(fileName).toBe('go1.13.7.windows-386.zip');
   });
 
-  it('finds unstable pre-release version', async () => {
+  it('finds unstable release candidate', async () => {
     os.platform = 'linux';
     os.arch = 'x64';
 
-    // spec: 1.14, stable=false => go1.14rc1
+    // spec: 1.14.0-rc.1, stable=false => go1.14rc1
     const match: IGoVersion | undefined = await im.findMatch('1.14.0-rc.1');
     expect(match).toBeDefined();
     const version: string = match ? match.version : '';
     expect(version).toBe('go1.14rc1');
     const fileName = match ? match.files[0].filename : '';
     expect(fileName).toBe('go1.14rc1.linux-amd64.tar.gz');
+  });
+
+  it('finds unstable beta version', async () => {
+    os.platform = 'linux';
+    os.arch = 'x64';
+
+    // spec: 1.18.0-beta.2, stable=false => go1.18beta2
+    const match: im.IGoVersion | undefined =
+      await im.findMatch('1.18.0-beta.2');
+    expect(match).toBeDefined();
+    const version: string = match ? match.version : '';
+    expect(version).toBe('go1.18beta2');
+    const fileName = match ? match.files[0].filename : '';
+    expect(fileName).toBe('go1.18beta2.linux-amd64.tar.gz');
+  });
+
+  it('finds unstable release candidate (go version format)', async () => {
+    os.platform = 'linux';
+    os.arch = 'x64';
+
+    // spec: 1.14rc1, stable=false => go1.14rc1
+    const match: im.IGoVersion | undefined = await im.findMatch('1.14rc1');
+    expect(match).toBeDefined();
+    const version: string = match ? match.version : '';
+    expect(version).toBe('go1.14rc1');
+    const fileName = match ? match.files[0].filename : '';
+    expect(fileName).toBe('go1.14rc1.linux-amd64.tar.gz');
+  });
+
+  it('finds unstable beta version (go version format)', async () => {
+    os.platform = 'linux';
+    os.arch = 'x64';
+
+    // spec: 1.18beta2, stable=false => go1.18beta2
+    const match: im.IGoVersion | undefined = await im.findMatch('1.18beta2');
+    expect(match).toBeDefined();
+    const version: string = match ? match.version : '';
+    expect(version).toBe('go1.18beta2');
+    const fileName = match ? match.files[0].filename : '';
+    expect(fileName).toBe('go1.18beta2.linux-amd64.tar.gz');
   });
 
   it('evaluates to stable with input as true', async () => {
@@ -431,6 +471,26 @@ describe('setup-go', () => {
     expect(cnSpy).toHaveBeenCalledWith(`::add-path::${expPath}${osm.EOL}`);
   });
 
+  it('finds a rc version of go already in the cache', async () => {
+    inputs['go-version'] = '1.14rc1';
+
+    const toolPath = path.normalize('/cache/go/1.14.0rc.1/x64');
+    findSpy.mockImplementation(() => toolPath);
+    await main.run();
+
+    expect(logSpy).toHaveBeenCalledWith(`Found in cache @ ${toolPath}`);
+  });
+
+  it('finds a rc version in the cache and adds it to the path', async () => {
+    inputs['go-version'] = '1.14rc1';
+    const toolPath = path.normalize('/cache/go/1.14.0.rc.1/x64');
+    findSpy.mockImplementation(() => toolPath);
+    await main.run();
+
+    const expPath = path.join(toolPath, 'bin');
+    expect(cnSpy).toHaveBeenCalledWith(`::add-path::${expPath}${osm.EOL}`);
+  });
+
   it('handles unhandled error and reports error', async () => {
     const errMsg = 'unhandled error message';
     inputs['go-version'] = '1.13.0';
@@ -482,6 +542,51 @@ describe('setup-go', () => {
     expect(dlSpy).toHaveBeenCalledWith(
       'https://go.dev/dl/go1.13.1.windows-amd64.zip',
       'C:\\temp\\go1.13.1.windows-amd64.zip',
+      undefined
+    );
+    expect(cnSpy).toHaveBeenCalledWith(`::add-path::${expPath}${osm.EOL}`);
+  });
+
+  it('downloads a rc version not in the cache', async () => {
+    os.platform = 'linux';
+    os.arch = 'x64';
+
+    inputs['go-version'] = '1.14rc1';
+
+    findSpy.mockImplementation(() => '');
+    dlSpy.mockImplementation(() => '/some/temp/path');
+    const toolPath = path.normalize('/cache/go/1.14.0-rc.1/x64');
+    extractTarSpy.mockImplementation(() => '/some/other/temp/path');
+    cacheSpy.mockImplementation(() => toolPath);
+    await main.run();
+
+    const expPath = path.join(toolPath, 'bin');
+
+    expect(dlSpy).toHaveBeenCalled();
+    expect(extractTarSpy).toHaveBeenCalled();
+    expect(cnSpy).toHaveBeenCalledWith(`::add-path::${expPath}${osm.EOL}`);
+  });
+
+  it('downloads a rc version not in the cache (windows)', async () => {
+    os.platform = 'win32';
+    os.arch = 'x64';
+
+    inputs['go-version'] = '1.14rc1';
+    process.env['RUNNER_TEMP'] = 'C:\\temp\\';
+
+    findSpy.mockImplementation(() => '');
+    dlSpy.mockImplementation(() => 'C:\\temp\\some\\path');
+    extractZipSpy.mockImplementation(() => 'C:\\temp\\some\\other\\path');
+
+    const toolPath = path.normalize('C:\\cache\\go\\1.21.0-rc.2\\x64');
+    cacheSpy.mockImplementation(() => toolPath);
+
+    await main.run();
+
+    const expPath = path.win32.join(toolPath, 'bin');
+    expect(dlSpy).toHaveBeenCalledWith(
+      'https://go.dev/dl/go1.14rc1.windows-amd64.zip',
+      'C:\\temp\\go1.14rc1.windows-amd64.zip',
       undefined
     );
     expect(cnSpy).toHaveBeenCalledWith(`::add-path::${expPath}${osm.EOL}`);
@@ -866,12 +971,113 @@ describe('setup-go', () => {
     expect(im.makeSemver('1.10rc1')).toBe('1.10.0-rc.1');
   });
 
+  it('preserves already-normalized prerelease versions', () => {
+    expect(im.makeSemver('1.18.0-beta.2')).toBe('1.18.0-beta.2');
+    expect(im.makeSemver('1.21.0-rc.2')).toBe('1.21.0-rc.2');
+  });
+
   it('converts dot zero versions', async () => {
     expect(im.makeSemver('1.13')).toBe('1.13.0');
   });
 
   it('does not convert exact versions', async () => {
     expect(im.makeSemver('1.13.1')).toBe('1.13.1');
+  });
+
+  it('isGoNativeVersion accepts supported Go-native version formats', () => {
+    expect(im.isGoNativeVersion('go1.21')).toBe(true);
+    expect(im.isGoNativeVersion('go1.21.5')).toBe(true);
+    expect(im.isGoNativeVersion('go1.18beta2')).toBe(true);
+    expect(im.isGoNativeVersion('go1.21rc2')).toBe(true);
+
+    expect(im.isGoNativeVersion('go1.21.x')).toBe(false);
+    expect(im.isGoNativeVersion('go^1.21')).toBe(false);
+    expect(im.isGoNativeVersion('1.21')).toBe(false);
+    expect(im.isGoNativeVersion('go1')).toBe(false);
+    expect(im.isGoNativeVersion('go1.21.5beta1')).toBe(false);
+    expect(im.isGoNativeVersion('go1.21.0rc1')).toBe(false);
+  });
+
+  it('accepts a Go-native go-version input and normalizes it', async () => {
+    os.platform = 'linux';
+    os.arch = 'x64';
+    inputs['go-version'] = 'go1.21';
+    findSpy.mockImplementation(() => path.normalize('/cache/go/1.21.0/x64'));
+
+    await main.run();
+
+    expect(logSpy).toHaveBeenCalledWith('Setup go version spec go1.21');
+    expect(findSpy).toHaveBeenCalledWith('go', '1.21.0', 'x64');
+    expect(logSpy).toHaveBeenCalledWith(
+      'Successfully set up Go version go1.21'
+    );
+  });
+
+  it('rejects a malformed Go-native go-version input', async () => {
+    os.platform = 'linux';
+    os.arch = 'x64';
+    inputs['go-version'] = 'go1.21.x';
+
+    await main.run();
+
+    expect(cnSpy).toHaveBeenCalledWith(
+      expect.stringContaining('Invalid Go version "go1.21.x"')
+    );
+  });
+
+  it('accepts a Go-native go-version input with beta suffix and normalizes it', async () => {
+    os.platform = 'linux';
+    os.arch = 'x64';
+    inputs['go-version'] = 'go1.18beta2';
+    findSpy.mockImplementation(() =>
+      path.normalize('/cache/go/1.18.0-beta.2/x64')
+    );
+
+    await main.run();
+
+    expect(logSpy).toHaveBeenCalledWith('Setup go version spec go1.18beta2');
+    expect(findSpy).toHaveBeenCalledWith('go', '1.18.0-beta.2', 'x64');
+    expect(logSpy).toHaveBeenCalledWith(
+      'Successfully set up Go version go1.18beta2'
+    );
+  });
+
+  it('accepts a Go-native go-version input with rc suffix and normalizes it', async () => {
+    os.platform = 'linux';
+    os.arch = 'x64';
+    inputs['go-version'] = 'go1.21rc2';
+    findSpy.mockImplementation(() =>
+      path.normalize('/cache/go/1.21.0-rc.2/x64')
+    );
+
+    await main.run();
+
+    expect(logSpy).toHaveBeenCalledWith('Setup go version spec go1.21rc2');
+    expect(findSpy).toHaveBeenCalledWith('go', '1.21.0-rc.2', 'x64');
+    expect(logSpy).toHaveBeenCalledWith(
+      'Successfully set up Go version go1.21rc2'
+    );
+  });
+
+  it('downloads a normalized Go-native version on cache miss', async () => {
+    os.platform = 'linux';
+    os.arch = 'x64';
+    inputs['go-version'] = 'go1.13';
+
+    findSpy.mockImplementation(() => '');
+    dlSpy.mockImplementation(async () => '/some/temp/path');
+    extractTarSpy.mockImplementation(async () => '/some/other/temp/path');
+    cacheSpy.mockImplementation(async () =>
+      path.normalize('/cache/go/1.13.0/x64')
+    );
+
+    await main.run();
+
+    expect(logSpy).toHaveBeenCalledWith('Attempting to download 1.13.0...');
+    expect(dlSpy).toHaveBeenCalled();
+    expect(logSpy).toHaveBeenCalledWith(
+      'Successfully set up Go version go1.13'
+    );
   });
 
   describe('check-latest flag', () => {
@@ -1197,7 +1403,7 @@ use .
   });
 
   describe('go-version-file-toolchain', () => {
-    const goVersions = ['1.22.0', '1.21rc2', '1.18'];
+    const goVersions = ['1.22.0', '1.21rc2', '1.18', '1.18beta2'];
     const placeholderVersion = '1.19';
     const buildGoMod = (
       goVersion: string,
@@ -1297,6 +1503,43 @@ use .
   });
 
   describe('go-download-base-url', () => {
+    it('normalizes native versions but preserves custom download filenames', async () => {
+      os.platform = 'linux';
+      os.arch = 'x64';
+
+      const versionSpec = 'go1.21rc2';
+      const customBaseUrl = 'https://example.com/golang';
+      const toolName = im.customToolCacheName(customBaseUrl);
+      const toolPath = path.normalize(`/cache/${toolName}/1.21.0-rc.2/x64`);
+
+      inputs['go-version'] = versionSpec;
+      inputs['go-download-base-url'] = customBaseUrl;
+
+      getSpy.mockImplementationOnce(() => {
+        throw new Error('Not a JSON endpoint');
+      });
+      findSpy.mockImplementation(() => '');
+      dlSpy.mockImplementation(async () => '/some/temp/path');
+      extractTarSpy.mockImplementation(async () => '/some/other/temp/path');
+      execFileSpy.mockImplementation(() => 'go version go1.21rc2 linux/amd64');
+      cacheSpy.mockImplementation(async () => toolPath);
+
+      await main.run();
+
+      expect(findSpy).toHaveBeenCalledWith(toolName, '1.21.0-rc.2', 'x64');
+      expect(getSpy).toHaveBeenCalledWith(
+        `${customBaseUrl}/?mode=json&include=all`
+      );
+      expect(dlSpy).toHaveBeenCalledWith(
+        `${customBaseUrl}/go1.21rc2.linux-amd64.tar.gz`,
+        undefined,
+        undefined
+      );
+      expect(cnSpy).toHaveBeenCalledWith(
+        `::add-path::${path.join(toolPath, 'bin')}${osm.EOL}`
+      );
+    });
+
     it('downloads a version from custom base URL using version listing', async () => {
       os.platform = 'linux';
       os.arch = 'x64';

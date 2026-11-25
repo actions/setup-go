@@ -50,8 +50,12 @@ steps:
 - The preinstalled patch version is generally the latest available. When a new patch is released, it replaces the previously preinstalled version on the runner.
 - Using the most recent patch version speeds up setup because the required Go version is already installed on the runner and no download is needed.
 
+The `go-version` input also accepts native Go version strings: `go1.21.5`, `go1.18beta2`, and `go1.21rc2` normalize to `1.21.5`, `1.18.0-beta.2`, and `1.21.0-rc.2`, respectively. `go1.21` resolves to exactly `1.21.0`; use `1.21` for matching patch releases. For ranges and wildcards, use SemVer syntax such as `~1.21` or `1.21.x`, not `go1.21.x`.
+
 To try a **pre-release**:
 Download and use beta or RC Go versions as needed.
+
+The `go-version` input also accepts native Go version strings: `go1.21.5`, `go1.18beta2`, and `go1.21rc2` normalize to `1.21.5`, `1.18.0-beta.2`, and `1.21.0-rc.2`, respectively. `go1.21` resolves to exactly `1.21.0`; use `1.21` for matching patch releases. For ranges and wildcards, use SemVer syntax such as `~1.21` or `1.21.x`, not `go1.21.x`.
 
 ```yaml
 # RC version
@@ -447,7 +451,7 @@ Once Go is on the `PATH`, the action exposes the most commonly needed `go env` v
 | --- | --- |
 | `GOPATH` | Go workspace root; `bin` and `pkg/mod` live under it |
 | `GOBIN` | Go 1.27+ reports an implicit `$GOPATH/bin` default; earlier releases are empty unless `GOBIN` is set |
-| `go-bin-path` | The base Go binary directory (`GOBIN` or `$GOPATH/bin`), using the first `GOPATH` entry. Cross-compiled binaries go one level deeper, in `$GOPATH/bin/$GOOS_$GOARCH` |
+| `go-bin-path` | Uses `GOBIN`, or falls back to `bin` under the first `GOPATH` entry when `GOBIN` is empty. It normally matches `GOBIN` on Go 1.27+; the fallback is a convenience for earlier releases. When `GOBIN` is not explicitly set (in the environment or via `go env -w`), cross-compiled binaries go one level deeper, in `$GOPATH/bin/${GOOS}_${GOARCH}` |
 | `GOROOT` | Installation directory of the Go toolchain in use |
 | `GOCACHE` | Build cache directory |
 | `GOMODCACHE` | Module cache directory |
@@ -474,6 +478,8 @@ Quote `go-bin-path` in shell commands, since it may contain spaces. Variables wi
 The `go-download-base-url` input lets you download Go from a mirror or alternative source instead of the default `https://go.dev/dl`. This can also be set via the `GO_DOWNLOAD_BASE_URL` environment variable; the input takes precedence over the environment variable.
 
 When a custom base URL is provided, the action skips the `actions/go-versions` manifest lookup and downloads directly from the specified URL.
+
+> **Note:** When constructing direct-download filenames, the original version string is preserved; native Go version normalization is used only for matching and tool cache lookups.
 
 **Using the [Microsoft build of Go](https://github.com/microsoft/go):**
 
