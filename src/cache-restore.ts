@@ -56,8 +56,6 @@ function getLinuxImageOS(): string | undefined {
     return imageOS;
   }
 
-  // Some hosted Ubuntu runners leave ImageOS empty. Match the existing Ubuntu
-  // image naming convention using the release of the environment running Go.
   for (const file of ['/etc/os-release', '/usr/lib/os-release']) {
     try {
       const {ID, VERSION_ID} = parseEnv(fs.readFileSync(file, 'utf8'));
