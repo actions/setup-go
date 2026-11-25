@@ -98024,6 +98024,7 @@ function isCacheFeatureAvailable() {
 
 
 
+
 const cache_restore_restoreCache = async (versionSpec, packageManager, cacheDependencyPath) => {
     const packageManagerInfo = await getPackageManagerInfo(packageManager);
     const platform = process.env.RUNNER_OS;
@@ -98036,7 +98037,7 @@ const cache_restore_restoreCache = async (versionSpec, packageManager, cacheDepe
     if (!fileHash) {
         throw new Error('Some specified paths were not resolved, unable to cache dependencies.');
     }
-    const linuxVersion = process.env.RUNNER_OS === 'Linux' ? `${process.env.ImageOS}-` : '';
+    const linuxVersion = platform === 'Linux' ? `${getLinuxImageOS()}-` : '';
     const primaryKey = `setup-go-${platform}-${arch}-${linuxVersion}go-${versionSpec}-${fileHash}`;
     core_debug(`primary key is ${primaryKey}`);
     saveState(State.CachePrimaryKey, primaryKey);
@@ -98050,6 +98051,25 @@ const cache_restore_restoreCache = async (versionSpec, packageManager, cacheDepe
     saveState(State.CacheMatchedKey, cacheKey);
     core_info(`Cache restored from key: ${cacheKey}`);
 };
+function getLinuxImageOS() {
+    const imageOS = process.env.ImageOS;
+    if (imageOS?.trim() || process.env.RUNNER_ENVIRONMENT !== 'github-hosted') {
+        return imageOS;
+    }
+    for (const file of ['/etc/os-release', '/usr/lib/os-release']) {
+        try {
+            const { ID, VERSION_ID } = (0,external_node_util_.parseEnv)(external_fs_default().readFileSync(file, 'utf8'));
+            const ubuntuMajor = VERSION_ID?.match(/^([0-9]+)\.[0-9]{2}$/)?.[1];
+            return ID === 'ubuntu' && ubuntuMajor ? `ubuntu${ubuntuMajor}` : imageOS;
+        }
+        catch (error) {
+            if (error.code !== 'ENOENT') {
+                break;
+            }
+        }
+    }
+    return imageOS;
+}
 const findDependencyFile = (packageManager) => {
     const dependencyFile = packageManager.dependencyFilePattern;
     const workspace = process.env.GITHUB_WORKSPACE;

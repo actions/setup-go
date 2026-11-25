@@ -3,6 +3,7 @@ import * as core from '@actions/core';
 import * as glob from '@actions/glob';
 import path from 'path';
 import fs from 'fs';
+import {parseEnv} from 'node:util';
 
 import {State, Outputs} from './constants.js';
 import {PackageManagerInfo} from './package-managers.js';
@@ -30,8 +31,7 @@ export const restoreCache = async (
     );
   }
 
-  const linuxVersion =
-    process.env.RUNNER_OS === 'Linux' ? `${process.env.ImageOS}-` : '';
+  const linuxVersion = platform === 'Linux' ? `${getLinuxImageOS()}-` : '';
   const primaryKey = `setup-go-${platform}-${arch}-${linuxVersion}go-${versionSpec}-${fileHash}`;
   core.debug(`primary key is ${primaryKey}`);
 
@@ -49,6 +49,27 @@ export const restoreCache = async (
   core.saveState(State.CacheMatchedKey, cacheKey);
   core.info(`Cache restored from key: ${cacheKey}`);
 };
+
+function getLinuxImageOS(): string | undefined {
+  const imageOS = process.env.ImageOS;
+  if (imageOS?.trim() || process.env.RUNNER_ENVIRONMENT !== 'github-hosted') {
+    return imageOS;
+  }
+
+  for (const file of ['/etc/os-release', '/usr/lib/os-release']) {
+    try {
+      const {ID, VERSION_ID} = parseEnv(fs.readFileSync(file, 'utf8'));
+      const ubuntuMajor = VERSION_ID?.match(/^([0-9]+)\.[0-9]{2}$/)?.[1];
+      return ID === 'ubuntu' && ubuntuMajor ? `ubuntu${ubuntuMajor}` : imageOS;
+    } catch (error) {
+      if ((error as NodeJS.ErrnoException).code !== 'ENOENT') {
+        break;
+      }
+    }
+  }
+
+  return imageOS;
+}
 
 const findDependencyFile = (packageManager: PackageManagerInfo) => {
   const dependencyFile = packageManager.dependencyFilePattern;
