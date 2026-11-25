@@ -3,8 +3,19 @@ import * as core from '@actions/core';
 import * as exec from '@actions/exec';
 import {
   supportedPackageManagers,
-  PackageManagerInfo
+  PackageManagerInfo,
+  CacheKind
 } from './package-managers.js';
+
+export interface CacheDirectory {
+  kind: CacheKind;
+  path: string;
+}
+
+export interface CacheEntry extends CacheDirectory {
+  primaryKey: string;
+  matchedKey?: string;
+}
 
 export const getCommandOutput = async (toolCommand: string) => {
   let {stdout, stderr, exitCode} = await exec.getExecOutput(
@@ -36,24 +47,24 @@ export const getPackageManagerInfo = async (packageManager: string) => {
 
 export const getCacheDirectoryPath = async (
   packageManagerInfo: PackageManagerInfo
-) => {
+): Promise<CacheDirectory[]> => {
   const pathOutputs = await Promise.allSettled(
-    packageManagerInfo.cacheFolderCommandList.map(async command =>
-      getCommandOutput(command)
-    )
+    packageManagerInfo.cacheFolderCommandList.map(async ({kind, command}) => ({
+      kind,
+      path: await getCommandOutput(command)
+    }))
   );
 
-  const results = pathOutputs.map(item => {
+  const cachePaths: CacheDirectory[] = [];
+  for (const item of pathOutputs) {
     if (item.status === 'fulfilled') {
-      return item.value;
+      if (item.value.path) {
+        cachePaths.push(item.value);
+      }
     } else {
       core.info(`[warning]getting cache directory path failed: ${item.reason}`);
     }
-
-    return '';
-  });
-
-  const cachePaths = results.filter(item => item);
+  }
 
   if (!cachePaths.length) {
     throw new Error(`Could not get cache folder paths.`);
